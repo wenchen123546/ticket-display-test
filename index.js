@@ -1,7 +1,7 @@
 /*
  * ==========================================
  * 伺服器 (index.js)
- * * 【修改 V3.0】 移除 JWT 期限設定功能，Token 永不過期
+ * * 【修改 V3.1】 修正 express-rate-limit 在 'trust proxy' = true 時的崩潰錯誤
  * ==========================================
  */
 
@@ -98,6 +98,7 @@ const apiLimiter = rateLimit({
     message: { error: "請求過於頻繁，請稍後再試。" },
     standardHeaders: true, 
     legacyHeaders: false, 
+    trustProxy: 1 // <-- 【關鍵修復 V3.1】 告訴 limiter 信任第一層 proxy
 });
 const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, 
@@ -105,6 +106,7 @@ const loginLimiter = rateLimit({
     message: { error: "登入嘗試次數過多，請 15 分鐘後再試。" },
     standardHeaders: true,
     legacyHeaders: false,
+    trustProxy: 1 // <-- 【關鍵修復 V3.1】 告訴 limiter 信任第一層 proxy
 });
 
 // --- 8. 【重構】 認證中介軟體 (JWT) ---
