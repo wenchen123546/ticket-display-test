@@ -215,6 +215,63 @@ async function addAdminLog(message, username = '系統') {
     }
 }
 
+/**
+ * 【新增】 獲取所有狀態的共用函式
+ * 從 Redis 異步獲取所有公開狀態
+ */
+async function getFullPublicState() {
+    try {
+        const pipeline = redis.multi();
+        pipeline.get(KEY_CURRENT_NUMBER);
+        pipeline.zrange(KEY_PASSED_NUMBERS, 0, -1);
+        pipeline.lrange(KEY_FEATURED_CONTENTS, 0, -1);
+        pipeline.get(KEY_SOUND_ENABLED);
+        pipeline.get(KEY_IS_PUBLIC);
+        pipeline.get(KEY_LAST_UPDATED); // <-- 也獲取最後更新時間
+        
+        const results = await pipeline.exec();
+
+        // 處理 Pipeline 結果
+        const [
+            [err0, currentNumberRaw],
+            [err1, passedNumbersRaw],
+            [err2, featuredContentsJSONs],
+            [err3, soundEnabledRaw],
+            [err4, isPublicRaw],
+            [err5, lastUpdatedRaw]
+        ] = results;
+
+        // 檢查是否有任何錯誤
+        const anyError = [err0, err1, err2, err3, err4, err5].find(e => e);
+        if (anyError) {
+            throw new Error(`Redis pipeline 失敗: ${anyError.message}`);
+        }
+
+        const state = {
+            currentNumber: Number(currentNumberRaw || 0),
+            passedNumbers: (passedNumbersRaw || []).map(Number),
+            featuredContents: (featuredContentsJSONs || []).map(JSON.parse),
+            isSoundEnabled: soundEnabledRaw === null ? true : (soundEnabledRaw === "1"),
+            isPublic: isPublicRaw === null ? true : (isPublicRaw === "1"),
+            timestamp: lastUpdatedRaw || new Date().toISOString()
+        };
+        return state;
+
+    } catch (e) {
+        console.error("getFullPublicState 執行失敗:", e);
+        // 回傳一個安全的預設狀態
+        return {
+            currentNumber: 0,
+            passedNumbers: [],
+            featuredContents: [],
+            isSoundEnabled: true,
+            isPublic: true,
+            timestamp: new Date().toISOString(),
+            error: e.message // 附加錯誤訊息
+        };
+    }
+}
+
 
 // --- 10. 【重構】 登入 / 管理員 API ---
 
@@ -499,45 +556,16 @@ app.post("/reset", async (req, res) => {
 // --- 【架構修正】 新增 API 路由 ---
 app.post("/api/get-all-state", async (req, res) => {
     try {
-        const pipeline = redis.multi();
-        pipeline.get(KEY_CURRENT_NUMBER);
-        pipeline.zrange(KEY_PASSED_NUMBERS, 0, -1);
-        pipeline.lrange(KEY_FEATURED_CONTENTS, 0, -1);
-        pipeline.get(KEY_SOUND_ENABLED);
-        pipeline.get(KEY_IS_PUBLIC);
-        pipeline.lrange(KEY_ADMIN_LOG, 0, 50); // 同時獲取日誌
+        // 【重構】 直接使用 getFullPublicState()
+        const publicState = await getFullPublicState();
         
-        const results = await pipeline.exec();
-        
-        // 檢查 pipeline 錯誤
-        if (results.some(res => res[0])) {
-            const firstError = results.find(res => res[0])?.[0] || new Error("Unknown Redis Multi Error");
-            throw new Error(`Redis multi 執行失敗: ${firstError.message}`);
-        }
-        
-        const [
-            [err0, currentNumberRaw],
-            [err1, passedNumbersRaw],
-            [err2, featuredContentsJSONs],
-            [err3, soundEnabledRaw],
-            [err4, isPublicRaw],
-            [err5, logs]
-        ] = results;
-
-        const currentNumber = Number(currentNumberRaw || 0);
-        const passedNumbers = (passedNumbersRaw || []).map(Number);
-        const featuredContents = (featuredContentsJSONs || []).map(JSON.parse);
-        const isSoundEnabled = soundEnabledRaw === null ? true : (soundEnabledRaw === "1");
-        const isPublic = isPublicRaw === null ? true : (isPublicRaw === "1");
+        // 另外獲取「僅限管理員」的日誌
+        const logs = await redis.lrange(KEY_ADMIN_LOG, 0, 50);
 
         res.json({
             success: true,
-            currentNumber,
-            passedNumbers,
-            featuredContents,
-            isSoundEnabled,
-            isPublic,
-            logs
+            ...publicState, // 展開所有公開狀態
+            logs: logs     // 附加日誌
         });
 
     } catch (e) {
@@ -591,6 +619,26 @@ io.on("connection", async (socket) => {
     } else {
         console.log("🔌 一個 Public User 連線", socket.id);
         socket.join('public_room'); 
+
+        // --- 【!!! 關鍵修正 !!!】 ---
+        // 公開使用者連線時，立即獲取並發送當前所有狀態
+        try {
+            const state = await getFullPublicState();
+            
+            // 【重要】 使用 socket.emit() 只發送給這個剛連線的客戶端
+            // (如果 getFullPublicState 失敗，它會回傳預設值，不會崩潰)
+            socket.emit("update", state.currentNumber);
+            socket.emit("updatePassed", state.passedNumbers);
+            socket.emit("updateFeaturedContents", state.featuredContents);
+            socket.emit("updateSoundSetting", state.isSoundEnabled);
+            socket.emit("updatePublicStatus", state.isPublic);
+            socket.emit("updateTimestamp", state.timestamp);
+
+        } catch (e) {
+            console.error("發送初始狀態到 Public User 失敗:", e);
+            socket.emit("initialStateError", "無法載入初始狀態，請重新整理。");
+        }
+        // --- 【修正結束】 ---
     }
 });
 
