@@ -614,9 +614,22 @@ io.on("connection", async (socket) => {
 
 
 // --- 13. 啟動伺服器 & 建立超級管理員 ---
-async function startServer() {
-    // 【新增】 檢查並建立第一個超級管理員 (存在 Redis 中)
+// 【Render 部署修正】
+// 採用 "old_index.js" 的正確結構：
+// 1. 立即啟動 server.listen，以響應 Render 的埠號偵測
+// 2. 將異步的啟動任務 (Redis 檢查) 放入 listen 的 async 回呼函式中
+// ----------------------------------------------------
+server.listen(PORT, '0.0.0.0', async () => {
+    // 1. 伺服器已啟動，Render 埠號偵測會成功
+    console.log(`✅ Server running on host 0.0.0.0, port ${PORT}`);
+    console.log(`🎟 User page (local): http://localhost:${PORT}/index.html`);
+    console.log(`🛠 Admin page (local): http://localhost:${PORT}/admin.html`);
+
+    // 2. 在伺服器啟動後，才開始執行 Redis 檢查
     try {
+        // (等待 2 秒，確保 Redis 連線已建立)
+        await new Promise(resolve => setTimeout(resolve, 2000)); 
+        
         const admins = await redis.hgetall(KEY_ADMINS);
         if (Object.keys(admins).length === 0) {
             console.log("... 偵測到 Redis 中沒有任何管理員，正在建立初始超級管理員 (superadmin)...");
@@ -628,26 +641,17 @@ async function startServer() {
             };
             await redis.hset(KEY_ADMINS, 'superadmin', JSON.stringify(superAdmin));
             console.log("✅ 初始超級管理員 'superadmin' 建立完畢 (存於 Redis)。");
-            // 【維護 修正】 不再印出明文 TOKEN
             console.log("   您現在可以使用 'superadmin' 和您在 [ADMIN_TOKEN] 環境變數中設定的密碼登入。");
-            // 【維護 修正】 移除後門相關日誌
         } else {
             console.log("... Redis 管理員帳號已存在，跳過初始建立。");
-            // 【維護 修正】 移除後門相關日誌
         }
     } catch (e) {
-        console.error("❌ 建立初始超級管理員失敗:", e);
-        process.exit(1);
+        console.error("❌ 建立初始超級管理員失敗 (非致命錯誤，伺服器將繼續運行):", e);
     }
-    
-    server.listen(PORT, '0.0.0.0', () => {
-        console.log(`✅ Server running on host 0.0.0.0, port ${PORT}`);
-        console.log(`🎟 User page (local): http://localhost:${PORT}/index.html`);
-        console.log(`🛠 Admin page (local): http://localhost:${PORT}/admin.html`);
-    });
-}
+});
 
-// 統一的錯誤處理
+
+// --- 14. 統一的錯誤處理 (移到最後) ---
 app.use((err, req, res, next) => {
     console.error("❌ 發生未處理的錯誤:", err.stack);
     if (res.headersSent) {
@@ -655,6 +659,3 @@ app.use((err, req, res, next) => {
     }
     res.status(500).json({ error: "伺服器內部錯誤" });
 });
-
-
-startServer(); // 啟動伺服器
