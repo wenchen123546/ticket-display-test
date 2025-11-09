@@ -1,16 +1,17 @@
 /*
  * ==========================================
  * 伺服器 (index.js)
+ * * 【修改 V3.8 - 部署修正】
+ * * 使用 path.join(__dirname, "public") 來提供 express.static
+ * * 這是為了修復在 Render 平台上因工作目錄不同，導致 CSS/JS 404 的致命錯誤
  * * 【修改 V3.7 - 部署修正】
  * * 增加 Socket.io 的 CORS 設定 (origin: "*")
- * * 這是修復在 Render 平台上 WebSocket (WSS) 連線被拒絕的關鍵
  * * 【修改 V3.6 - 部署修正】
- * * 將 app.set('trust proxy', true) 修改為 app.set('trust proxy', 1)
- * * * * 【修改 V3.3 - 修正】
- * * 1. 增加「緊急後門」：允許 'superadmin' 使用 'ADMIN_TOKEN' 作為密碼登入
+ * * 將 app.set('trust proxy', 1)
+ * * 【修改 V3.3 - 修正】
+ * * 增加「緊急後門」
  * * 【修改 V3.2 - 修正】 
- * * 1. 增加 JWT 過期時間 (8h)，並在 middleware 中處理 TokenExpiredError
- * * 2. 收緊 Helmet CSP，移除 'unsafe-inline' style-src
+ * * 增加 JWT 過期時間 (8h)
  * ==========================================
  */
 
@@ -24,6 +25,7 @@ const helmet = require('helmet');
 const rateLimit = require("express-rate-limit");
 const bcrypt = require('bcryptjs'); 
 const jwt = require('jsonwebtoken'); 
+const path = require('path'); // 【V3.8 修正】 載入 path 模組
 
 // --- 2. 伺服器實體化 ---
 const app = express();
@@ -112,7 +114,13 @@ app.use(helmet({
       },
     },
 }));
-app.use(express.static("public"));
+
+// --- 【V3.8 部署修正】 ---
+// 使用 path.join 和 __dirname 來建立一個絕對路徑
+// 這將確保無論 node 指令在哪裡執行，都能正確找到 public 資料夾
+app.use(express.static(path.join(__dirname, "public")));
+// --- V3.8 修正結束 ---
+
 app.use(express.json());
 
 const apiLimiter = rateLimit({
