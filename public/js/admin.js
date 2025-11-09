@@ -85,9 +85,6 @@ async function showPanel() {
     if (!socket.connected) {
         socket.connect();
     }
-    
-    // 【V3.2 修正】 移除開發者提示
-    // showToast("ℹ️ 使用預設排版", "info"); 
 }
 
 async function attemptLogin() {
@@ -148,14 +145,30 @@ socket.on("disconnect", () => {
     statusBar.classList.add("visible");
     showToast("❌ 已從伺服器斷線", "error");
 });
+
+// --- 【V3.5 修正】 ---
+// 修正了「殭屍狀態」問題。
+// 以前：只有在 err.message 包含 "Authentication failed" 時才登出。
+// 現在：任何 Socket.io 連線失敗都會強制登出，因為後台依賴 Socket.io 運作。
 socket.on("connect_error", (err) => {
     console.error("Socket 連線失敗:", err.message);
-    // 【V3.2 修正】 更新提示訊息以包含「過期」
-    if (err.message.includes("Authentication failed")) { 
-        alert("認證無效或已過期，請重新登入。");
-        showLogin(); 
+    
+    // 停止嘗試連線，並顯示一個更明確的錯誤
+    socket.disconnect(); 
+    
+    let alertMessage = `後台即時連線(Socket.io)失敗，將無法接收資料。\n\n錯誤: ${err.message}\n\n`;
+
+    if (err.message.includes("Authentication failed")) {
+        alertMessage += "原因：認證無效或已過期，請您重新登入。";
+    } else {
+        alertMessage += "原因：可能是網路防火牆、代理伺服器或伺服器端設定阻擋了 WebSocket (WSS) 連線。請檢查您的網路環境。";
     }
+    
+    alert(alertMessage);
+    showLogin(); // 強制登出以避免「殭屍狀態」
 });
+// --- V3.5 修正結束 ---
+
 
 socket.on("initAdminLogs", (logs) => {
     adminLogUI.innerHTML = "";
@@ -223,7 +236,7 @@ async function apiRequest(endpoint, body, a_returnResponse = false) {
         if (!res.ok) {
             // 【V3.2 修正】 更新提示訊息以包含「過期」
             if (res.status === 401 || res.status === 403) {
-                alert("認證無效或已過期，請重新登入。");
+                alert("認證無效或已過期，請重新登入。 (API 請求失敗)");
                 showLogin();
             } else {
                 const errorMsg = responseData.error || "未知錯誤";
@@ -380,7 +393,7 @@ document.getElementById("resetFeaturedContents").onclick = resetFeaturedContents
 document.getElementById("resetPassed").onclick = resetPassed_fixed;
 resetAllBtn.onclick = requestResetAll;
 resetAllConfirmBtn.onclick = confirmResetAll;
-clearLogBtn.onclick = clearAdminLog; 
+clearLogBtn.onclick = clearLogBtn; 
 if (logoutBtn) logoutBtn.onclick = showLogin;
 
 addPassedBtn.onclick = async () => {
@@ -543,7 +556,7 @@ function initSuperAdminBindings() {
 function jwt_decode(token) {
     try {
         const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const base6B4 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
             return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
         }).join(''));
