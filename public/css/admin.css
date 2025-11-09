@@ -95,14 +95,16 @@ body {
     display: grid;
     grid-template-columns: repeat(12, 1fr); /* 模擬 12 欄 */
     gap: 20px;
+    /* 【新】 讓卡片內容自行決定高度 */
+    align-items: start;
 }
 
 /* 【新】 卡片包裝器 (取代 .grid-stack-item) */
-/* 預設佔 6 欄 (2 欄佈局) */
-#card-control { grid-column: span 6; }
-#card-editor { grid-column: span 6; }
-#card-logs { grid-column: span 6; }
-#card-settings { grid-column: span 6; }
+/* 【新】 8/4 欄位佈局 */
+#card-control { grid-column: span 8; }
+#card-editor { grid-column: span 4; }
+#card-logs { grid-column: span 8; }
+#card-settings { grid-column: span 4; }
 
 /* 【修改】 .admin-card (取代 .grid-stack-item-content) */
 .admin-card {
@@ -173,6 +175,7 @@ button {
     min-width: 120px; 
     width: 100%; 
     box-sizing: border-box;
+    transition: background-color 0.2s ease; /* 【新】 加入過渡效果 */
 }
 button:disabled { background-color: #999; cursor: not-allowed; opacity: 0.7; }
 .control-group.button-row button { 
@@ -180,6 +183,13 @@ button:disabled { background-color: #999; cursor: not-allowed; opacity: 0.7; }
     min-width: 120px; 
     flex-grow: 1; 
 }
+
+/* 【新】 按鈕確認中樣式 */
+button.is-confirming {
+    background-color: var(--color-warning-dark) !important;
+    font-weight: bold;
+}
+
 
 input, textarea { 
     font-size: 1.2rem; 
@@ -289,13 +299,24 @@ input[type="url"] {
 
 /* --- 6. 重置區域 --- */
 
-.reset-zone { margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; width: 100%; text-align: center; }
-.reset-zone .btn-reset-single { 
+/* 【修改】 簡化 reset-zone 樣式 */
+.reset-zone { margin-top: 20px; width: 100%; text-align: center; }
+
+/* 【修改】 .btn-reset-single 樣式 (變為通用) */
+.btn-reset-single { 
     background-color: var(--color-warning); 
     font-size: 1rem; 
     padding: 8px 15px; 
-    width: auto; 
+    width: 100%; 
+    margin: 0;
+    margin-top: 10px; /* 【新】 統一間距 */
 }
+
+/* 【新】 微調新位置的按鈕間距 */
+.list-editor .btn-reset-single { margin-top: 15px; }
+.form-group-boxed .btn-reset-single { margin-top: 5px; }
+
+
 #resetAll { 
     width: 100%; 
 }
@@ -305,8 +326,8 @@ input[type="url"] {
 
 /* --- 7. RWD --- */
 
-/* 斷點：當寬度小於 900px 時，卡片變為單欄 */
-@media (max-width: 900px) {
+/* 【修改】 斷點：當寬度小於 1100px 時，卡片變為單欄 */
+@media (max-width: 1100px) {
     .card-container {
         grid-template-columns: 1fr; /* 單欄 */
     }
