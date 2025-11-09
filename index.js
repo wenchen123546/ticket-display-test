@@ -1,11 +1,12 @@
 /*
  * ==========================================
  * 伺服器 (index.js)
- * v3: 增加重設密碼 API
+ * 升級：多用戶角色系統 (Super Admin / Normal Admin)
+ * 升級 v2：追蹤在線管理員列表
  * ==========================================
  */
 
-// --- 1. 模組載入 ---
+// --- 1. 模듈載入 ---
 const express = require("express");
 const http = require("http");
 const socketio = require("socket.io");
@@ -69,6 +70,7 @@ const KEY_ADMIN_LOG = 'callsys:admin-log';
 const KEY_USERS = 'callsys:users'; 
 const SESSION_PREFIX = 'callsys:session:';
 
+// 【新】 在線管理員追蹤 (使用 Map 儲存 socket.id -> user info)
 const onlineAdmins = new Map();
 
 // --- 7. Express 中介軟體 (Middleware) ---
@@ -180,10 +182,12 @@ async function addAdminLog(username, message) {
     }
 }
 
-// 廣播在線管理員列表
+// 【新】 廣播在線管理員列表
 function broadcastOnlineAdmins() {
     try {
         const adminList = Array.from(onlineAdmins.values());
+        // 廣播給所有連線的 client (包括 admin 和 public)
+        // admin.js 會監聽此事件，public.js 不會
         io.emit("updateOnlineAdmins", adminList);
     } catch (e) {
         console.error("broadcastOnlineAdmins 失敗:", e);
@@ -457,13 +461,13 @@ io.on("connection", async (socket) => {
             
             console.log(`✅ 一個已驗證的 Admin 連線 (${username})`, socket.id);
             
-            // 將用戶添加到在線列表並廣播
+            // 【新】 將用戶添加到在線列表並廣播
             onlineAdmins.set(socket.id, { username: user.username, role: user.role });
             broadcastOnlineAdmins();
 
             socket.on("disconnect", (reason) => {
                 console.log(`🔌 Admin ${socket.id} (${username}) 斷線: ${reason}`);
-                // 從在線列表移除並廣播
+                // 【新】 從在線列表移除並廣播
                 onlineAdmins.delete(socket.id);
                 broadcastOnlineAdmins();
             });
@@ -532,8 +536,7 @@ io.on("connection", async (socket) => {
 const superAdminAPIs = [
     "/api/admin/users",
     "/api/admin/add-user",
-    "/api/admin/del-user",
-    "/api/admin/set-password" // 【新】
+    "/api/admin/del-user"
 ];
 app.use(superAdminAPIs, apiLimiter, authMiddleware, superAdminAuthMiddleware);
 
@@ -587,34 +590,6 @@ app.post("/api/admin/del-user", async (req, res) => {
         res.json({ success: true, message: "管理員已刪除。" });
 
     } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// 【新】 重設普通管理員密碼
-app.post("/api/admin/set-password", async (req, res) => {
-    try {
-        const { usernameToChange, newPassword } = req.body;
-        if (!usernameToChange || !newPassword) {
-            return res.status(400).json({ error: "用戶名和新密碼皆為必填。" });
-        }
-        if (usernameToChange === 'superadmin') {
-            return res.status(400).json({ error: "無法在此更改超級管理員密碼。" });
-        }
-
-        const exists = await redis.hexists(KEY_USERS, usernameToChange);
-        if (!exists) {
-            return res.status(404).json({ error: "找不到該用戶。" });
-        }
-
-        const hash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-        await redis.hset(KEY_USERS, usernameToChange, hash);
-
-        await addAdminLog(req.user.username, `重設了管理員 ${usernameToChange} 的密碼`);
-        res.json({ success: true, message: "密碼已更新。" });
-
-    } catch (e) { 
-        console.error("重設密碼失敗:", e);
-        res.status(500).json({ error: e.message }); 
-    }
 });
 
 
