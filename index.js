@@ -7,6 +7,7 @@
  * - 優化 2: 'del-user' 強制踢除在線 session 並銷毀所有 Session Token
  * - 優化 3: 'set-nickname' 即時更新 'onlineAdmins' Map
  * - 優化 4: 'clear' API 統一呼叫廣播函式
+ * - 修復 5: 'set-public-status' 切換為開放時，強制廣播系統數據
  * ==========================================
  */
 
@@ -439,8 +440,18 @@ app.post("/set-public-status", async (req, res) => {
         await redis.set(KEY_IS_PUBLIC, valueToSet);
         await addAdminLog(nickname, `前台已設為: ${isPublic ? '對外開放' : '關閉維護'}`); 
         
-        // 【修復】 必須廣播給所有 Socket.io 連線，讓前台即時更新
+        // 【修復 1】 廣播狀態更新
         io.emit("updatePublicStatus", isPublic); 
+
+        // 【新增邏輯】 如果切換到開放狀態，強制廣播所有當前數據
+        if (isPublic) {
+            const currentNumber = await redis.get(KEY_CURRENT_NUMBER) || 0;
+            io.emit("update", Number(currentNumber));
+            await broadcastPassedNumbers();
+            await broadcastFeaturedContents();
+            // SoundSetting 會在 updatePublicStatus 之後的連線流程中處理
+        }
+        
         await updateTimestamp();
         res.json({ success: true, isPublic: isPublic });
     }
