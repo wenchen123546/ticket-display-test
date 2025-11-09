@@ -34,18 +34,71 @@
 <div class="card-container">
     <div class="card-column">
         <div class="admin-card" id="card-control">
+            <h3><span class="card-icon">🔢</span> 號碼設定與過號</h3>
+            
+            <div class="control-group">
+                <label for="manualNumber">手動設定號碼</label>
+                <input type="number" id="manualNumber" placeholder="輸入號碼" min="0" />
+                <button id="setNumber" type="button" class="btn-primary">確認設定</button>
             </div>
+            
+            <div class="control-group list-editor">
+                <label>新增過號 (VIP/補叫)</label>
+                <div class="input-group">
+                    <input type="number" id="new-passed-number" placeholder="輸入號碼" min="1" />
+                    <button id="add-passed-btn" type="button" class="btn-add">+</button>
+                </div>
+                <ul id="passed-list-ui"></ul>
+                <button id="resetPassed" type="button" class="btn-reset-single btn-warn">清空過號列表</button>
+            </div>
+        </div>
         
-        <div class="admin-card" id="card-logs">
-            </div>
+        <div class="admin-card admin-log-container" id="card-logs">
+            <h3><span class="card-icon">📜</span> 管理員操作日誌</h3>
+            <ul id="admin-log-ui">
+                <li>正在載入日誌...</li>
+            </ul>
+            <button id="clear-log-btn" type="button" class="btn-clear-log">永久清除日誌</button>
+        </div>
     </div>
     
     <div class="card-column">
         <div class="admin-card" id="card-editor">
+            <h3><span class="card-icon">🔗</span> 精選連結管理</h3>
+            <div class="control-group list-editor">
+                <label>新增精選連結</label>
+                <div class="input-group">
+                    <input type="text" id="new-link-text" placeholder="連結顯示文字" />
+                    <input type="url" id="new-link-url" placeholder="網址 (需以 http/https 開頭)" />
+                </div>
+                <button id="add-featured-btn" type="button" class="btn-success">新增連結</button>
+                <ul id="featured-list-ui"></ul>
+                <button id="resetFeaturedContents" type="button" class="btn-reset-single btn-warn">清空精選連結</button>
             </div>
+        </div>
         
         <div class="admin-card" id="card-settings">
+            <h3><span class="card-icon">⚙️</span> 系統設定與重置</h3>
+
+            <div class="control-group sound-toggle-group">
+                <label for="sound-toggle">前台啟用提示音效</label>
+                <input type="checkbox" id="sound-toggle" checked />
             </div>
+
+            <div class="control-group system-toggle-group">
+                <label for="public-toggle">前台對外開放</label>
+                <input type="checkbox" id="public-toggle" checked />
+            </div>
+
+            <div class="control-group reset-zone">
+                <button id="resetNumber" type="button" class="btn-reset-single btn-cyan">僅重置目前號碼為 0</button>
+            </div>
+
+            <div class="control-group reset-zone">
+                <button id="resetAll" type="button" class="btn-danger">💥 重置所有資料 (危險)</button>
+                <button id="resetAllConfirm" type="button" class="btn-danger-confirm" style="display: none;">🚨 確定要清空所有資料嗎？(5秒後自動取消)</button>
+            </div>
+        </div>
 
         <div class="admin-card" id="card-superadmin" style="display:none;">
             <h3><span class="card-icon">👑</span> 超級管理員</h3>
