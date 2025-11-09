@@ -1,7 +1,7 @@
 // --- 1. 元素節點 (DOM) ---
 const loginContainer = document.getElementById("login-container");
 const adminPanel = document.getElementById("admin-panel");
-const usernameInput = document.getElementById("username-input"); // 【新】
+const usernameInput = document.getElementById("username-input"); 
 const passwordInput = document.getElementById("password-input");
 const loginButton = document.getElementById("login-button");
 const loginError = document.getElementById("login-error");
@@ -19,21 +19,21 @@ const publicToggle = document.getElementById("public-toggle");
 const adminLogUI = document.getElementById("admin-log-ui");
 const clearLogBtn = document.getElementById("clear-log-btn");
 const resetAllBtn = document.getElementById("resetAll");
-// (Super Admin 元素在底部宣告)
+const onlineUsersList = document.getElementById("online-users-list"); // 【新】
 
 // --- 2. 全域變數 ---
-let token = ""; // 【修改】 這將儲存 Session Token
-let userRole = "normal"; // 【新】 儲存用戶角色
-let username = ""; // 【新】 儲存用戶名
-let toastTimer = null; // Toast 計時器
-let publicToggleConfirmTimer = null; // 公開狀態的確認計時器
+let token = ""; // 儲存 Session Token
+let userRole = "normal"; 
+let username = ""; 
+let toastTimer = null; 
+let publicToggleConfirmTimer = null; 
 
 
 // --- 3. Socket.io ---
 const socket = io({ 
     autoConnect: false,
     auth: {
-        token: "" // 【修改】 登入成功後會填入 Session Token
+        token: "" 
     }
 });
 
@@ -48,30 +48,27 @@ function showLogin() {
 async function showPanel() {
     loginContainer.style.display = "none";
     adminPanel.style.display = "block";
-    document.title = `後台管理 - ${username}`; // 【修改】 顯示用戶名
+    document.title = `後台管理 - ${username}`; 
     socket.connect();
 
-    // 【新】 根據角色顯示「用戶管理」面板
+    // 根據角色顯示「用戶管理」面板
     if (userRole === 'super') {
         const userManagementCard = document.getElementById("card-user-management");
         if (userManagementCard) {
             userManagementCard.style.display = "block";
-            // 載入用戶列表
             await loadAdminUsers(); 
         }
     }
 }
 
-// (移除 checkToken)
-
-// 【重大修改】 登入邏輯
+// 登入邏輯
 async function attemptLogin(username, password) {
     loginError.textContent = "驗證中...";
     try {
-        const res = await fetch("/login", { // 【修改】 呼叫 /login
+        const res = await fetch("/login", { 
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password }), // 【修改】 傳送帳密
+            body: JSON.stringify({ username, password }), 
         });
         
         const data = await res.json();
@@ -81,10 +78,10 @@ async function attemptLogin(username, password) {
             showLogin();
         } else {
             // 登入成功
-            token = data.token;       // 儲存 Session Token
-            userRole = data.role;     // 儲存角色
-            username = data.username; // 儲存用戶名
-            socket.auth.token = token; // 設定 Socket 驗證
+            token = data.token;       
+            userRole = data.role;     
+            username = data.username; 
+            socket.auth.token = token; 
             await showPanel();
         }
 
@@ -97,11 +94,9 @@ async function attemptLogin(username, password) {
 
 document.addEventListener("DOMContentLoaded", () => { showLogin(); });
 
-// 【修改】 綁定 click 事件
 loginButton.addEventListener("click", () => { 
     attemptLogin(usernameInput.value, passwordInput.value); 
 });
-// 【修改】 綁定 Enter 鍵
 usernameInput.addEventListener("keyup", (event) => { if (event.key === "Enter") { passwordInput.focus(); } });
 passwordInput.addEventListener("keyup", (event) => { 
     if (event.key === "Enter") { 
@@ -110,13 +105,13 @@ passwordInput.addEventListener("keyup", (event) => {
 });
 
 
-// --- 5. 【新】 Toast 通知函式 ---
+// --- 5. Toast 通知函式 ---
 function showToast(message, type = 'info') {
     const toast = document.getElementById("toast-notification");
     if (!toast) return;
     
     toast.textContent = message;
-    toast.className = type; // 'success' or 'error' or 'info'
+    toast.className = type; 
     
     toast.classList.add("show");
     
@@ -138,6 +133,7 @@ socket.on("disconnect", () => {
     console.warn("Socket.io 已斷線");
     statusBar.classList.add("visible");
     showToast("❌ 已從伺服器斷線", "error");
+    renderOnlineAdmins([]); // 斷線時清空在線列表
 });
 socket.on("connect_error", (err) => {
     console.error("Socket 連線失敗:", err.message);
@@ -175,6 +171,12 @@ socket.on("newAdminLog", (logMessage) => {
     adminLogUI.prepend(li); 
 });
 
+// --- 【新】 在線管理員監聽器 ---
+socket.on("updateOnlineAdmins", (admins) => {
+    console.log("在線列表更新:", admins);
+    renderOnlineAdmins(admins);
+});
+
 // --- 資料更新監聽器 ---
 socket.on("update", (num) => {
     numberEl.textContent = num;
@@ -198,13 +200,12 @@ socket.on("updateTimestamp", (timestamp) => {
 });
 
 // --- 7. API 請求函式 ---
-// (此函式不需修改，它會自動使用全域的 `token` 變數 (現在是 Session Token))
 async function apiRequest(endpoint, body, a_returnResponse = false) {
     try {
         const res = await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...body, token }), // token 來自全域
+            body: JSON.stringify({ ...body, token }), 
         });
         
         const responseData = await res.json(); 
@@ -233,7 +234,7 @@ async function apiRequest(endpoint, body, a_returnResponse = false) {
     }
 }
 
-// --- 8. 按鈕確認邏輯 (重構) ---
+// --- 8. 按鈕確認邏輯 ---
 function setupConfirmationButton(buttonEl, originalText, confirmText, actionCallback) {
     if (!buttonEl) return;
     
@@ -257,11 +258,9 @@ function setupConfirmationButton(buttonEl, originalText, confirmText, actionCall
 
     buttonEl.addEventListener("click", () => {
         if (isConfirming) {
-            // --- 執行動作 ---
             actionCallback();
             resetBtn();
         } else {
-            // --- 進入確認 ---
             isConfirming = true;
             countdown = 5;
             buttonEl.textContent = showCountdown ? `${confirmText} (${countdown}s)` : confirmText;
@@ -273,7 +272,7 @@ function setupConfirmationButton(buttonEl, originalText, confirmText, actionCall
                     if (countdown > 0) {
                         buttonEl.textContent = `${confirmText} (${countdown}s)`;
                     } else {
-                        clearInterval(interval); // Stop countdown
+                        clearInterval(interval);
                     }
                 }, 1000);
             }
@@ -302,7 +301,6 @@ function renderPassedListUI(numbers) {
         const actionCallback = async () => {
             deleteBtn.disabled = true;
             await apiRequest("/api/passed/remove", { number: number });
-            // (日誌由伺服器自動發送)
         };
         
         setupConfirmationButton(deleteBtn, "×", "⚠️", actionCallback);
@@ -352,9 +350,42 @@ function renderFeaturedListUI(contents) {
     featuredListUI.appendChild(fragment);
 }
 
+// 【新】 渲染在線管理員列表
+function renderOnlineAdmins(admins) {
+    if (!onlineUsersList) return;
+    
+    onlineUsersList.innerHTML = "";
+    
+    if (!admins || admins.length === 0) {
+        onlineUsersList.innerHTML = "<li>(目前無人在線)</li>";
+        return;
+    }
+    
+    // 排序：自己 > 超管 > 其他 (按字母)
+    admins.sort((a, b) => {
+        if (a.username === username) return -1;
+        if (b.username === username) return 1;
+        if (a.role === 'super' && b.role !== 'super') return -1;
+        if (a.role !== 'super' && b.role === 'super') return 1;
+        return a.username.localeCompare(b.username);
+    });
+
+    const fragment = document.createDocumentFragment();
+    admins.forEach(admin => {
+        const li = document.createElement("li");
+        const icon = admin.role === 'super' ? '👑' : '👤';
+        const isSelf = admin.username === username;
+        const selfClass = isSelf ? 'is-self' : '';
+        
+        li.innerHTML = `<span class="role-icon">${icon}</span> <span class="username ${selfClass}">${admin.username}</span>`;
+        fragment.appendChild(li);
+    });
+    onlineUsersList.appendChild(fragment);
+}
+
+
 // --- 10. 控制台按鈕功能 ---
 
-// 重置按鈕的實際執行動作
 const actionResetNumber = async () => {
     const success = await apiRequest("/set-number", { number: 0 });
     if (success) {
@@ -381,8 +412,6 @@ const actionResetAll = async () => {
         showToast("💥 所有資料已重置", "success");
     }
 };
-
-// 其他按鈕功能
 async function changeNumber(direction) {
     await apiRequest("/change-number", { direction });
 }
@@ -395,12 +424,9 @@ async function setNumber() {
         showToast("✅ 號碼已設定", "success");
     }
 }
-
-// 清除日誌功能
 const actionClearAdminLog = async () => {
     showToast("🧼 正在清除日誌...", "info");
     await apiRequest("/api/logs/clear", {});
-    // UI 會由 "initAdminLogs" socket 事件自動更新
 }
 
 // --- 11. 綁定按鈕事件 ---
@@ -408,7 +434,6 @@ document.getElementById("next").onclick = () => changeNumber("next");
 document.getElementById("prev").onclick = () => changeNumber("prev");
 document.getElementById("setNumber").onclick = setNumber;
 
-// 綁定清除日誌和重置按鈕的新邏輯
 setupConfirmationButton(
     document.getElementById("clear-log-btn"),
     "清除日誌",
@@ -487,7 +512,6 @@ soundToggle.addEventListener("change", () => {
     apiRequest("/set-sound-enabled", { enabled: isEnabled });
 });
 
-// 公開/關閉 切換
 const publicToggleLabel = document.getElementById("public-toggle-label");
 const originalToggleText = "對外開放前台";
 
@@ -495,7 +519,7 @@ publicToggle.addEventListener("change", () => {
     const isPublic = publicToggle.checked;
 
     if (isPublic) {
-        // --- 1. 正在從「關閉」切換回「開啟」 ---
+        // 從「關閉」切換回「開啟」
         if (publicToggleConfirmTimer) {
             clearTimeout(publicToggleConfirmTimer.timer);
             clearInterval(publicToggleConfirmTimer.interval);
@@ -505,9 +529,9 @@ publicToggle.addEventListener("change", () => {
         }
         apiRequest("/set-public-status", { isPublic: true });
     } else {
-        // --- 2. 正在從「開啟」切換到「關閉」 ---
+        // 從「開啟」切換到「關閉」
         if (publicToggleConfirmTimer) {
-            // --- 2a. 正在確認中，執行動作 ---
+            // 正在確認中，執行動作
             clearTimeout(publicToggleConfirmTimer.timer);
             clearInterval(publicToggleConfirmTimer.interval);
             publicToggleConfirmTimer = null;
@@ -517,7 +541,7 @@ publicToggle.addEventListener("change", () => {
             apiRequest("/set-public-status", { isPublic: false });
             
         } else {
-            // --- 2b. 首次點擊，開始確認 ---
+            // 首次點擊，開始確認
             publicToggle.checked = true; // 立即取消
             
             let countdown = 5;
@@ -545,7 +569,7 @@ publicToggle.addEventListener("change", () => {
     }
 });
 
-// --- 14. 【新】 超級管理員功能 ---
+// --- 14. 超級管理員功能 ---
 
 const userListUI = document.getElementById("user-list-ui");
 const newUserUsernameInput = document.getElementById("new-user-username");
@@ -556,7 +580,7 @@ const addUserBtn = document.getElementById("add-user-btn");
 async function loadAdminUsers() {
     if (userRole !== 'super' || !userListUI) return;
     
-    const data = await apiRequest("/api/admin/users", {}, true); // 第 3 參數為 true (a_returnResponse)
+    const data = await apiRequest("/api/admin/users", {}, true); 
     
     if (data && data.users) {
         userListUI.innerHTML = "";
@@ -579,7 +603,7 @@ async function loadAdminUsers() {
                 const success = await apiRequest("/api/admin/del-user", { delUsername: user });
                 if (success) {
                     showToast(`✅ 已刪除用戶: ${user}`, "success");
-                    await loadAdminUsers(); // 重新載入列表
+                    await loadAdminUsers(); 
                 } else {
                     deleteBtn.disabled = false;
                 }
@@ -610,7 +634,7 @@ if (addUserBtn) {
             showToast(`✅ 已新增用戶: ${newUsername}`, "success");
             newUserUsernameInput.value = "";
             newUserPasswordInput.value = "";
-            await loadAdminUsers(); // 重新載入列表
+            await loadAdminUsers(); 
         }
         addUserBtn.disabled = false;
     };
