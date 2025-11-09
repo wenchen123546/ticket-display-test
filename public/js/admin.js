@@ -39,7 +39,7 @@ const setPwBtn = document.getElementById("set-pw-btn");
 let token = sessionStorage.getItem('admin_jwt') || ""; 
 let userRole = sessionStorage.getItem('admin_role') || ""; 
 let resetAllTimer = null;
-let toastTimer = null; // 【修正】 Toast 計時器
+let toastTimer = null; 
 
 // --- 3. Socket.io ---
 const socket = io({ 
@@ -49,7 +49,7 @@ const socket = io({
     }
 });
 
-// --- 4. 【修正】 Toast 通知函式 (補上) ---
+// --- 4. Toast 通知函式 ---
 function showToast(message, type = 'info') {
     const toast = document.getElementById("toast-notification");
     if (!toast) return;
@@ -85,6 +85,7 @@ async function showPanel() {
 
     if (userRole === 'superadmin') {
         superAdminCard.style.display = "block";
+        initSuperAdminBindings(); // 【修正】 初始化 Super Admin 按鈕
         loadAdmins(); 
     } else {
         superAdminCard.style.display = "none";
@@ -94,7 +95,7 @@ async function showPanel() {
         socket.connect();
     }
     
-    showToast("ℹ️ 使用預設排版", "info"); // 【修正】 現在這個呼叫是有效的
+    showToast("ℹ️ 使用預設排版", "info"); 
 }
 
 async function attemptLogin() {
@@ -157,7 +158,7 @@ socket.on("disconnect", () => {
 });
 socket.on("connect_error", (err) => {
     console.error("Socket 連線失敗:", err.message);
-    if (err.message === "Authentication failed") {
+    if (err.message.includes("Authentication failed")) { // 檢查是否包含關鍵字
         alert("認證已過期或無效，請重新登入。");
         showLogin(); 
     }
@@ -229,6 +230,7 @@ async function apiRequest(endpoint, body, a_returnResponse = false) {
 
         if (!res.ok) {
             if (res.status === 401 || res.status === 403) {
+                // 登入失敗或 Token 無效
                 alert("認證已過期，請重新登入。");
                 showLogin();
             } else {
@@ -447,6 +449,14 @@ publicToggle.addEventListener("change", () => {
 
 // --- 13. 【新增】 Super Admin 功能函式和綁定 ---
 
+// 【新增】 初始化 Super Admin 按鈕綁定
+function initSuperAdminBindings() {
+    // 檢查元素是否存在，避免在 Admin 模式下報錯
+    if (refreshAdminListBtn) refreshAdminListBtn.onclick = loadAdmins;
+    if (addAdminBtn) addAdminBtn.onclick = addAdmin;
+    if (setPwBtn) setPwBtn.onclick = setAdminPassword;
+}
+
 // 載入管理員列表
 async function loadAdmins() {
     adminListUI.innerHTML = "<li>正在載入...</li>";
@@ -457,10 +467,8 @@ async function loadAdmins() {
             const li = document.createElement("li");
             li.innerHTML = `<span>${admin.username} (<strong>${admin.role}</strong>)</span>`;
             
-            // 簡易解碼來檢查 "我" 是誰
             const myUsername = jwt_decode(token) ? jwt_decode(token).username : null;
 
-            // 不能刪除自己
             if (admin.username !== myUsername) { 
                 const deleteBtn = document.createElement("button");
                 deleteBtn.type = "button";
@@ -492,7 +500,7 @@ async function addAdmin() {
         showToast("✅ 管理員已新增", "success");
         newAdminUsernameInput.value = "";
         newAdminPasswordInput.value = "";
-        loadAdmins(); // 重新載入列表
+        loadAdmins(); 
     }
 }
 
@@ -503,7 +511,7 @@ async function deleteAdmin(username) {
     const success = await apiRequest("/api/admin/delete", { username });
     if (success) {
         showToast("✅ 管理員已刪除", "success");
-        loadAdmins(); // 重新載入列表
+        loadAdmins(); 
     }
 }
 
@@ -526,11 +534,6 @@ async function setAdminPassword() {
         setNewPasswordInput.value = "";
     }
 }
-
-// 綁定 Super Admin 按鈕
-refreshAdminListBtn.onclick = loadAdmins;
-addAdminBtn.onclick = addAdmin;
-setPwBtn.onclick = setAdminPassword;
 
 // (簡易的 JWT 解碼函式)
 function jwt_decode(token) {
