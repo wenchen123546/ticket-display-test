@@ -90,21 +90,24 @@ body {
 #admin-panel h1 { font-size: 3rem; color: var(--color-danger); margin-bottom: 30px; }
 #number { font-size: 5rem; color: var(--color-primary); margin: 20px 0; }
 
-/* 【新】 卡片容器 (取代 .grid-stack) */
+/* 【修改】 卡片容器 (改為 Flex 佈局) */
 .card-container {
-    display: grid;
-    grid-template-columns: repeat(12, 1fr); /* 模擬 12 欄 */
+    display: flex;
+    flex-direction: row; /* 預設 2 欄 */
     gap: 20px;
-    /* 【新】 讓卡片內容自行決定高度 */
     align-items: start;
 }
 
-/* 【新】 卡片包裝器 (取代 .grid-stack-item) */
-/* 【修改】 6/6 欄位佈局 (2x2 網格) */
-#card-control { grid-column: span 6; }
-#card-editor { grid-column: span 6; }
-#card-logs { grid-column: span 6; }
-#card-settings { grid-column: span 6; }
+/* 【新】 獨立的欄位 */
+.dashboard-column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px; /* 卡片垂直間距 */
+    flex-basis: 0;
+    flex-grow: 1;
+}
+
+/* (移除 #card-control 等 grid-column 屬性) */
 
 /* 【修改】 .admin-card (取代 .grid-stack-item-content) */
 .admin-card {
@@ -335,18 +338,14 @@ input[type="url"] {
 
 /* --- 7. RWD --- */
 
-/* 【修改】 斷點：當寬度小於 900px 時，卡片變為單欄 */
+/* 【修改】 斷點：當寬度小於 900px 時，欄位變為垂直堆疊 */
 @media (max-width: 900px) {
     .card-container {
-        grid-template-columns: 1fr; /* 單欄 */
-    }
-    /* 確保所有卡片都佔滿單欄 */
-    #card-control, #card-editor, #card-logs, #card-settings {
-        grid-column: span 1;
+        flex-direction: column; /* 垂直堆疊 */
     }
 }
 
-/* 傳統手機 RWD */
+/* 傳統手機 RWD (768px 以下) */
 @media (max-width: 768px) { 
     body { 
         padding: 10px; 
