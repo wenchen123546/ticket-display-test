@@ -7,7 +7,7 @@ const loginButton = document.getElementById("login-button");
 const loginError = document.getElementById("login-error");
 const numberEl = document.getElementById("number");
 const statusBar = document.getElementById("status-bar");
-// (其他卡片元素)
+// (主要控制台卡片元素)
 const passedListUI = document.getElementById("passed-list-ui");
 const newPassedNumberInput = document.getElementById("new-passed-number");
 const addPassedBtn = document.getElementById("add-passed-btn");
@@ -22,17 +22,8 @@ const clearLogBtn = document.getElementById("clear-log-btn");
 const resetAllBtn = document.getElementById("resetAll");
 const resetAllConfirmBtn = document.getElementById("resetAllConfirm");
 
-// 【新增】 Super Admin 卡片元素
+// 【修正】 移除頂部 Super Admin 元素的宣告，改在函式內取得。
 const superAdminCard = document.getElementById("card-superadmin");
-const adminListUI = document.getElementById("admin-list-ui");
-const refreshAdminListBtn = document.getElementById("refresh-admin-list");
-const newAdminUsernameInput = document.getElementById("new-admin-username");
-const newAdminPasswordInput = document.getElementById("new-admin-password");
-const newAdminRoleSelect = document.getElementById("new-admin-role");
-const addAdminBtn = document.getElementById("add-admin-btn");
-const setPwUsernameInput = document.getElementById("set-pw-username");
-const setNewPasswordInput = document.getElementById("set-pw-new-password");
-const setPwBtn = document.getElementById("set-pw-btn");
 
 
 // --- 2. 全域變數 ---
@@ -85,7 +76,7 @@ async function showPanel() {
 
     if (userRole === 'superadmin') {
         superAdminCard.style.display = "block";
-        initSuperAdminBindings(); // 【修正】 初始化 Super Admin 按鈕
+        initSuperAdminBindings(); 
         loadAdmins(); 
     } else {
         superAdminCard.style.display = "none";
@@ -158,13 +149,12 @@ socket.on("disconnect", () => {
 });
 socket.on("connect_error", (err) => {
     console.error("Socket 連線失敗:", err.message);
-    if (err.message.includes("Authentication failed")) { // 檢查是否包含關鍵字
+    if (err.message.includes("Authentication failed")) { 
         alert("認證已過期或無效，請重新登入。");
         showLogin(); 
     }
 });
 
-// (其他 socket.on 監聽器...)
 socket.on("initAdminLogs", (logs) => {
     adminLogUI.innerHTML = "";
     if (!logs || logs.length === 0) {
@@ -230,7 +220,6 @@ async function apiRequest(endpoint, body, a_returnResponse = false) {
 
         if (!res.ok) {
             if (res.status === 401 || res.status === 403) {
-                // 登入失敗或 Token 無效
                 alert("認證已過期，請重新登入。");
                 showLogin();
             } else {
@@ -449,91 +438,93 @@ publicToggle.addEventListener("change", () => {
 
 // --- 13. 【新增】 Super Admin 功能函式和綁定 ---
 
-// 【新增】 初始化 Super Admin 按鈕綁定
+// 【最終修正】 初始化 Super Admin 按鈕綁定
 function initSuperAdminBindings() {
-    // 檢查元素是否存在，避免在 Admin 模式下報錯
-    if (refreshAdminListBtn) refreshAdminListBtn.onclick = loadAdmins;
-    if (addAdminBtn) addAdminBtn.onclick = addAdmin;
-    if (setPwBtn) setPwBtn.onclick = setAdminPassword;
-}
+    // 這次直接在函式內部取得元素，確保它們在 DOM 顯示後才被引用。
+    const adminListUI_local = document.getElementById("admin-list-ui");
+    const refreshAdminListBtn_local = document.getElementById("refresh-admin-list");
+    const newAdminUsernameInput_local = document.getElementById("new-admin-username");
+    const newAdminPasswordInput_local = document.getElementById("new-admin-password");
+    const newAdminRoleSelect_local = document.getElementById("new-admin-role");
+    const addAdminBtn_local = document.getElementById("add-admin-btn");
+    const setPwUsernameInput_local = document.getElementById("set-pw-username");
+    const setNewPasswordInput_local = document.getElementById("set-pw-new-password");
+    const setPwBtn_local = document.getElementById("set-pw-btn");
+    
+    // 綁定事件，並使用新的本地變數
+    if (refreshAdminListBtn_local) refreshAdminListBtn_local.onclick = loadAdmins;
+    if (addAdminBtn_local) addAdminBtn_local.onclick = addAdmin;
+    if (setPwBtn_local) setPwBtn_local.onclick = setAdminPassword;
+    
+    // 重新定義 loadAdmins，使用本地變數
+    async function loadAdmins() {
+        if (!adminListUI_local) return; // 安全檢查
+        adminListUI_local.innerHTML = "<li>正在載入...</li>";
+        const data = await apiRequest("/api/admin/list", {}, true);
+        if (data && data.admins) {
+            adminListUI_local.innerHTML = "";
+            data.admins.forEach(admin => {
+                const li = document.createElement("li");
+                li.innerHTML = `<span>${admin.username} (<strong>${admin.role}</strong>)</span>`;
+                
+                const myUsername = jwt_decode(token) ? jwt_decode(token).username : null;
 
-// 載入管理員列表
-async function loadAdmins() {
-    adminListUI.innerHTML = "<li>正在載入...</li>";
-    const data = await apiRequest("/api/admin/list", {}, true);
-    if (data && data.admins) {
-        adminListUI.innerHTML = "";
-        data.admins.forEach(admin => {
-            const li = document.createElement("li");
-            li.innerHTML = `<span>${admin.username} (<strong>${admin.role}</strong>)</span>`;
-            
-            const myUsername = jwt_decode(token) ? jwt_decode(token).username : null;
+                if (admin.username !== myUsername) { 
+                    const deleteBtn = document.createElement("button");
+                    deleteBtn.type = "button";
+                    deleteBtn.className = "delete-item-btn";
+                    deleteBtn.textContent = "×";
+                    deleteBtn.onclick = () => deleteAdmin(admin.username);
+                    li.appendChild(deleteBtn);
+                }
+                adminListUI_local.appendChild(li);
+            });
+        } else {
+            adminListUI_local.innerHTML = "<li>載入失敗</li>";
+        }
+    }
+    
+    // 重新定義 addAdmin，使用本地變數
+    async function addAdmin() {
+        const username = newAdminUsernameInput_local.value;
+        const password = newAdminPasswordInput_local.value;
+        const role = newAdminRoleSelect_local.value;
 
-            if (admin.username !== myUsername) { 
-                const deleteBtn = document.createElement("button");
-                deleteBtn.type = "button";
-                deleteBtn.className = "delete-item-btn";
-                deleteBtn.textContent = "×";
-                deleteBtn.onclick = () => deleteAdmin(admin.username);
-                li.appendChild(deleteBtn);
-            }
-            adminListUI.appendChild(li);
-        });
-    } else {
-        adminListUI.innerHTML = "<li>載入失敗</li>";
+        if (!username || !password) {
+            showToast("❌ 使用者名稱和密碼為必填", "error");
+            return;
+        }
+
+        const success = await apiRequest("/api/admin/add", { username, password, role });
+        if (success) {
+            showToast("✅ 管理員已新增", "success");
+            newAdminUsernameInput_local.value = "";
+            newAdminPasswordInput_local.value = "";
+            loadAdmins(); 
+        }
+    }
+
+    // 重新定義 setAdminPassword，使用本地變數
+    async function setAdminPassword() {
+        const username = setPwUsernameInput_local.value;
+        const newPassword = setNewPasswordInput_local.value;
+
+        if (!username || !newPassword) {
+            showToast("❌ 請輸入使用者名稱和新密碼", "error");
+            return;
+        }
+
+        if (!confirm(`確定要重設 ${username} 的密碼嗎？`)) return;
+
+        const success = await apiRequest("/api/admin/set-password", { username, newPassword });
+        if (success) {
+            showToast(`✅ ${username} 的密碼已重設`, "success");
+            setPwUsernameInput_local.value = "";
+            setNewPasswordInput_local.value = "";
+        }
     }
 }
 
-// 新增管理員
-async function addAdmin() {
-    const username = newAdminUsernameInput.value;
-    const password = newAdminPasswordInput.value;
-    const role = newAdminRoleSelect.value;
-
-    if (!username || !password) {
-        showToast("❌ 使用者名稱和密碼為必填", "error");
-        return;
-    }
-
-    const success = await apiRequest("/api/admin/add", { username, password, role });
-    if (success) {
-        showToast("✅ 管理員已新增", "success");
-        newAdminUsernameInput.value = "";
-        newAdminPasswordInput.value = "";
-        loadAdmins(); 
-    }
-}
-
-// 刪除管理員
-async function deleteAdmin(username) {
-    if (!confirm(`確定要刪除管理員 ${username} 嗎？此動作無法復原。`)) return;
-
-    const success = await apiRequest("/api/admin/delete", { username });
-    if (success) {
-        showToast("✅ 管理員已刪除", "success");
-        loadAdmins(); 
-    }
-}
-
-// 重設密碼
-async function setAdminPassword() {
-    const username = setPwUsernameInput.value;
-    const newPassword = setNewPasswordInput.value;
-
-    if (!username || !newPassword) {
-        showToast("❌ 請輸入使用者名稱和新密碼", "error");
-        return;
-    }
-
-    if (!confirm(`確定要重設 ${username} 的密碼嗎？`)) return;
-
-    const success = await apiRequest("/api/admin/set-password", { username, newPassword });
-    if (success) {
-        showToast(`✅ ${username} 的密碼已重設`, "success");
-        setPwUsernameInput.value = "";
-        setNewPasswordInput.value = "";
-    }
-}
 
 // (簡易的 JWT 解碼函式)
 function jwt_decode(token) {
