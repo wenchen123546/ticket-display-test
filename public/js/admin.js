@@ -25,7 +25,7 @@ const resetAllConfirmBtn = document.getElementById("resetAllConfirm");
 let token = "";
 let resetAllTimer = null;
 let grid = null; // GridStack 物件
-let toastTimer = null; // 【新】 Toast 計時器
+let toastTimer = null; 
 
 // --- 3. Socket.io ---
 const socket = io({ 
@@ -50,10 +50,7 @@ async function showPanel() {
     socket.connect();
 
     // 【修改】 移除讀取已儲存排版的 try...catch 區塊
-    // let savedLayout = null;
-    // try { ... }
     showToast("ℹ️ 使用預設排版", "info");
-
 
     setTimeout(() => {
         grid = GridStack.init({
@@ -63,7 +60,6 @@ async function showPanel() {
             minRow: 1,          
             float: true,      
             removable: false,   
-            // alwaysShowResizeHandle: 'mobile' 
             static: true // 【修改】 鎖定儀表板，使其不可拖曳或調整大小
         });
         
@@ -101,14 +97,13 @@ document.addEventListener("DOMContentLoaded", () => { showLogin(); });
 loginButton.addEventListener("click", () => { attemptLogin(passwordInput.value); });
 passwordInput.addEventListener("keyup", (event) => { if (event.key === "Enter") { attemptLogin(passwordInput.value); } });
 
-// --- 5. 【新】 Toast 通知函式 ---
+// --- 5. Toast 通知函式 ---
 function showToast(message, type = 'info') {
     const toast = document.getElementById("toast-notification");
     if (!toast) return;
     
     toast.textContent = message;
-    toast.className = type; // 'success' or 'error' or 'info'
-    
+    toast.className = type;
     toast.classList.add("show");
     
     if (toastTimer) clearTimeout(toastTimer);
@@ -138,7 +133,6 @@ socket.on("connect_error", (err) => {
     }
 });
 
-// --- 【新】 伺服器日誌監聽器 ---
 socket.on("initAdminLogs", (logs) => {
     adminLogUI.innerHTML = "";
     if (!logs || logs.length === 0) {
@@ -152,11 +146,10 @@ socket.on("initAdminLogs", (logs) => {
         fragment.appendChild(li);
     });
     adminLogUI.appendChild(fragment);
-    adminLogUI.scrollTop = adminLogUI.scrollHeight; // 自動滾動到底部
+    adminLogUI.scrollTop = adminLogUI.scrollHeight; 
 });
 
 socket.on("newAdminLog", (logMessage) => {
-    // 移除 "尚無日誌" 的提示
     const firstLi = adminLogUI.querySelector("li");
     if (firstLi && firstLi.textContent.includes("[目前尚無日誌]")) {
         adminLogUI.innerHTML = "";
@@ -164,11 +157,9 @@ socket.on("newAdminLog", (logMessage) => {
     
     const li = document.createElement("li");
     li.textContent = logMessage;
-    adminLogUI.prepend(li); // 將最新的日誌加到最上方
+    adminLogUI.prepend(li); 
 });
-// ---
 
-// (移除舊的 update, updatePassed 等事件中的 adminLog 呼叫)
 socket.on("update", (num) => {
     numberEl.textContent = num;
 });
@@ -241,7 +232,6 @@ function renderPassedListUI(numbers) {
             if (confirm(`確定要刪除過號 ${number} 嗎？`)) {
                 deleteBtn.disabled = true;
                 await apiRequest("/api/passed/remove", { number: number });
-                // (日誌由伺服器自動發送)
             }
         };
         li.appendChild(deleteBtn);
@@ -250,7 +240,6 @@ function renderPassedListUI(numbers) {
     passedListUI.appendChild(fragment);
 }
 
-// 【XSS 安全修正】
 function renderFeaturedListUI(contents) {
     featuredListUI.innerHTML = "";
     if (!Array.isArray(contents)) return;
@@ -337,7 +326,7 @@ async function confirmResetAll() {
     if (success) {
         document.getElementById("manualNumber").value = "";
         showToast("💥 所有資料已重置", "success");
-        location.reload(); // 重載以獲取新排版和日誌
+        location.reload(); 
     }
     cancelResetAll();
 }
@@ -349,12 +338,10 @@ function requestResetAll() {
     }, 5000);
 }
 
-// 【修改】 清除日誌功能
 async function clearAdminLog() {
     if (confirm("確定要永久清除「所有」管理員的操作日誌嗎？\n此動作無法復原。")) {
         showToast("🧼 正在清除日誌...", "info");
         await apiRequest("/api/logs/clear", {});
-        // UI 會由 "initAdminLogs" socket 事件自動更新
     }
 }
 
@@ -367,7 +354,7 @@ document.getElementById("resetFeaturedContents").onclick = resetFeaturedContents
 document.getElementById("resetPassed").onclick = resetPassed_fixed;
 resetAllBtn.onclick = requestResetAll;
 resetAllConfirmBtn.onclick = confirmResetAll;
-clearLogBtn.onclick = clearAdminLog; // 已更新
+clearLogBtn.onclick = clearAdminLog; 
 
 addPassedBtn.onclick = async () => {
     const num = Number(newPassedNumberInput.value);
