@@ -185,13 +185,22 @@ input, textarea {
     font-size: 1.2rem; 
     padding: 8px; 
     width: 100%; 
-    text-align: center; 
+    text-align: center; /* 【修改】 預設 (主要給 number) */
     border-radius: 6px; 
     border: 1px solid var(--color-border); 
     margin-top: 10px; 
     box-sizing: border-box; 
 }
 textarea { height: 80px; text-align: left; padding: 10px; }
+
+/* 【新】 讓文字相關輸入框靠左對齊 */
+input[type="text"],
+input[type="password"],
+input[type="url"] {
+    text-align: left;
+    padding-left: 12px;
+}
+
 
 /* --- 4. 列表編輯器 GUI --- */
 
@@ -367,6 +376,18 @@ textarea { height: 80px; text-align: left; padding: 10px; }
     margin-top: 0;  
     width: auto;    
 }
+
+/* 【新】 讓一般表單區塊也有一致的樣式 */
+.control-group.form-group-boxed {
+    background: #f9f9f9; 
+    border: 1px solid var(--color-border); 
+    padding: 15px;
+    border-radius: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 20px;
+}
+
 
 /* --- 10. 管理員日誌樣式 --- */
 
