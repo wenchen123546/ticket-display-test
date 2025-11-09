@@ -79,7 +79,7 @@ body {
 #login-container button:hover { opacity: 0.9; }
 #login-error { color: var(--color-danger); margin-top: 15px; height: 1.2rem; }
 
-/* --- 2. 【GridStack】 卡片佈局 --- */
+/* --- 2. 卡片佈局 (移除 GridStack) --- */
 
 #admin-panel { 
     display: none; 
@@ -90,13 +90,25 @@ body {
 #admin-panel h1 { font-size: 3rem; color: var(--color-danger); margin-bottom: 30px; }
 #number { font-size: 5rem; color: var(--color-primary); margin: 20px 0; }
 
-.grid-stack-item-content {
+/* 【新】 卡片容器 (取代 .grid-stack) */
+.card-container {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr); /* 模擬 12 欄 */
+    gap: 20px;
+}
+
+/* 【新】 卡片包裝器 (取代 .grid-stack-item) */
+/* 預設佔 6 欄 (2 欄佈局) */
+#card-control { grid-column: span 6; }
+#card-editor { grid-column: span 6; }
+#card-logs { grid-column: span 6; }
+#card-settings { grid-column: span 6; }
+
+/* 【修改】 .admin-card (取代 .grid-stack-item-content) */
+.admin-card {
     background: var(--color-bg-light);
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.grid-stack-item-content .admin-card {
     padding: 20px;
     text-align: left; 
     height: 100%; 
@@ -115,7 +127,7 @@ body {
     border-bottom: 1px solid #eee;
     padding-bottom: 10px;
     font-weight: bold;
-    cursor: move !important;
+    /* cursor: move !important; (已移除) */
 }
 .admin-card h3 .card-icon {
     font-size: 1.2rem;
@@ -284,13 +296,25 @@ textarea { height: 80px; text-align: left; padding: 10px; }
 
 /* --- 7. RWD --- */
 
+/* 斷點：當寬度小於 900px 時，卡片變為單欄 */
+@media (max-width: 900px) {
+    .card-container {
+        grid-template-columns: 1fr; /* 單欄 */
+    }
+    /* 確保所有卡片都佔滿單欄 */
+    #card-control, #card-editor, #card-logs, #card-settings {
+        grid-column: span 1;
+    }
+}
+
+/* 傳統手機 RWD */
 @media (max-width: 768px) { 
     body { 
         padding: 10px; 
         padding-top: 30px; 
     }
     .admin-card {
-        padding: 15px; 
+        padding: 15px; /* 手機上 padding 縮小 */
     }
     #login-container { margin: 30px auto; padding: 20px; } 
     #admin-panel h1 { font-size: 2.2rem; } 
