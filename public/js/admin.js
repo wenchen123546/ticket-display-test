@@ -49,20 +49,27 @@ function showLogin() {
 async function showPanel() {
     // 1. 【修改】 先準備超管面板 (此時 adminPanel 仍是 display: none)
     if (userRole === 'super') {
+        // 顯示用戶管理
         const userManagementCard = document.getElementById("card-user-management");
         if (userManagementCard) {
             userManagementCard.style.display = "block"; // 準備好卡片
             await loadAdminUsers(); // 等待資料載入
         }
+        
+        // 【新增】 顯示清除日誌按鈕
+        const clearLogBtnEl = document.getElementById("clear-log-btn");
+        if (clearLogBtnEl) {
+            clearLogBtnEl.style.display = "block";
+        }
     }
 
     // 2. 【修改】 所有內容都準備好後，再一次性顯示
-    loginContainer.style.display = "none"; //
-    adminPanel.style.display = "block"; //
-    document.title = `後台管理 - ${username}`; //
+    loginContainer.style.display = "none";
+    adminPanel.style.display = "block";
+    document.title = `後台管理 - ${username}`; // 顯示綽號
     
     // 3. 最後才連線 Socket
-    socket.connect(); //
+    socket.connect();
 }
 
 // 登入邏輯
