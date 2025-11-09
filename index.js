@@ -6,16 +6,23 @@
  * * - 修正 helmet 的 CSP 策略，允許載入 GridStack 和 QR Code 的 CDN
  * * 9. 【新功能】 
  * * - 實作「伺服器端」的後台日誌 (Redis List + Socket.io)
+ * * 10.【重構 v1】
+ * * - 安全性: 實作 JWT (JSON Web Token) 登入機制
+ * * - 延展性: 導入 Socket.io Redis Adapter (支援水平擴展)
+ * * - 維護性: 導入 express-async-errors 集中處理錯誤
  * ==========================================
  */
 
 // --- 1. 模組載入 ---
 const express = require("express");
+require('express-async-errors'); // 【重構】 必須在 express 之後、路由之前
 const http = require("http");
 const socketio = require("socket.io");
 const Redis = require("ioredis");
 const helmet = require('helmet'); 
 const rateLimit = require('express-rate-limit'); 
+const jwt = require('jsonwebtoken'); // 【重構】
+const { createAdapter } = require("@socket.io/redis-adapter"); // 【重構】
 
 // --- 2. 伺服器實體化 ---
 const app = express();
@@ -26,6 +33,7 @@ const io = socketio(server);
 const PORT = process.env.PORT || 3000;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const REDIS_URL = process.env.UPSTASH_REDIS_URL;
+const JWT_SECRET = process.env.JWT_SECRET; // 【重構】
 
 // --- 4. 關鍵檢查 ---
 if (!ADMIN_TOKEN) {
@@ -36,6 +44,10 @@ if (!REDIS_URL) {
     console.error("❌ 錯誤： UPSTASH_REDIS_URL 環境變數未設定！");
     process.exit(1);
 }
+if (!JWT_SECRET) {
+    console.error("❌ 錯誤： JWT_SECRET 環境變數未設定！");
+    process.exit(1);
+}
 
 // --- 5. 連線到 Upstash Redis ---
 const redis = new Redis(REDIS_URL, {
@@ -43,6 +55,9 @@ const redis = new Redis(REDIS_URL, {
         rejectUnauthorized: false
     }
 });
+const pubClient = redis;
+const subClient = redis.duplicate(); // 【重構】 建立兩個 client 供 adapter 使用
+
 redis.on('connect', () => { console.log("✅ 成功連線到 Upstash Redis 資料庫。"); });
 redis.on('error', (err) => { console.error("❌ Redis 連線錯誤:", err); process.exit(1); });
 
@@ -58,6 +73,9 @@ redis.defineCommand("decrIfPositive", {
     `,
 });
 
+// 【重構】 將 Socket.io 連接到 Redis Adapter
+io.adapter(createAdapter(pubClient, subClient));
+
 
 // --- 6. Redis Keys & 全域狀態 ---
 const KEY_CURRENT_NUMBER = 'callsys:number';
@@ -67,7 +85,7 @@ const KEY_LAST_UPDATED = 'callsys:updated';
 const KEY_SOUND_ENABLED = 'callsys:soundEnabled';
 const KEY_IS_PUBLIC = 'callsys:isPublic'; 
 const KEY_ADMIN_LAYOUT = 'callsys:admin-layout'; 
-const KEY_ADMIN_LOG = 'callsys:admin-log'; // 【新功能】 伺服器端日誌
+const KEY_ADMIN_LOG = 'callsys:admin-log'; 
 
 // --- 7. Express 中介軟體 (Middleware) ---
 
@@ -100,12 +118,22 @@ const loginLimiter = rateLimit({
     legacyHeaders: false,
 });
 
+// 【重構】 JWT 認證 Middleware
 const authMiddleware = (req, res, next) => {
-    const { token } = req.body;
-    if (token !== ADMIN_TOKEN) {
-        return res.status(403).json({ error: "密碼錯誤" });
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: "缺少認證" });
+        }
+        
+        const token = authHeader.split(' ')[1];
+        jwt.verify(token, JWT_SECRET); // 驗證 JWT
+        
+        next(); // 驗證通過
+    } catch (err) {
+        // JWT 驗證失敗 (例如過期或無效)
+        return res.status(403).json({ error: "認證無效或已過期" });
     }
-    next();
 };
 
 // --- 8. 輔助函式 ---
@@ -115,37 +143,25 @@ async function updateTimestamp() {
     io.emit("updateTimestamp", now);
 }
 async function broadcastPassedNumbers() {
-    try {
-        const numbersRaw = await redis.zrange(KEY_PASSED_NUMBERS, 0, -1);
-        const numbers = numbersRaw.map(Number);
-        io.emit("updatePassed", numbers);
-        await updateTimestamp();
-    } catch (e) {
-        console.error("broadcastPassedNumbers 失敗:", e);
-    }
+    const numbersRaw = await redis.zrange(KEY_PASSED_NUMBERS, 0, -1);
+    const numbers = numbersRaw.map(Number);
+    io.emit("updatePassed", numbers);
+    await updateTimestamp();
 }
 async function broadcastFeaturedContents() {
-    try {
-        const contentsJSONs = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1);
-        const contents = contentsJSONs.map(JSON.parse);
-        io.emit("updateFeaturedContents", contents);
-        await updateTimestamp();
-    } catch (e) {
-        console.error("broadcastFeaturedContents 失敗:", e);
-    }
+    const contentsJSONs = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1);
+    const contents = contentsJSONs.map(JSON.parse);
+    io.emit("updateFeaturedContents", contents);
+    await updateTimestamp();
 }
 
-// --- 【新功能】 伺服器端日誌函式 ---
 async function addAdminLog(message) {
     try {
         const timestamp = new Date().toLocaleTimeString('zh-TW', { hour12: false });
         const logMessage = `[${timestamp}] ${message}`;
         
-        // 1. 將日誌推入 Redis List (LIFO)
         await redis.lpush(KEY_ADMIN_LOG, logMessage);
-        // 2. 修剪列表，只保留最新的 50 筆
         await redis.ltrim(KEY_ADMIN_LOG, 0, 50);
-        // 3. 透過 Socket.io 廣播給所有在線的管理員
         io.emit("newAdminLog", logMessage);
         
     } catch (e) {
@@ -156,7 +172,22 @@ async function addAdminLog(message) {
 
 // --- 9. API 路由 (Routes) ---
 
-app.post("/check-token", loginLimiter, authMiddleware, (req, res) => { res.json({ success: true }); });
+// 【重構】 登入路由，使用 JWT
+app.post("/login", loginLimiter, (req, res) => {
+    const { password } = req.body;
+    
+    if (password !== ADMIN_TOKEN) {
+        return res.status(403).json({ error: "密碼錯誤" });
+    }
+    
+    // 密碼正確，簽發一個 8 小時有效的 JWT
+    const token = jwt.sign({ isAdmin: true }, JWT_SECRET, {
+        expiresIn: '8h' 
+    });
+    
+    res.json({ success: true, token: token });
+});
+// (舊的 /check-token 已被 /login 取代)
 
 const protectedAPIs = [
     "/change-number", "/set-number",
@@ -164,195 +195,189 @@ const protectedAPIs = [
     "/api/featured/add", "/api/featured/remove", "/api/featured/clear",
     "/set-sound-enabled", "/set-public-status", "/reset",
     "/api/layout/load", "/api/layout/save",
-    "/api/logs/clear" // 【新】 保護清空日誌 API
+    "/api/logs/clear"
 ];
-app.use(protectedAPIs, apiLimiter, authMiddleware);
+app.use(protectedAPIs, apiLimiter, authMiddleware); // 【重構】 API 現在受 JWT 保護
 
+// 【重構】 移除所有 API 路由中的 try...catch
 app.post("/change-number", async (req, res) => {
-    try {
-        const { direction } = req.body;
-        let num;
-        if (direction === "next") {
-            num = await redis.incr(KEY_CURRENT_NUMBER);
-            await addAdminLog(`號碼增加為 ${num}`); // 【日誌】
-        }
-        else if (direction === "prev") {
-            const oldNum = await redis.get(KEY_CURRENT_NUMBER) || 0;
-            num = await redis.decrIfPositive(KEY_CURRENT_NUMBER);
-            if (Number(oldNum) > 0) {
-                await addAdminLog(`號碼減少為 ${num}`); // 【日誌】
-            }
-        } 
-        else {
-            num = await redis.get(KEY_CURRENT_NUMBER) || 0;
-        }
-        io.emit("update", num);
-        await updateTimestamp();
-        res.json({ success: true, number: num });
+    const { direction } = req.body;
+    let num;
+    if (direction === "next") {
+        num = await redis.incr(KEY_CURRENT_NUMBER);
+        await addAdminLog(`號碼增加為 ${num}`); 
     }
-    catch (e) {
-        res.status(500).json({ error: e.message });
+    else if (direction === "prev") {
+        const oldNum = await redis.get(KEY_CURRENT_NUMBER) || 0;
+        num = await redis.decrIfPositive(KEY_CURRENT_NUMBER);
+        if (Number(oldNum) > 0) {
+            await addAdminLog(`號碼減少為 ${num}`); 
+        }
+    } 
+    else {
+        num = await redis.get(KEY_CURRENT_NUMBER) || 0;
     }
+    io.emit("update", num);
+    await updateTimestamp();
+    res.json({ success: true, number: num });
 });
 
 app.post("/set-number", async (req, res) => {
-    try {
-        const { number } = req.body;
-        const num = Number(number);
-        if (isNaN(num) || num < 0 || !Number.isInteger(num)) {
-            return res.status(400).json({ error: "請提供一個有效的非負整數。" });
-        }
-        await redis.set(KEY_CURRENT_NUMBER, num);
-        await addAdminLog(`號碼手動設定為 ${num}`); // 【日誌】
-        io.emit("update", num);
-        await updateTimestamp();
-        res.json({ success: true, number: num });
+    const { number } = req.body;
+    const num = Number(number);
+    if (isNaN(num) || num < 0 || !Number.isInteger(num)) {
+        return res.status(400).json({ error: "請提供一個有效的非負整數。" });
     }
-    catch (e) {
-        res.status(500).json({ error: e.message });
-    }
+    await redis.set(KEY_CURRENT_NUMBER, num);
+    await addAdminLog(`號碼手動設定為 ${num}`); 
+    io.emit("update", num);
+    await updateTimestamp();
+    res.json({ success: true, number: num });
 });
 
 app.post("/api/passed/add", async (req, res) => {
-    try {
-        const { number } = req.body;
-        const num = Number(number);
-        if (isNaN(num) || num <= 0 || !Number.isInteger(num)) {
-            return res.status(400).json({ error: "請提供有效的正整數。" });
-        }
-        await redis.zadd(KEY_PASSED_NUMBERS, num, num);
-        await redis.zremrangebyrank(KEY_PASSED_NUMBERS, 0, -21); // 自動修剪 (保留 20)
-        await addAdminLog(`過號列表新增 ${num}`); // 【日誌】
-        await broadcastPassedNumbers();
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    const { number } = req.body;
+    const num = Number(number);
+    if (isNaN(num) || num <= 0 || !Number.isInteger(num)) {
+        return res.status(400).json({ error: "請提供有效的正整數。" });
+    }
+    await redis.zadd(KEY_PASSED_NUMBERS, num, num);
+    await redis.zremrangebyrank(KEY_PASSED_NUMBERS, 0, -21); 
+    await addAdminLog(`過號列表新增 ${num}`); 
+    await broadcastPassedNumbers();
+    res.json({ success: true });
 });
 
 app.post("/api/passed/remove", async (req, res) => {
-    try {
-        const { number } = req.body;
-        await redis.zrem(KEY_PASSED_NUMBERS, number);
-        await addAdminLog(`過號列表移除 ${number}`); // 【日誌】
-        await broadcastPassedNumbers();
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    const { number } = req.body;
+    await redis.zrem(KEY_PASSED_NUMBERS, number);
+    await addAdminLog(`過號列表移除 ${number}`); 
+    await broadcastPassedNumbers();
+    res.json({ success: true });
 });
 
 app.post("/api/featured/add", async (req, res) => {
-    try {
-        const { linkText, linkUrl } = req.body;
-        if (!linkText || !linkUrl) {
-            return res.status(400).json({ error: "文字和網址皆必填。" });
-        }
-        if (!linkUrl.startsWith('http://') && !linkUrl.startsWith('https://')) {
-            return res.status(400).json({ error: "網址請務必以 http:// 或 https:// 開頭。" });
-        }
-        const item = { linkText, linkUrl };
-        await redis.rpush(KEY_FEATURED_CONTENTS, JSON.stringify(item));
-        await addAdminLog(`精選連結新增: ${linkText}`); // 【日誌】
-        await broadcastFeaturedContents();
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    const { linkText, linkUrl } = req.body;
+    if (!linkText || !linkUrl) {
+        return res.status(400).json({ error: "文字和網址皆必填。" });
+    }
+    if (!linkUrl.startsWith('http://') && !linkUrl.startsWith('https://')) {
+        return res.status(400).json({ error: "網址請務必以 http:// 或 https:// 開頭。" });
+    }
+    const item = { linkText, linkUrl };
+    await redis.rpush(KEY_FEATURED_CONTENTS, JSON.stringify(item));
+    await addAdminLog(`精選連結新增: ${linkText}`); 
+    await broadcastFeaturedContents();
+    res.json({ success: true });
 });
 
 app.post("/api/featured/remove", async (req, res) => {
-    try {
-        const { linkText, linkUrl } = req.body;
-        if (!linkText || !linkUrl) {
-            return res.status(400).json({ error: "缺少必要參數。" });
-        }
-        const item = { linkText, linkUrl };
-        await redis.lrem(KEY_FEATURED_CONTENTS, 1, JSON.stringify(item));
-        await addAdminLog(`精選連結移除: ${linkText}`); // 【日誌】
-        await broadcastFeaturedContents();
-        res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    const { linkText, linkUrl } = req.body;
+    if (!linkText || !linkUrl) {
+        return res.status(400).json({ error: "缺少必要參數。" });
+    }
+    const item = { linkText, linkUrl };
+    await redis.lrem(KEY_FEATURED_CONTENTS, 1, JSON.stringify(item));
+    await addAdminLog(`精選連結移除: ${linkText}`); 
+    await broadcastFeaturedContents();
+    res.json({ success: true });
 });
 
 app.post("/api/passed/clear", async (req, res) => {
-    try {
-        await redis.del(KEY_PASSED_NUMBERS);
-        await addAdminLog(`過號列表已清空`); // 【日誌】
-        io.emit("updatePassed", []);
-        await updateTimestamp();
-        res.json({ success: true, message: "過號列表已清空" });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    await redis.del(KEY_PASSED_NUMBERS);
+    await addAdminLog(`過號列表已清空`); 
+    io.emit("updatePassed", []);
+    await updateTimestamp();
+    res.json({ success: true, message: "過號列表已清空" });
 });
 
 app.post("/api/featured/clear", async (req, res) => {
-    try {
-        await redis.del(KEY_FEATURED_CONTENTS);
-        await addAdminLog(`精選連結已清空`); // 【日誌】
-        io.emit("updateFeaturedContents", []);
-        await updateTimestamp();
-        res.json({ success: true, message: "精選連結已清空" });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    await redis.del(KEY_FEATURED_CONTENTS);
+    await addAdminLog(`精選連結已清空`); 
+    io.emit("updateFeaturedContents", []);
+    await updateTimestamp();
+    res.json({ success: true, message: "精選連結已清空" });
 });
 
 app.post("/set-sound-enabled", async (req, res) => {
-    try {
-        const { enabled } = req.body;
-        const valueToSet = enabled ? "1" : "0";
-        await redis.set(KEY_SOUND_ENABLED, valueToSet);
-        await addAdminLog(`前台音效已設為: ${enabled ? '開啟' : '關閉'}`); // 【日誌】
-        io.emit("updateSoundSetting", enabled);
-        await updateTimestamp();
-        res.json({ success: true, isEnabled: enabled });
-    }
-    catch (e) {
-        res.status(500).json({ error: e.message });
-    }
+    const { enabled } = req.body;
+    const valueToSet = enabled ? "1" : "0";
+    await redis.set(KEY_SOUND_ENABLED, valueToSet);
+    await addAdminLog(`前台音效已設為: ${enabled ? '開啟' : '關閉'}`); 
+    io.emit("updateSoundSetting", enabled);
+    await updateTimestamp();
+    res.json({ success: true, isEnabled: enabled });
 });
 
 app.post("/set-public-status", async (req, res) => {
-    try {
-        const { isPublic } = req.body;
-        const valueToSet = isPublic ? "1" : "0";
-        await redis.set(KEY_IS_PUBLIC, valueToSet);
-        await addAdminLog(`前台已設為: ${isPublic ? '對外開放' : '關閉維護'}`); // 【日誌】
-        io.emit("updatePublicStatus", isPublic); 
-        await updateTimestamp();
-        res.json({ success: true, isPublic: isPublic });
-    }
-    catch (e) {
-        res.status(500).json({ error: e.message });
-    }
+    const { isPublic } = req.body;
+    const valueToSet = isPublic ? "1" : "0";
+    await redis.set(KEY_IS_PUBLIC, valueToSet);
+    await addAdminLog(`前台已設為: ${isPublic ? '對外開放' : '關閉維護'}`); 
+    io.emit("updatePublicStatus", isPublic); 
+    await updateTimestamp();
+    res.json({ success: true, isPublic: isPublic });
 });
 
 app.post("/reset", async (req, res) => {
-    try {
-        const multi = redis.multi();
-        multi.set(KEY_CURRENT_NUMBER, 0);
-        multi.del(KEY_PASSED_NUMBERS);
-        multi.del(KEY_FEATURED_CONTENTS);
-        multi.set(KEY_SOUND_ENABLED, "1");
-        multi.set(KEY_IS_PUBLIC, "1"); 
-        multi.del(KEY_ADMIN_LAYOUT); 
-        multi.del(KEY_ADMIN_LOG); // 【新】 重置時也清空日誌
-        await multi.exec();
+    const multi = redis.multi();
+    multi.set(KEY_CURRENT_NUMBER, 0);
+    multi.del(KEY_PASSED_NUMBERS);
+    multi.del(KEY_FEATURED_CONTENTS);
+    multi.set(KEY_SOUND_ENABLED, "1");
+    multi.set(KEY_IS_PUBLIC, "1"); 
+    multi.del(KEY_ADMIN_LAYOUT); 
+    multi.del(KEY_ADMIN_LOG); 
+    await multi.exec();
 
-        await addAdminLog(`💥 系統已重置所有資料`); // 【日誌】
+    await addAdminLog(`💥 系統已重置所有資料`); 
 
-        io.emit("update", 0);
-        io.emit("updatePassed", []);
-        io.emit("updateFeaturedContents", []);
-        io.emit("updateSoundSetting", true);
-        io.emit("updatePublicStatus", true); 
-        io.emit("initAdminLogs", []); // 【新】 廣播清空日誌
+    io.emit("update", 0);
+    io.emit("updatePassed", []);
+    io.emit("updateFeaturedContents", []);
+    io.emit("updateSoundSetting", true);
+    io.emit("updatePublicStatus", true); 
+    io.emit("initAdminLogs", []); 
 
-        await updateTimestamp();
+    await updateTimestamp();
 
-        res.json({ success: true, message: "已重置所有內容" });
-    }
-    catch (e) {
-        res.status(500).json({ error: e.message });
-    }
+    res.json({ success: true, message: "已重置所有內容" });
 });
 
 // --- 10. Socket.io 連線處理 ---
-io.on("connection", async (socket) => {
+
+// 【重構】 Socket.io Middleware，用於 JWT 驗證
+io.use((socket, next) => {
     const token = socket.handshake.auth.token;
-    const isAdmin = (token === ADMIN_TOKEN && token !== undefined);
+
+    if (!token) {
+        return next(new Error("Authentication failed: No token"));
+    }
+
+    // 驗證靜態 ADMIN_TOKEN (用於 Public User)
+    // 或驗證 JWT (用於 Admin)
+    if (token === ADMIN_TOKEN) {
+        // 這是 Public User (或舊版 Admin)，允許連線，但標記為非管理員
+        socket.isAdmin = false;
+        return next();
+    }
+    
+    try {
+        // 嘗試驗證 JWT
+        jwt.verify(token, JWT_SECRET);
+        socket.isAdmin = true; // JWT 驗證通過，標記為管理員
+        next();
+    } catch (err) {
+        // JWT 驗證失敗
+        console.warn(`Socket 認證失敗: ${err.message}`);
+        return next(new Error("Authentication failed"));
+    }
+});
+
+
+io.on("connection", async (socket) => {
+    // 【重構】 使用 socket.isAdmin 標記
+    const isAdmin = socket.isAdmin;
 
     if (isAdmin) {
         console.log("✅ 一個已驗證的 Admin 連線", socket.id);
@@ -360,7 +385,7 @@ io.on("connection", async (socket) => {
             console.log(`🔌 Admin ${socket.id} 斷線: ${reason}`);
         });
 
-        // 【新】 Admin 連線時，傳送日誌歷史
+        // Admin 連線時，傳送日誌歷史
         try {
             const logs = await redis.lrange(KEY_ADMIN_LOG, 0, 50);
             socket.emit("initAdminLogs", logs); // 只傳送給這個剛連線的 admin
@@ -372,6 +397,7 @@ io.on("connection", async (socket) => {
         console.log("🔌 一個 Public User 連線", socket.id);
     }
 
+    // ... (其餘連線邏輯不變，所有使用者都應收到初始狀態)
     try {
         const pipeline = redis.multi();
         pipeline.get(KEY_CURRENT_NUMBER);
@@ -418,45 +444,46 @@ io.on("connection", async (socket) => {
 
 // --- 11. 儀表板排版 API ---
 app.post("/api/layout/load", async (req, res) => {
-    try {
-        const layoutJSON = await redis.get(KEY_ADMIN_LAYOUT);
-        if (layoutJSON) {
-            res.json({ success: true, layout: JSON.parse(layoutJSON) });
-        } else {
-            res.json({ success: true, layout: null });
-        }
-    } catch (e) {
-        res.status(500).json({ error: e.message });
+    const layoutJSON = await redis.get(KEY_ADMIN_LAYOUT);
+    if (layoutJSON) {
+        res.json({ success: true, layout: JSON.parse(layoutJSON) });
+    } else {
+        res.json({ success: true, layout: null });
     }
 });
 
 app.post("/api/layout/save", async (req, res) => {
-    try {
-        const { layout } = req.body;
-        if (!layout || !Array.isArray(layout)) {
-            return res.status(400).json({ error: "排版資料格式不正確。" });
-        }
-        
-        const layoutJSON = JSON.stringify(layout);
-        await redis.set(KEY_ADMIN_LAYOUT, layoutJSON);
-        await addAdminLog(`💾 儀表板排版已儲存`); // 【日誌】
-        
-        res.json({ success: true, message: "排版已儲存。" });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
+    const { layout } = req.body;
+    if (!layout || !Array.isArray(layout)) {
+        return res.status(400).json({ error: "排版資料格式不正確。" });
     }
+    
+    const layoutJSON = JSON.stringify(layout);
+    await redis.set(KEY_ADMIN_LAYOUT, layoutJSON);
+    await addAdminLog(`💾 儀表板排版已儲存`); 
+    
+    res.json({ success: true, message: "排版已儲存。" });
 });
 
 // --- 【新功能】 清空日誌 API ---
 app.post("/api/logs/clear", async (req, res) => {
-    try {
-        await redis.del(KEY_ADMIN_LOG);
-        await addAdminLog(`🧼 管理員清空了所有日誌`); // 【日誌】
-        io.emit("initAdminLogs", []); // 廣播清空
-        res.json({ success: true, message: "日誌已清空。" });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
+    await redis.del(KEY_ADMIN_LOG);
+    await addAdminLog(`🧼 管理員清空了所有日誌`); 
+    io.emit("initAdminLogs", []); 
+    res.json({ success: true, message: "日誌已清空。" });
+});
+
+
+// --- 【重構】 集中錯誤處理 Middleware ---
+// 必須放在所有 app.use 和 app.post/get 之後
+app.use((err, req, res, next) => {
+    console.error("❌ 發生未處理的錯誤:", err.stack || err);
+    
+    if (res.headersSent) {
+        return next(err);
     }
+    
+    res.status(err.status || 500).json({ error: err.message || "伺服器內部錯誤" });
 });
 
 
