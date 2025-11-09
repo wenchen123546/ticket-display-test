@@ -19,12 +19,12 @@ const adminLogUI = document.getElementById("admin-log-ui");
 const clearLogBtn = document.getElementById("clear-log-btn");
 const resetAllBtn = document.getElementById("resetAll");
 const resetAllConfirmBtn = document.getElementById("resetAllConfirm");
-const saveLayoutBtn = document.getElementById("save-layout-btn"); 
+// saveLayoutBtn 已移除
 
 // --- 2. 全域變數 ---
 let token = "";
 let resetAllTimer = null;
-let grid = null; // GridStack 物件
+// grid (GridStack 物件) 已移除
 let toastTimer = null; // 【新】 Toast 計時器
 
 // --- 3. Socket.io ---
@@ -49,35 +49,7 @@ async function showPanel() {
     document.title = "後台管理 - 控制台";
     socket.connect();
 
-    let savedLayout = null;
-    try {
-        // (日誌現在由 Socket.io 載入，移除 adminLog)
-        const response = await apiRequest("/api/layout/load", {}, true); // true = 需要回傳資料
-        if (response && response.layout) {
-            savedLayout = response.layout;
-            showToast("✅ 已載入儲存的排版", "success");
-        } else {
-            showToast("ℹ️ 使用預設排版", "info");
-        }
-    } catch (e) {
-        showToast(`❌ 讀取排版失敗: ${e.message}`, "error");
-    }
-
-    setTimeout(() => {
-        grid = GridStack.init({
-            column: 12, 
-            cellHeight: 'auto', 
-            margin: 10,         
-            minRow: 1,          
-            float: true,      
-            removable: false,   
-            alwaysShowResizeHandle: 'mobile' 
-        });
-        
-        if (savedLayout) {
-            grid.load(savedLayout);
-        }
-    }, 100); 
+    // 移除所有 GridStack 和 layout 載入邏輯
 }
 
 async function checkToken(tokenToCheck) {
@@ -435,27 +407,4 @@ publicToggle.addEventListener("change", () => {
     apiRequest("/set-public-status", { isPublic: isPublic });
 });
 
-// --- 13. 綁定 GridStack 儲存按鈕 ---
-if (saveLayoutBtn) {
-    saveLayoutBtn.addEventListener("click", async () => {
-        if (!grid) return;
-        
-        const layoutData = grid.save(false).map(item => ({
-            id: item.id,
-            x: item.x, 
-            y: item.y, 
-            w: item.w, 
-            h: item.h 
-        }));
-
-        showToast("💾 正在儲存排版...", "info");
-        console.log("正在儲存:", JSON.stringify(layoutData, null, 2));
-
-        const success = await apiRequest("/api/layout/save", { layout: layoutData });
-        
-        if (success) {
-            showToast("✅ 排版已成功儲存！", "success");
-        } 
-        // (失敗的 toast 會由 apiRequest 自動處理)
-    });
-}
+// --- 13. 綁定 GridStack 儲存按鈕 --- (已移除)
