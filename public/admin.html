@@ -6,9 +6,7 @@
 <title>後台管理 - 登入</title>
 <script src="/socket.io/socket.io.js"></script>
 
-<link rel="stylesheet" href="/css/admin.css?v=6">
-
-</head>
+<link rel="stylesheet" href="/css/admin.css?v=7"> </head>
 <body>
 
 <div id="status-bar">連線中斷，正在嘗試重新連線...</div>
@@ -101,6 +99,17 @@
             </div>
         </div> 
 
+        <div class="card-wrapper" id="card-online-users">
+            <div class="admin-card">
+                <h3><span class="card-icon">🟢</span> 在線管理員</h3>
+                <div class="control-group">
+                    <ul id="online-users-list" class="online-users-ui">
+                        <li>(正在連線...)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
         <div class="card-wrapper" id="card-settings">
             <div class="admin-card">
                 <h3><span class="card-icon">⚙️</span> 系統設定</h3>
@@ -145,5 +154,5 @@
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=8"></script> </body>
+<script src="/js/admin.js?v=9"></script> </body>
 </html>
