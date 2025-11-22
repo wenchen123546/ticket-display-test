@@ -1,3 +1,9 @@
+/*
+ * ==========================================
+ * admin.css - v6 Complete
+ * ==========================================
+ */
+
 /* --- 1. 基礎 & 登入頁 --- */
 
 :root {
@@ -79,7 +85,6 @@ body {
 #login-container button:hover { opacity: 0.9; }
 #login-error { color: var(--color-danger); margin-top: 15px; height: 1.2rem; }
 
-/* 【新增】 管理密碼輸入框的上間距 */
 #password-input {
     margin-top: 15px;
 }
@@ -191,7 +196,6 @@ button.is-confirming {
     font-weight: bold;
 }
 
-
 input, textarea { 
     font-size: 1.2rem; 
     padding: 8px; 
@@ -210,7 +214,6 @@ input[type="url"] {
     text-align: left;
     padding-left: 12px;
 }
-
 
 /* --- 4. 列表編輯器 GUI --- */
 
@@ -274,14 +277,13 @@ input[type="url"] {
 .input-group { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; width: 100%; }
 .input-group input { flex: 1; min-width: 150px; margin: 5px; max-width: 100%; }
 
-/* 【修改】 讓 .input-group 內的按鈕有共同基礎 */
 .input-group button {
     margin: 5px;
     flex-shrink: 0;
     padding: 0;
-    height: 40px; /* 統一高度 (配合 input 預設) */
-    border-radius: 50%; /* 預設圓形 */
-    box-sizing: border-box; /* 確保 padding 不影響高度 */
+    height: 40px; 
+    border-radius: 50%; 
+    box-sizing: border-box; 
 }
 
 .input-group .btn-add { 
@@ -291,47 +293,39 @@ input[type="url"] {
     color: white; 
     width: 40px; 
     min-width: 40px; 
-    width: 40px !important; /* 覆蓋全域 button 寬度 */
+    width: 40px !important; 
 }
 
-/* 【新】 .input-group 內的 "動作" 按鈕 (例如: 設定) */
 .input-group .btn-action {
-    font-size: 1rem; /* 較小字體 */
-    /* 顏色繼承自 .btn-secondary (在 HTML 中) */
+    font-size: 1rem; 
     color: white;
-    min-width: 60px; /* 最小寬度 */
-    width: auto; /* 自動寬度 */
-    padding: 0 15px; /* 左右內距 */
-    border-radius: 8px; /* 圓角矩形 */
+    min-width: 60px; 
+    width: auto; 
+    padding: 0 15px; 
+    border-radius: 8px; 
 }
-/* 覆蓋 .btn-secondary 的全域 margin */
 .input-group .btn-secondary.btn-action {
     margin: 5px; 
 }
 
-
-/* 【新】 list-editor 內的子標籤 (用於分隔 "新增" 和 "設定綽號") */
 .list-editor .input-group-label {
-    display: block; /* 確保獨佔一行 */
+    display: block; 
     font-size: 0.9rem;
     font-weight: bold;
     color: var(--color-neutral);
-    margin-top: 20px; /* 與上方區塊拉開距離 */
-    margin-bottom: 0px; /* 緊貼下方的 input-group */
+    margin-top: 20px; 
+    margin-bottom: 0px; 
     text-align: left;
     width: 100%;
     padding-left: 5px;
     box-sizing: border-box;
 }
-/* 第一個 label 不加 margin-top */
 .list-editor .input-group-label:first-of-type {
-    margin-top: 5px; /* 只需一點點間距 */
+    margin-top: 5px; 
 }
-/* 讓 input-group 緊隨 label */
 .list-editor .input-group {
     margin-top: 5px;
 }
-
 
 /* --- 5. 按鈕顏色 (使用 Class) --- */
 
@@ -347,8 +341,6 @@ input[type="url"] {
 #prev { background-color: var(--color-warning); }
 #next { background-color: var(--color-success); }
 #setNumber { background-color: var(--color-primary); }
-#savePassedNumbers { background-color: var(--color-cyan); }
-#saveFeaturedContents { background-color: var(--color-secondary); } 
 
 /* --- 6. 重置區域 --- */
 
@@ -366,14 +358,8 @@ input[type="url"] {
 .list-editor .btn-reset-single { margin-top: 15px; }
 .form-group-boxed .btn-reset-single { margin-top: 5px; }
 
-
-#resetAll { 
-    /* 【修改】 改回 100% 寬度，使其與上方的 Toggle 區塊一致 */
-    width: 100%; 
-}
-#resetAllConfirm { 
-    width: 100%; 
-}
+#resetAll { width: 100%; }
+#resetAllConfirm { width: 100%; }
 
 /* --- 7. RWD --- */
 
@@ -415,7 +401,7 @@ input[type="url"] {
 }
 #status-bar.visible { transform: translateY(0); }
 
-/* --- 9. Toggle 開關 --- */
+/* --- 9. Toggle & Boxed Controls (含廣播功能樣式) --- */
 
 .control-group.sound-toggle-group,
 .control-group.system-toggle-group { 
@@ -452,6 +438,25 @@ input[type="url"] {
     box-sizing: border-box;
     margin-bottom: 20px;
 }
+
+/* 【新】 修正 form-group-boxed 內的 input-group 排版 (適用於廣播、設定號碼等) */
+.form-group-boxed .input-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    gap: 10px; /* 按鈕與輸入框的間距 */
+    margin-top: 10px;
+}
+
+/* 【新】 廣播按鈕樣式修正 */
+#btn-broadcast {
+    height: 42px; /* 與 input 預設高度匹配 */
+    margin: 0;    /* 移除預設 margin 以配合 flex gap */
+    border-radius: 8px; /* 矩形圓角，非圓形 */
+}
+
 
 .system-toggle-group label.is-confirming-label {
     color: var(--color-warning-dark);
@@ -503,7 +508,7 @@ input[type="url"] {
     background-color: var(--color-neutral); 
     margin-top: 10px;
     flex-shrink: 0; 
-    display: none; /* 【新增】 預設隱藏 (由 JS 控制顯示) */
+    display: none; 
 }
 .admin-log-container .btn-clear-log:hover { opacity: 0.9; }
 
@@ -542,7 +547,7 @@ input[type="url"] {
     color: white;
 }
 
-/* --- 14. 【新】 在線管理員列表樣式 --- */
+/* --- 14. 在線管理員列表樣式 --- */
 .online-users-ui {
     list-style: none;
     padding: 0;
@@ -567,7 +572,6 @@ input[type="url"] {
     font-weight: bold;
     color: var(--color-text);
 }
-/* 標記 "自己" 的樣式 */
 .online-users-ui li .is-self {
     color: var(--color-primary);
     font-weight: bold;
@@ -580,7 +584,7 @@ input[type="url"] {
     margin-left: 5px;
 }
 
-/* 【新增】 超管卡片預設隱藏 (由 JS 控制顯示) */
+/* 超管卡片預設隱藏 */
 #card-user-management {
     display: none;
 }
