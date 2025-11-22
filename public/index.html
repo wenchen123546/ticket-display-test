@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>候位號碼顯示</title>
-
+    <title>線上叫號系統</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#2563eb">
     <script src="/socket.io/socket.io.js"></script>
@@ -23,32 +22,44 @@
     <audio id="notify-sound" src="/ding.mp3" preload="auto"></audio>
 
     <div class="top-header">
-        <h1>💉熱血不宜攔！🩸</h1>
+        <h1>線上叫號系統</h1>
         <p id="last-updated">正在連線...</p>
     </div>
     
     <div class="content-wrapper">
-        
         <div class="card" id="current-number-card">
             <h2>目前號碼</h2>
             <p id="number">0</p>
         </div>
 
-        <div class="card" id="passed-container">
-            <h3>已過號</h3>
-            <ul id="passedList">
-            </ul>
-            <p id="passed-empty-msg" class="empty-state-message">目前尚無過號</p>
+        <div id="kiosk-area" style="display:none; width:100%;">
+            <button id="btn-take-ticket" class="btn-kiosk">
+                🎫 我要取號
+            </button>
+            <p style="color:#666; font-size:0.9rem; margin-top:5px;">目前等待人數：<span id="kiosk-waiting-count">0</span> 人</p>
         </div>
 
+        <div class="card" id="passed-container">
+            <h3>已過號</h3>
+            <ul id="passedList"></ul>
+            <p id="passed-empty-msg" class="empty-state-message">目前尚無過號</p>
+        </div>
     </div>
+
+    <div id="ticket-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <h3>取號成功！</h3>
+            <p>您的號碼是</p>
+            <div id="my-new-ticket" style="font-size:3rem; font-weight:bold; color:#2563eb; margin:10px 0;"></div>
+            <p style="font-size:0.9rem; color:#666;">前方還有 <span id="modal-waiting-count">0</span> 人</p>
+            <p style="font-size:0.8rem; color:#999; margin-top:15px;">請截圖保存或記住此號碼</p>
+            <button id="btn-close-ticket" class="btn-kiosk" style="font-size:1rem; padding:10px; margin-top:10px;">好的</button>
+        </div>
+    </div>
+
     <div class="utility-buttons">
-        <div id="copy-link-prompt">
-            <span class="emoji">🔗</span> 點此複製網頁連結
-        </div>
-        <div id="sound-prompt" style="display: none;">
-            <span class="emoji">🔊</span> 點此啟用提示音效
-        </div>
+        <div id="copy-link-prompt"><span class="emoji">🔗</span> 複製連結</div>
+        <div id="sound-prompt" style="display: none;"><span class="emoji">🔊</span> 啟用音效</div>
     </div>
 
     <div class="card" style="margin-top: 20px; max-width: 900px; padding: 15px;">
@@ -57,16 +68,16 @@
             <input type="number" id="my-number" placeholder="輸入您的號碼" style="padding: 8px; border-radius: 8px; border: 1px solid #ccc; width: 120px; text-align: center; font-size: 1rem;">
             <button id="enable-notify-btn" style="background-color: #2563eb; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;">設定提醒</button>
         </div>
-        
         <p id="estimated-wait" style="font-size: 0.9rem; color: #2563eb; margin-top: 10px; display:none; font-weight: bold;">
             ⏳ 預估等待時間：約 <span id="wait-minutes">0</span> 分鐘
         </p>
-
         <p id="notify-status" style="font-size: 0.9rem; color: #666; margin-top: 8px; margin-bottom: 0;">(設定後，即使網頁在背景也會收到通知)</p>
     </div>
 
-    <div id="featured-container">
-        <p id="featured-empty-msg" class="empty-state-message">暫無精選連結</p>
+    <div id="featured-container"></div>
+    
+    <div style="margin-top:20px; font-size:0.9rem; color:#666;">
+        <p>加入 LINE 官方帳號，隨時查詢叫號進度！</p>
     </div>
 
     <div id="qr-code-container">
