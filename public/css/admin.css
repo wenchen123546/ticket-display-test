@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * admin.css - v7.1 Layout Overflow Fix
+ * admin.css - v7.2 Layout Stability Fix
  * ==========================================
  */
 
@@ -32,7 +32,6 @@ body {
     margin: 0; 
     padding: 20px; 
     padding-top: 30px; 
-    /* 【修復】防止水平捲軸溢出 */
     max-width: 100vw;
     overflow-x: hidden;
     box-sizing: border-box;
@@ -93,7 +92,7 @@ body {
     margin-top: 15px;
 }
 
-/* --- 2. CSS Grid 卡片佈局 (修復版) --- */
+/* --- 2. CSS Grid 卡片佈局 (穩定版) --- */
 
 #admin-panel { 
     display: none; 
@@ -108,15 +107,27 @@ body {
 
 .card-container {
     display: grid;
-    /* 【修復】將最小寬度降為 300px，適應 iPhone SE 等小螢幕 */
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    /* 【修復】使用固定 3 欄，避免忽大忽小 */
+    grid-template-columns: repeat(3, 1fr);
     gap: 20px;
     align-items: start;
     width: 100%;
     box-sizing: border-box;
 }
 
-/* 防止 Grid Item 溢出 */
+/* RWD 斷點設定：解決版面不穩定的問題 */
+@media (max-width: 1100px) {
+    .card-container {
+        grid-template-columns: repeat(2, 1fr); /* 中螢幕變 2 欄 */
+    }
+}
+
+@media (max-width: 768px) {
+    .card-container {
+        grid-template-columns: 1fr; /* 手機變 1 欄 */
+    }
+}
+
 .card-wrapper {
     width: 100%;
     min-width: 0; 
@@ -132,8 +143,7 @@ body {
     box-sizing: border-box; 
     display: flex;
     flex-direction: column; 
-    /* 【修復】防止內容撐開卡片 */
-    overflow: hidden;
+    overflow: hidden; 
 }
 
 .admin-card h3 {
@@ -163,21 +173,6 @@ body {
     margin-bottom: 0;
 }
 
-.control-group.button-row { 
-    flex-direction: row; 
-    justify-content: center; 
-    flex-wrap: wrap; 
-}
-
-.control-group label { 
-    display: block; 
-    font-size: 1.1rem; 
-    color: var(--color-text); 
-    margin-bottom: 8px; 
-    font-weight: bold; 
-    text-align: center; 
-}
-
 /* --- 3. 按鈕 & 輸入框 --- */
 
 button { 
@@ -188,16 +183,40 @@ button {
     border-radius: 8px; 
     cursor: pointer; 
     color: white; 
-    min-width: 120px; 
+    /* 全域最小寬度，但會在特定區塊覆蓋它 */
+    min-width: 100px; 
     width: 100%; 
     box-sizing: border-box;
     transition: background-color 0.2s ease; 
 }
 button:disabled { background-color: #999; cursor: not-allowed; opacity: 0.7; }
+
+/* 頂部的大按鈕 (上一號、下一號) */
+.control-group.button-row { 
+    flex-direction: row; 
+    justify-content: center; 
+    flex-wrap: wrap; 
+}
 .control-group.button-row button { 
     width: auto; 
     min-width: 120px; 
     flex-grow: 1; 
+}
+
+/* 【修復】 數據分析按鈕區塊：允許換行 */
+.stats-actions-row {
+    display: flex;
+    flex-wrap: wrap; /* 關鍵：允許換行 */
+    gap: 10px;
+    width: 100%;
+    margin-top: 10px;
+}
+.stats-actions-row button {
+    flex: 1 1 auto; /* 彈性伸縮 */
+    min-width: 70px; /* 允許縮得更小 */
+    padding: 8px 10px;
+    font-size: 1rem;
+    margin: 0;
 }
 
 button.is-confirming {
@@ -257,7 +276,6 @@ input[type="url"] {
     margin-bottom: 8px; 
     font-size: 1.1rem; 
     text-align: left; 
-    /* 【修復】長網址自動斷行，防止撐開版面 */
     word-break: break-all;
     word-wrap: break-word;
 }
@@ -286,7 +304,7 @@ input[type="url"] {
 }
 
 .input-group { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; width: 100%; }
-.input-group input { flex: 1; min-width: 150px; margin: 5px; max-width: 100%; }
+.input-group input { flex: 1; min-width: 80px; margin: 5px; max-width: 100%; }
 
 .input-group button {
     margin: 5px;
@@ -372,9 +390,8 @@ input[type="url"] {
 #resetAll { width: 100%; }
 #resetAllConfirm { width: 100%; }
 
-/* --- 7. RWD 強力優化 --- */
+/* --- 7. RWD --- */
 
-/* 平板與手機：強制單欄，並減少內距 */
 @media (max-width: 768px) { 
     body { 
         padding: 10px; 
@@ -385,12 +402,6 @@ input[type="url"] {
     #admin-panel {
         width: 100%;
         margin: 0;
-    }
-
-    .card-container {
-        /* 【重要】手機板強制單欄，避免被 minmax 撐開 */
-        grid-template-columns: 1fr; 
-        gap: 15px;
     }
 
     .admin-card {
@@ -512,7 +523,6 @@ input[type="url"] {
     font-family: "Consolas", "Monaco", monospace; 
     font-size: 0.9rem; 
     box-sizing: border-box; 
-    /* 防止長 Log 撐開版面 */
     word-break: break-all;
     white-space: pre-wrap; 
 }
