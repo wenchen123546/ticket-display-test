@@ -1,11 +1,9 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v9.0 Custom Line Messages
- * 功能：Socket.io 叫號 + Redis + LINE Bot + 自訂訊息模板
+ * 伺服器 (index.js) - v10.0 Layout & CSV Fix
  * ==========================================
  */
 
-// --- 1. 模組載入 ---
 const express = require("express");
 const http = require("http");
 const socketio = require("socket.io");
@@ -16,21 +14,15 @@ const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcrypt'); 
 const line = require('@line/bot-sdk'); 
 
-// --- 2. 伺服器實體化 ---
 const app = express();
 const server = http.createServer(app);
-const io = socketio(server, {
-    cors: { origin: "*" },
-    pingTimeout: 60000
-});
+const io = socketio(server, { cors: { origin: "*" }, pingTimeout: 60000 });
 
-// --- 3. 核心設定 & 安全性 ---
 const PORT = process.env.PORT || 3000;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN; 
 const REDIS_URL = process.env.UPSTASH_REDIS_URL;
 const SALT_ROUNDS = 10; 
 
-// LINE Bot 設定
 const lineConfig = {
     channelAccessToken: process.env.LINE_ACCESS_TOKEN,
     channelSecret: process.env.LINE_CHANNEL_SECRET
@@ -41,16 +33,14 @@ if (!ADMIN_TOKEN || !REDIS_URL) {
     process.exit(1);
 }
 
-// 建立 LINE Client
 let lineClient = null;
 if (lineConfig.channelAccessToken && lineConfig.channelSecret) {
     lineClient = new line.Client(lineConfig);
     console.log("✅ LINE Bot Client 已初始化");
 } else {
-    console.warn("⚠️ 警告：未設定 LINE 環境變數，LINE 功能暫停");
+    console.warn("⚠️ 警告：未設定 LINE 環境變數");
 }
 
-// --- 5. 連線到 Upstash Redis ---
 const redis = new Redis(REDIS_URL, {
     tls: { rejectUnauthorized: false },
     retryStrategy: (times) => Math.min(times * 50, 2000)
@@ -70,7 +60,7 @@ redis.defineCommand("decrIfPositive", {
     `,
 });
 
-// --- 6. Redis Keys ---
+// --- Keys ---
 const KEY_CURRENT_NUMBER = 'callsys:number';
 const KEY_PASSED_NUMBERS = 'callsys:passed';
 const KEY_FEATURED_CONTENTS = 'callsys:featured';
@@ -84,18 +74,15 @@ const SESSION_PREFIX = 'callsys:session:';
 const KEY_HISTORY_STATS = 'callsys:stats:history';
 const KEY_STATS_HOURLY_PREFIX = 'callsys:stats:hourly:'; 
 const KEY_LINE_SUB_PREFIX = 'callsys:line:notify:';
-
-// 【新增】 LINE 訊息模板 Keys
 const KEY_LINE_MSG_APPROACH = 'callsys:line:msg:approach';
 const KEY_LINE_MSG_ARRIVAL = 'callsys:line:msg:arrival';
 
-// 預設訊息
 const DEFAULT_LINE_MSG_APPROACH = "🔔 叫號提醒！\n\n目前已叫號至 {current} 號。\n您的 {target} 號即將輪到 (剩 {diff} 組)，請準備前往現場！";
 const DEFAULT_LINE_MSG_ARRIVAL = "🎉 輪到您了！\n\n目前號碼：{current} 號\n請立即前往櫃台辦理。";
 
 const onlineAdmins = new Map();
 
-// --- 7. Middleware ---
+// --- Middleware ---
 app.use(helmet({
     contentSecurityPolicy: {
       directives: {
@@ -107,7 +94,6 @@ app.use(helmet({
     },
 }));
 
-// LINE Webhook
 if (lineClient) {
     app.post('/callback', line.middleware(lineConfig), (req, res) => {
         Promise.all(req.body.events.map(handleLineEvent))
@@ -143,7 +129,7 @@ const superAdminAuthMiddleware = (req, res, next) => {
     else res.status(403).json({ error: "權限不足" });
 };
 
-// --- 8. 輔助函式 ---
+// --- Helpers ---
 
 function sanitize(str) {
     if (typeof str !== 'string') return '';
@@ -190,15 +176,23 @@ async function addAdminLog(nickname, message) {
     } catch (e) { console.error("Log error:", e); }
 }
 
+// 【修正】 計算平均時間：需過濾掉手動調整的非數字紀錄
 async function calculateAverageWaitTime() {
     try {
-        const historyRaw = await redis.lrange(KEY_HISTORY_STATS, 0, 4); 
-        if (historyRaw.length < 2) return 0; 
-        const history = historyRaw.map(JSON.parse);
+        const historyRaw = await redis.lrange(KEY_HISTORY_STATS, 0, 10); 
+        // 過濾掉 num 不是數字的紀錄 (例如 "Adj")
+        const history = historyRaw
+            .map(JSON.parse)
+            .filter(r => typeof r.num === 'number');
+
+        if (history.length < 2) return 0;
+
         const newest = history[0];
         const oldest = history[history.length - 1];
+        
         const timeDiff = (new Date(newest.time) - new Date(oldest.time)) / 1000 / 60;
         const numDiff = Math.abs(newest.num - oldest.num);
+        
         if (numDiff === 0 || timeDiff <= 0) return 0;
         return timeDiff / numDiff; 
     } catch (e) { return 0; }
@@ -265,7 +259,6 @@ async function handleLineEvent(event) {
     });
 }
 
-// 格式化訊息 helper
 function formatLineMessage(template, current, target) {
     const diff = Math.max(0, target - current);
     return template
@@ -278,41 +271,31 @@ async function checkAndNotifyLineUsers(currentNum) {
     if (!lineClient) return;
     try {
         currentNum = parseInt(currentNum);
-        
-        // 取得模板
         let [tplApproach, tplArrival] = await redis.mget(KEY_LINE_MSG_APPROACH, KEY_LINE_MSG_ARRIVAL);
         if (!tplApproach) tplApproach = DEFAULT_LINE_MSG_APPROACH;
         if (!tplArrival) tplArrival = DEFAULT_LINE_MSG_ARRIVAL;
 
-        // A. 提前 3 號
         const notifyTarget = currentNum + 3; 
         const subKey = `${KEY_LINE_SUB_PREFIX}${notifyTarget}`;
         const subscribers = await redis.smembers(subKey);
-
         if (subscribers.length > 0) {
             const msgText = formatLineMessage(tplApproach, currentNum, notifyTarget);
-            const messages = subscribers.map(userId => ({
-                to: userId, messages: [{ type: 'text', text: msgText }]
-            }));
+            const messages = subscribers.map(userId => ({ to: userId, messages: [{ type: 'text', text: msgText }] }));
             await Promise.all(messages.map(msg => lineClient.pushMessage(msg.to, msg.messages)));
         }
 
-        // B. 準確到號
         const exactKey = `${KEY_LINE_SUB_PREFIX}${currentNum}`;
         const exactSubscribers = await redis.smembers(exactKey);
-        
         if (exactSubscribers.length > 0) {
             const msgText = formatLineMessage(tplArrival, currentNum, currentNum);
-             const messages = exactSubscribers.map(userId => ({
-                to: userId, messages: [{ type: 'text', text: msgText }]
-            }));
+             const messages = exactSubscribers.map(userId => ({ to: userId, messages: [{ type: 'text', text: msgText }] }));
             await Promise.all(messages.map(msg => lineClient.pushMessage(msg.to, msg.messages)));
             await redis.del(exactKey);
         }
     } catch (e) { console.error("Line Notify Error:", e); }
 }
 
-// --- 9. API Routes ---
+// --- Routes ---
 
 app.post("/login", loginLimiter, async (req, res) => {
     const { username, password } = req.body;
@@ -346,7 +329,6 @@ const protectedAPIs = [
 ];
 app.use(protectedAPIs, apiLimiter, authMiddleware);
 
-// --- LINE Settings API ---
 app.post("/api/admin/line-settings/get", async (req, res) => {
     try {
         const [approach, arrival] = await redis.mget(KEY_LINE_MSG_APPROACH, KEY_LINE_MSG_ARRIVAL);
@@ -376,7 +358,6 @@ app.post("/api/admin/line-settings/reset", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- Other Admin API ---
 app.post("/api/admin/export-csv", superAdminAuthMiddleware, async (req, res) => {
     try {
         const { dateStr } = getTaiwanDateInfo();
@@ -385,7 +366,9 @@ app.post("/api/admin/export-csv", superAdminAuthMiddleware, async (req, res) => 
         let csvContent = "\uFEFF時間,號碼,操作員\n";
         history.forEach(item => {
             const time = new Date(item.time).toLocaleTimeString('zh-TW', { hour12: false });
-            csvContent += `${time},${item.num},${item.operator}\n`;
+            // 如果 num 是 "Adj" 或其他標記，直接顯示，否則顯示號碼
+            const numDisplay = item.num; 
+            csvContent += `${time},${numDisplay},${item.operator}\n`;
         });
         res.json({ success: true, csvData: csvContent, fileName: `stats_${dateStr}.csv` });
         addAdminLog(req.user.nickname, "📥 下載了 CSV 報表");
@@ -462,6 +445,7 @@ app.post("/api/admin/stats", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 【修正】手動調整圖表數據：同時寫入 History 以便 CSV 匯出
 app.post("/api/admin/stats/adjust", async (req, res) => {
     try {
         const { hour, delta } = req.body;
@@ -469,6 +453,17 @@ app.post("/api/admin/stats/adjust", async (req, res) => {
         const key = `${KEY_STATS_HOURLY_PREFIX}${dateStr}`;
         const newVal = await redis.hincrby(key, hour, delta);
         if (newVal < 0) await redis.hset(key, hour, 0);
+
+        // 新增：寫入歷史清單，讓 CSV 可以匯出
+        // 使用 "Adj" 作為號碼，以便區分
+        const record = {
+            num: "Adj", 
+            time: new Date().toISOString(),
+            operator: `${req.user.nickname} (調整${hour}點: ${delta>0?'+':''}${delta})`
+        };
+        await redis.lpush(KEY_HISTORY_STATS, JSON.stringify(record));
+        await redis.ltrim(KEY_HISTORY_STATS, 0, 999);
+
         addAdminLog(req.user.nickname, `手動調整 ${hour}點 統計`);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -661,5 +656,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v9.0 (Custom Line Msg) ready on port ${PORT}`);
+    console.log(`🚀 Server v10.0 ready on port ${PORT}`);
 });
