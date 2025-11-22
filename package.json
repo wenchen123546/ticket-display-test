@@ -1,7 +1,11 @@
 {
+type: uploaded file
+fileName: package.json
+fullContent:
+{
   "name": "socket-number-system",
-  "version": "1.0.0",
-  "description": "使用 Socket.io 和 Redis 的即時叫號系統",
+  "version": "2.0.0",
+  "description": "即時叫號系統 - Kiosk & Line Upgrade",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -16,9 +20,11 @@
     "express-rate-limit": "^7.3.0",
     "helmet": "^7.1.0",
     "bcrypt": "^5.1.1",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "axios": "^1.6.8"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
   }
+}
 }
