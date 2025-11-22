@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v10.0 Layout & CSV Fix
+ * 伺服器 (index.js) - v10.1 Layout Fix & CSV Log
  * ==========================================
  */
 
@@ -176,11 +176,11 @@ async function addAdminLog(nickname, message) {
     } catch (e) { console.error("Log error:", e); }
 }
 
-// 【修正】 計算平均時間：需過濾掉手動調整的非數字紀錄
+// 【修復】計算平均時間：過濾掉手動調整的非數字紀錄 (num="Adj")
 async function calculateAverageWaitTime() {
     try {
         const historyRaw = await redis.lrange(KEY_HISTORY_STATS, 0, 10); 
-        // 過濾掉 num 不是數字的紀錄 (例如 "Adj")
+        // 只保留 num 為數字的紀錄
         const history = historyRaw
             .map(JSON.parse)
             .filter(r => typeof r.num === 'number');
@@ -358,6 +358,7 @@ app.post("/api/admin/line-settings/reset", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 【修復】 CSV 匯出：正確讀取歷史紀錄 (包含手動調整)
 app.post("/api/admin/export-csv", superAdminAuthMiddleware, async (req, res) => {
     try {
         const { dateStr } = getTaiwanDateInfo();
@@ -366,7 +367,7 @@ app.post("/api/admin/export-csv", superAdminAuthMiddleware, async (req, res) => 
         let csvContent = "\uFEFF時間,號碼,操作員\n";
         history.forEach(item => {
             const time = new Date(item.time).toLocaleTimeString('zh-TW', { hour12: false });
-            // 如果 num 是 "Adj" 或其他標記，直接顯示，否則顯示號碼
+            // item.num 可能是數字，也可能是 "Adj" 字串
             const numDisplay = item.num; 
             csvContent += `${time},${numDisplay},${item.operator}\n`;
         });
@@ -445,7 +446,7 @@ app.post("/api/admin/stats", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 【修正】手動調整圖表數據：同時寫入 History 以便 CSV 匯出
+// 【修復】手動調整圖表數據：寫入 History (使用 "Adj" 標記)，讓 CSV 可讀取
 app.post("/api/admin/stats/adjust", async (req, res) => {
     try {
         const { hour, delta } = req.body;
@@ -454,10 +455,9 @@ app.post("/api/admin/stats/adjust", async (req, res) => {
         const newVal = await redis.hincrby(key, hour, delta);
         if (newVal < 0) await redis.hset(key, hour, 0);
 
-        // 新增：寫入歷史清單，讓 CSV 可以匯出
-        // 使用 "Adj" 作為號碼，以便區分
+        // 新增這段：寫入歷史清單
         const record = {
-            num: "Adj", 
+            num: "Adj", // 特殊標記，非數字
             time: new Date().toISOString(),
             operator: `${req.user.nickname} (調整${hour}點: ${delta>0?'+':''}${delta})`
         };
@@ -656,5 +656,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v10.0 ready on port ${PORT}`);
+    console.log(`🚀 Server v10.1 ready on port ${PORT}`);
 });
