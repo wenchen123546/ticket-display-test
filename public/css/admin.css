@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * admin.css - v8.1 List Layout Fix
+ * admin.css - v8.2 Button Alignment & Color Fix
  * ==========================================
  */
 
@@ -18,7 +18,7 @@
     --color-warning-dark: #7f1d1d;
     --color-secondary: #8b5cf6;
     --color-cyan: #0891b2;
-    --color-neutral: #71717a;
+    --color-neutral: #64748b; /* 加深一點灰色，確保按鈕可見 */
     --color-border: #ccc;
     --color-log-bg: #2d3748;
     --color-log-text: #e2e8f0;
@@ -109,7 +109,7 @@ body {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 20px;
-    align-items: stretch;
+    align-items: stretch; /* 等高 */
     width: 100%;
     box-sizing: border-box;
 }
@@ -172,16 +172,14 @@ body {
     margin-bottom: 0;
 }
 
-/* --- 3. 列表與編輯器 (關鍵修正) --- */
+/* --- 3. 滾動區域 (Lists, Logs) --- */
 
 /* 列表編輯器容器 */
 .list-editor {
     display: flex;
     flex-direction: column;
-    /* 讓它填滿卡片剩下的空間 */
     flex-grow: 1; 
-    min-height: 200px; /* 給予基本高度 */
-    
+    min-height: 200px; 
     padding: 15px;
     background: #f9f9f9;
     border: 1px solid var(--color-border);
@@ -196,12 +194,9 @@ body {
     padding: 0;
     margin: 0 0 10px 0;
     width: 100%;
-    
-    /* 讓列表佔據中間所有空間，並支援滾動 */
     flex-grow: 1;
     overflow-y: auto;
-    min-height: 50px; /* 至少留一點空間 */
-    
+    min-height: 50px; 
     scrollbar-width: thin;
     scrollbar-color: #ccc transparent;
 }
@@ -219,17 +214,14 @@ body {
     font-size: 1rem; 
     text-align: left; 
 }
-
-/* 列表內的文字 Span */
 .list-editor li span { 
-    flex: 1; /* 佔據左側空間 */
+    flex: 1; 
     margin-right: 10px; 
     color: #333;
-    word-break: break-all; /* 防止長網址撐開 */
+    word-break: break-all; 
     line-height: 1.2;
 }
 
-/* 列表內的刪除按鈕 */
 .list-editor li .delete-item-btn { 
     background: var(--color-danger-light); 
     color: white; 
@@ -237,10 +229,10 @@ body {
     border-radius: 50%; 
     width: 28px; 
     height: 28px; 
-    min-width: 28px; /* 固定寬度 */
+    min-width: 28px; 
     font-size: 1.2rem; 
     cursor: pointer; 
-    flex-shrink: 0; /* 防止被擠壓 */
+    flex-shrink: 0; 
     padding: 0; 
     margin: 0; 
     display: flex;
@@ -249,7 +241,7 @@ body {
     transition: background 0.2s;
 }
 
-/* --- 其他滾動區域 (日誌、統計) --- */
+/* 日誌與其他滾動區域 */
 #admin-log-ui, 
 #stats-list-ui, 
 .online-users-ui {
@@ -279,6 +271,21 @@ body {
 #admin-log-ui li { padding-bottom: 3px; margin-bottom: 3px; border-bottom: 1px solid var(--color-log-border); }
 #admin-log-ui li:first-child { color: var(--color-success); font-weight: bold; }
 
+/* 【修復】日誌清除按鈕樣式 */
+.admin-log-container .btn-clear-log {
+    width: 100%; 
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    background-color: var(--color-neutral); /* 強制顏色 */
+    color: white; /* 強制白字 */
+    margin-top: 10px;
+    flex-shrink: 0; 
+    display: none; /* JS 會控制顯示 */
+    border-radius: 6px;
+}
+.admin-log-container .btn-clear-log:hover { opacity: 0.9; }
+
+
 #stats-list-ui {
     background: #f1f1f1; 
     padding: 10px; 
@@ -291,7 +298,7 @@ body {
     border-bottom: 1px solid #eee;
 }
 
-/* --- 4. 按鈕 & 輸入框 (Input Group 修正) --- */
+/* --- 4. 按鈕 & 輸入框 (對齊修正) --- */
 
 button { 
     font-size: 1.1rem; 
@@ -306,6 +313,12 @@ button {
     box-sizing: border-box;
     transition: background-color 0.2s ease; 
     flex-shrink: 0;
+    
+    /* 垂直對齊 */
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    line-height: normal;
 }
 button:disabled { background-color: #999; cursor: not-allowed; opacity: 0.7; }
 
@@ -341,9 +354,10 @@ button.is-confirming {
     font-weight: bold;
 }
 
+/* 輸入框樣式 */
 input, textarea { 
     font-size: 1.1rem; 
-    padding: 8px; 
+    padding: 0 8px; /* 上下 padding 0，改用 height */
     width: 100%; 
     text-align: center; 
     border-radius: 6px; 
@@ -360,6 +374,7 @@ textarea {
     overflow-y: auto;
     text-align: left; 
     resize: vertical; 
+    padding: 8px; /* textarea 需要 padding */
 }
 
 input[type="text"], input[type="password"], input[type="url"] {
@@ -367,10 +382,10 @@ input[type="text"], input[type="password"], input[type="url"] {
     padding-left: 10px;
 }
 
-/* 輸入框按鈕組 (修正 Input 排版) */
+/* 【重要】Input Group 對齊修正 */
 .input-group { 
     display: flex; 
-    flex-wrap: wrap; /* 允許換行 */
+    flex-wrap: wrap; 
     justify-content: center; 
     align-items: center; 
     width: 100%; 
@@ -379,16 +394,18 @@ input[type="text"], input[type="password"], input[type="url"] {
     margin-top: 5px;
 }
 
+/* 強制 Input 和 Button 等高 (40px) */
 .input-group input { 
-    flex: 1 1 40%; /* 預設佔 40%，空間不夠會換行 */
+    flex: 1 1 40%; 
     min-width: 100px; 
+    height: 40px; /* 固定高度 */
     margin: 0; 
 }
 
 .input-group button {
-    margin: 0;
     flex-shrink: 0;
-    height: 40px; 
+    height: 40px; /* 固定高度 */
+    margin: 0;
     border-radius: 6px; 
 }
 
@@ -396,7 +413,6 @@ input[type="text"], input[type="password"], input[type="url"] {
     font-size: 1.5rem; 
     font-weight: bold; 
     background: var(--color-success); 
-    color: white; 
     width: 40px; 
     min-width: 40px; 
 }
@@ -462,7 +478,7 @@ input[type="text"], input[type="password"], input[type="url"] {
     flex-shrink: 0;
 }
 .sound-toggle-group label, .system-toggle-group label { margin-bottom: 0; display: inline; }
-.sound-toggle-group input, .system-toggle-group input { margin-top: 0; width: auto; }
+.sound-toggle-group input, .system-toggle-group input { margin-top: 0; width: auto; height: auto; }
 
 .control-group.form-group-boxed {
     background: #f9f9f9; 
