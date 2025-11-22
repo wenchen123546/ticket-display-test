@@ -147,6 +147,30 @@
             </div>
         </div>
 
+        <div class="card-wrapper" id="card-line-settings">
+            <div class="admin-card">
+                <h3><span class="card-icon">💬</span> LINE 通知文案設定</h3>
+                
+                <div class="control-group form-group-boxed">
+                    <label>🔔 即將到號 (前3號) 提示語</label>
+                    <p style="font-size:0.8rem; color:#666; margin:0 0 5px 0;">
+                        變數：{current}目前 {target}用戶 {diff}差幾組
+                    </p>
+                    <textarea id="line-msg-approach" style="height: 100px; text-align: left;"></textarea>
+                </div>
+
+                <div class="control-group form-group-boxed">
+                    <label>🎉 正式到號 提示語</label>
+                    <textarea id="line-msg-arrival" style="height: 100px; text-align: left;"></textarea>
+                </div>
+
+                <div class="control-group button-row">
+                    <button id="btn-save-line-msg" type="button" class="btn-primary">儲存設定</button>
+                    <button id="btn-reset-line-msg" type="button" class="btn-reset-single">恢復預設值</button>
+                </div>
+            </div>
+        </div>
+
         <div class="card-wrapper" id="card-settings">
             <div class="admin-card">
                 <h3><span class="card-icon">⚙️</span> 系統設定</h3>
@@ -217,6 +241,6 @@
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=18"></script> 
+<script src="/js/admin.js?v=19"></script> 
 </body>
 </html>
