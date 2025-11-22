@@ -1,17 +1,13 @@
 {
-type: uploaded file
-fileName: package.json
-fullContent:
-{
   "name": "socket-number-system",
   "version": "2.0.0",
-  "description": "即時叫號系統 - Kiosk & Line Upgrade",
+  "description": "即時叫號系統 - Kiosk & Line 整合版",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
-  "author": "Your Name Here",
+  "author": "Your Name",
   "license": "ISC",
   "dependencies": {
     "express": "^4.19.2",
@@ -21,10 +17,9 @@ fullContent:
     "helmet": "^7.1.0",
     "bcrypt": "^5.1.1",
     "uuid": "^9.0.1",
-    "axios": "^1.6.8"
+    "@line/bot-sdk": "^9.2.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
   }
-}
 }
