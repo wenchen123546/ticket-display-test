@@ -1,7 +1,7 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v6.2 Fixed
- * 修復：數據即時更新、台灣時區校正、統計圖表準確度
+ * 伺服器 (index.js) - v6.3 Stats Mgmt
+ * 功能：增減特定時段人數、清空統計、WakeLock、廣播
  * ==========================================
  */
 
@@ -29,9 +29,8 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
 const REDIS_URL = process.env.UPSTASH_REDIS_URL;
 const SALT_ROUNDS = 10; 
 
-// --- 4. 關鍵檢查 ---
 if (!ADMIN_TOKEN || !REDIS_URL) {
-    console.error("❌ 錯誤： 環境變數未設定 (ADMIN_TOKEN 或 UPSTASH_REDIS_URL)");
+    console.error("❌ 錯誤： 環境變數未設定");
     process.exit(1);
 }
 
@@ -86,24 +85,19 @@ app.use(express.static("public"));
 app.use(express.json());
 
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 });
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, message: { error: "登入嘗試過多" } });
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
 
 const authMiddleware = async (req, res, next) => {
     try {
         const { token } = req.body; 
         if (!token) return res.status(401).json({ error: "未提供 Token" });
-
         const sessionKey = `${SESSION_PREFIX}${token}`;
         const sessionData = await redis.get(sessionKey);
         if (!sessionData) return res.status(403).json({ error: "Session 已過期" });
-
         req.user = JSON.parse(sessionData); 
         await redis.expire(sessionKey, 8 * 60 * 60); 
         next();
-    } catch (e) {
-        console.error("Auth error:", e);
-        res.status(500).json({ error: "驗證錯誤" });
-    }
+    } catch (e) { res.status(500).json({ error: "驗證錯誤" }); }
 };
 
 const superAdminAuthMiddleware = (req, res, next) => {
@@ -111,7 +105,7 @@ const superAdminAuthMiddleware = (req, res, next) => {
     else res.status(403).json({ error: "權限不足" });
 };
 
-// --- 8. 邏輯輔助函式 ---
+// --- 8. 輔助函式 ---
 
 function sanitize(str) {
     if (typeof str !== 'string') return '';
@@ -124,30 +118,19 @@ async function updateTimestamp() {
     io.emit("updateTimestamp", now);
 }
 
-// 【修正】 取得台灣時間資訊 (確保跨日與小時正確)
 function getTaiwanDateInfo() {
-    // 使用 Intl.DateTimeFormat 強制轉換為台北時間
-    const formatter = new Intl.DateTimeFormat('en-CA', { // en-CA 格式為 YYYY-MM-DD
+    const formatter = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Taipei',
         year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', hour12: false
     });
-    
-    // 解析時間字串 "2025-11-22, 22"
     const parts = formatter.formatToParts(new Date());
     const year = parts.find(p => p.type === 'year').value;
     const month = parts.find(p => p.type === 'month').value;
     const day = parts.find(p => p.type === 'day').value;
-    const hourStr = parts.find(p => p.type === 'hour').value; // 可能是 "09" 或 "24"
-    
-    let hour = parseInt(hourStr);
-    // 處理 24:00 的邊界情況 (部分環境)
+    let hour = parseInt(parts.find(p => p.type === 'hour').value);
     if (hour === 24) hour = 0;
-
-    return {
-        dateStr: `${year}-${month}-${day}`,
-        hour: hour
-    };
+    return { dateStr: `${year}-${month}-${day}`, hour: hour };
 }
 
 async function broadcastData(key, eventName, isJSON = false) {
@@ -161,7 +144,6 @@ async function broadcastData(key, eventName, isJSON = false) {
 
 async function addAdminLog(nickname, message) {
     try {
-        // 日誌時間也強制轉為台灣時間顯示
         const timeString = new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
         const log = `[${timeString}] [${nickname}] ${message}`;
         await redis.lpush(KEY_ADMIN_LOG, log);
@@ -170,21 +152,16 @@ async function addAdminLog(nickname, message) {
     } catch (e) { console.error("Log error:", e); }
 }
 
-// 【修正】 統計功能：使用台灣時間寫入 Redis
 async function logHistory(number, operator) {
     try {
         const { dateStr, hour } = getTaiwanDateInfo();
-        
         const record = { num: number, time: new Date().toISOString(), operator };
         
         const pipeline = redis.multi();
         pipeline.lpush(KEY_HISTORY_STATS, JSON.stringify(record));
         pipeline.ltrim(KEY_HISTORY_STATS, 0, 999); 
-        
-        // Key: callsys:stats:hourly:2025-11-22, Field: 22 (晚上10點)
         pipeline.hincrby(`${KEY_STATS_HOURLY_PREFIX}${dateStr}`, hour, 1); 
         pipeline.expire(`${KEY_STATS_HOURLY_PREFIX}${dateStr}`, 30 * 86400);
-        
         await pipeline.exec();
     } catch (e) { console.error("Log history error:", e); }
 }
@@ -198,34 +175,20 @@ function broadcastOnlineAdmins() {
 app.post("/login", loginLimiter, async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "請輸入帳號密碼" });
-
     try {
         let isValid = false;
         let role = 'normal';
-
         if (username === 'superadmin' && password === ADMIN_TOKEN) {
-            isValid = true;
-            role = 'super';
+            isValid = true; role = 'super';
         } else {
             const storedHash = await redis.hget(KEY_USERS, username);
             if (storedHash) isValid = await bcrypt.compare(password, storedHash);
         }
-
         if (!isValid) return res.status(403).json({ error: "帳號或密碼錯誤" });
-
         const sessionToken = uuidv4();
         let nickname = await redis.hget(KEY_NICKNAMES, username);
-        
-        if (!nickname && username === 'superadmin') {
-            nickname = 'Super Admin';
-            await redis.hset(KEY_NICKNAMES, 'superadmin', nickname);
-        } else if (!nickname) {
-            nickname = username;
-        }
-
-        const sessionData = JSON.stringify({ username, role, nickname });
-        await redis.set(`${SESSION_PREFIX}${sessionToken}`, sessionData, "EX", 28800); 
-
+        if (!nickname) nickname = username;
+        await redis.set(`${SESSION_PREFIX}${sessionToken}`, JSON.stringify({ username, role, nickname }), "EX", 28800);
         res.json({ success: true, token: sessionToken, role, username, nickname });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -235,7 +198,8 @@ const protectedAPIs = [
     "/api/passed/add", "/api/passed/remove", "/api/passed/clear",
     "/api/featured/add", "/api/featured/remove", "/api/featured/clear",
     "/set-sound-enabled", "/set-public-status", "/reset",
-    "/api/logs/clear", "/api/admin/stats", "/api/admin/broadcast"
+    "/api/logs/clear", "/api/admin/stats", "/api/admin/broadcast",
+    "/api/admin/stats/adjust", "/api/admin/stats/clear" // 【新 API】
 ];
 app.use(protectedAPIs, apiLimiter, authMiddleware);
 
@@ -262,7 +226,6 @@ app.post("/change-number", async (req, res) => {
 app.post("/set-number", async (req, res) => {
     const num = parseInt(req.body.number);
     if (isNaN(num) || num < 0) return res.status(400).json({ error: "無效號碼" });
-    
     await redis.set(KEY_CURRENT_NUMBER, num);
     await logHistory(num, req.user.nickname);
     addAdminLog(req.user.nickname, `手動設定為 ${num}`);
@@ -280,19 +243,16 @@ app.post("/api/admin/broadcast", async (req, res) => {
     res.json({ success: true });
 });
 
-// 【修正】 統計 API：回傳台灣時間數據
+// 統計 API
 app.post("/api/admin/stats", async (req, res) => {
     try {
-        const { dateStr, hour } = getTaiwanDateInfo(); // 取得台灣日期與當前小時
-        
+        const { dateStr, hour } = getTaiwanDateInfo();
         const [historyRaw, hourlyData] = await Promise.all([
             redis.lrange(KEY_HISTORY_STATS, 0, 99),
             redis.hgetall(`${KEY_STATS_HOURLY_PREFIX}${dateStr}`)
         ]);
-
         const hourlyCounts = new Array(24).fill(0);
         let todayTotal = 0;
-
         if (hourlyData) {
             for (const [hStr, count] of Object.entries(hourlyData)) {
                 const h = parseInt(hStr);
@@ -303,16 +263,54 @@ app.post("/api/admin/stats", async (req, res) => {
                 }
             }
         }
-
         res.json({ 
             success: true, 
             history: historyRaw.map(JSON.parse), 
             hourlyCounts: hourlyCounts, 
             todayCount: todayTotal,
-            serverHour: hour // 回傳伺服器認定的台灣當前小時
+            serverHour: hour 
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// 【新】 手動調整特定小時數據
+app.post("/api/admin/stats/adjust", async (req, res) => {
+    try {
+        const { hour, delta } = req.body;
+        if (hour === undefined || delta === undefined) return res.status(400).json({ error: "參數錯誤" });
+        
+        const { dateStr } = getTaiwanDateInfo();
+        const key = `${KEY_STATS_HOURLY_PREFIX}${dateStr}`;
+        
+        // 使用 HINCRBY 增減數值
+        const newVal = await redis.hincrby(key, hour, delta);
+        
+        // 確保數值不小於 0
+        if (newVal < 0) {
+            await redis.hset(key, hour, 0);
+        }
+
+        const op = delta > 0 ? "增加" : "減少";
+        addAdminLog(req.user.nickname, `手動${op}了 ${hour} 點的統計數據`);
+        
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// 【新】 清空今日數據與歷史
+app.post("/api/admin/stats/clear", async (req, res) => {
+    try {
+        const { dateStr } = getTaiwanDateInfo();
+        const multi = redis.multi();
+        multi.del(`${KEY_STATS_HOURLY_PREFIX}${dateStr}`); // 清空今日小時 Hash
+        multi.del(KEY_HISTORY_STATS); // 清空歷史列表
+        await multi.exec();
+        
+        addAdminLog(req.user.nickname, `⚠️ 管理員清空了統計數據`);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 
 app.post("/api/passed/add", async (req, res) => {
     const num = parseInt(req.body.number);
@@ -388,7 +386,6 @@ app.post("/reset", async (req, res) => {
     multi.del(KEY_ADMIN_LOG);
     multi.del(KEY_HISTORY_STATS); 
     await multi.exec();
-    
     addAdminLog(req.user.nickname, `💥 系統全域重置`);
     io.emit("update", 0);
     io.emit("updatePassed", []);
@@ -406,18 +403,13 @@ app.post("/api/logs/clear", async (req, res) => {
     res.json({ success: true });
 });
 
-// --- 10. Super Admin APIs ---
 app.use(["/api/admin/users", "/api/admin/add-user", "/api/admin/del-user", "/api/admin/set-nickname"], 
     authMiddleware, superAdminAuthMiddleware);
 
 app.post("/api/admin/users", async (req, res) => {
     const nicknames = await redis.hgetall(KEY_NICKNAMES) || {};
     const normalUsers = await redis.hkeys(KEY_USERS) || [];
-    const list = [{ 
-        username: 'superadmin', 
-        nickname: nicknames['superadmin'] || 'Super Admin', 
-        role: 'super' 
-    }];
+    const list = [{ username: 'superadmin', nickname: nicknames['superadmin'] || 'Super Admin', role: 'super' }];
     normalUsers.forEach(u => list.push({ username: u, nickname: nicknames[u] || u, role: 'normal' }));
     res.json({ success: true, users: list });
 });
@@ -448,7 +440,6 @@ app.post("/api/admin/set-nickname", async (req, res) => {
     res.json({ success: true });
 });
 
-// --- 11. Socket.io ---
 io.on("connection", async (socket) => {
     const token = socket.handshake.auth.token;
     if (token) {
@@ -457,17 +448,14 @@ io.on("connection", async (socket) => {
             const user = JSON.parse(session);
             onlineAdmins.set(socket.id, user);
             broadcastOnlineAdmins();
-            
             const logs = await redis.lrange(KEY_ADMIN_LOG, 0, 99);
             socket.emit("initAdminLogs", logs);
-
             socket.on("disconnect", () => {
                 onlineAdmins.delete(socket.id);
                 broadcastOnlineAdmins();
             });
         }
     }
-
     try {
         const pipeline = redis.multi();
         pipeline.get(KEY_CURRENT_NUMBER);
@@ -477,31 +465,24 @@ io.on("connection", async (socket) => {
         pipeline.get(KEY_SOUND_ENABLED);
         pipeline.get(KEY_IS_PUBLIC);
         const results = await pipeline.exec();
-        
         socket.emit("update", Number(results[0][1] || 0));
         socket.emit("updatePassed", (results[1][1] || []).map(Number));
         socket.emit("updateFeaturedContents", (results[2][1] || []).map(JSON.parse));
         socket.emit("updateTimestamp", results[3][1] || new Date().toISOString());
         socket.emit("updateSoundSetting", results[4][1] === "1");
         socket.emit("updatePublicStatus", results[5][1] !== "0");
-        
     } catch(e) { console.error("Socket init error:", e); }
 });
 
-// --- 12. Graceful Shutdown ---
 async function shutdown() {
     console.log('🛑 正在關閉伺服器...');
     io.close();
     await redis.quit();
-    server.close(() => {
-        console.log('✅ HTTP 伺服器已關閉');
-        process.exit(0);
-    });
+    server.close(() => { console.log('✅ HTTP 伺服器已關閉'); process.exit(0); });
 }
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
-// --- 13. Start ---
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v6.2 ready on port ${PORT}`);
+    console.log(`🚀 Server v6.3 ready on port ${PORT}`);
 });
