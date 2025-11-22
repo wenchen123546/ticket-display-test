@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * admin.css - v6.3 Complete
+ * admin.css - v7.0 Responsive Grid Layout
  * ==========================================
  */
 
@@ -89,30 +89,32 @@ body {
     margin-top: 15px;
 }
 
-/* --- 2. 卡片佈局 --- */
+/* --- 2. 【修改】 CSS Grid 卡片佈局 --- */
 
 #admin-panel { 
     display: none; 
     padding-top: 0; 
-    max-width: 1200px; 
+    width: 100%;
+    max-width: 1600px; /* 加寬最大寬度，適應大螢幕 */
     margin: 0 auto; 
+    box-sizing: border-box;
 }
 #admin-panel h1 { font-size: 3rem; color: var(--color-danger); margin-bottom: 30px; }
 #number { font-size: 5rem; color: var(--color-primary); margin: 20px 0; }
 
 .card-container {
-    display: flex;
-    flex-direction: row; /* 預設 2 欄 */
+    display: grid;
+    /* 自動填滿：每欄最小 380px，空間夠就自動增加欄數 */
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
     gap: 20px;
     align-items: start;
+    width: 100%;
 }
 
-.dashboard-column {
-    display: flex;
-    flex-direction: column;
-    gap: 20px; /* 卡片垂直間距 */
-    flex-basis: 0;
-    flex-grow: 1;
+/* 移除 dashboard-column 樣式，直接使用 .card-wrapper */
+.card-wrapper {
+    width: 100%;
+    min-width: 0; /* 防止 grid item 溢出 */
 }
 
 .admin-card {
@@ -361,11 +363,12 @@ input[type="url"] {
 #resetAll { width: 100%; }
 #resetAllConfirm { width: 100%; }
 
-/* --- 7. RWD --- */
+/* --- 7. RWD 優化 --- */
 
-@media (max-width: 900px) {
+/* 在手機上，強制單欄 */
+@media (max-width: 600px) {
     .card-container {
-        flex-direction: column; 
+        grid-template-columns: 1fr; /* 單欄 */
     }
 }
 
@@ -449,7 +452,6 @@ input[type="url"] {
     margin-top: 10px;
 }
 
-/* 廣播按鈕樣式修正 */
 #btn-broadcast {
     height: 42px; 
     margin: 0;    
@@ -497,8 +499,6 @@ input[type="url"] {
 #admin-log-ui li { padding-bottom: 3px; margin-bottom: 3px; border-bottom: 1px solid var(--color-log-border); }
 #admin-log-ui li:first-child { color: var(--color-success); font-weight: bold; }
 
-/* --- 11. 日誌清除按鈕 --- */
-
 .admin-log-container .btn-clear-log {
     width: 100%; 
     padding: 5px 12px;
@@ -510,13 +510,13 @@ input[type="url"] {
 }
 .admin-log-container .btn-clear-log:hover { opacity: 0.9; }
 
-/* --- 12. 主要號碼控制按鈕的樣式 --- */
+/* --- 11. 主要號碼控制按鈕的樣式 --- */
 #main-number-controls {
     margin-top: -20px; 
     margin-bottom: 30px; 
 }
 
-/* --- 13. Toast 通知 --- */
+/* --- 12. Toast 通知 --- */
 #toast-notification {
     position: fixed;
     top: 20px;
@@ -545,7 +545,7 @@ input[type="url"] {
     color: white;
 }
 
-/* --- 14. 在線管理員列表樣式 --- */
+/* --- 13. 在線管理員列表樣式 --- */
 .online-users-ui {
     list-style: none;
     padding: 0;
@@ -582,12 +582,11 @@ input[type="url"] {
     margin-left: 5px;
 }
 
-/* 超管卡片預設隱藏 */
 #card-user-management {
     display: none;
 }
 
-/* --- 15. 統計圖表樣式 (Hourly Chart) --- */
+/* --- 14. 統計圖表樣式 --- */
 .chart-container {
     display: flex;
     align-items: flex-end;
@@ -612,12 +611,12 @@ input[type="url"] {
     min-width: 25px; 
     height: 100%;
     position: relative;
-    cursor: pointer; /* 【新】 滑鼠變成手型，提示可點擊 */
+    cursor: pointer; 
     transition: transform 0.1s;
 }
 
 .chart-col:hover {
-    transform: translateY(-2px); /* 懸停效果 */
+    transform: translateY(-2px); 
 }
 
 .chart-bar {
@@ -630,7 +629,7 @@ input[type="url"] {
 }
 
 .chart-col:hover .chart-bar {
-    background-color: var(--color-secondary); /* 懸停變色 */
+    background-color: var(--color-secondary); 
 }
 
 .chart-val {
@@ -654,7 +653,7 @@ input[type="url"] {
     font-weight: bold;
 }
 
-/* --- 16. 彈出視窗 (Modal) --- */
+/* --- 15. 彈出視窗 (Modal) --- */
 .modal-overlay {
     position: fixed;
     top: 0;
