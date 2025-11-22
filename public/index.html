@@ -8,6 +8,7 @@
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#2563eb">
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -56,6 +57,11 @@
             <input type="number" id="my-number" placeholder="輸入您的號碼" style="padding: 8px; border-radius: 8px; border: 1px solid #ccc; width: 120px; text-align: center; font-size: 1rem;">
             <button id="enable-notify-btn" style="background-color: #2563eb; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;">設定提醒</button>
         </div>
+        
+        <p id="estimated-wait" style="font-size: 0.9rem; color: #2563eb; margin-top: 10px; display:none; font-weight: bold;">
+            ⏳ 預估等待時間：約 <span id="wait-minutes">0</span> 分鐘
+        </p>
+
         <p id="notify-status" style="font-size: 0.9rem; color: #666; margin-top: 8px; margin-bottom: 0;">(設定後，即使網頁在背景也會收到通知)</p>
     </div>
 
