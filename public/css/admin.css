@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * admin.css - v7.3 Equal Height Cards
+ * admin.css - v8.0 Scrollable & Fit Layout
  * ==========================================
  */
 
@@ -92,7 +92,7 @@ body {
     margin-top: 15px;
 }
 
-/* --- 2. CSS Grid 卡片佈局 (等高修復版) --- */
+/* --- 2. CSS Grid 卡片佈局 --- */
 
 #admin-panel { 
     display: none; 
@@ -109,54 +109,43 @@ body {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 20px;
-    /* 【修正】改為 stretch，讓同一列的卡片高度自動拉伸一致 */
+    /* 讓同一列卡片等高 */
     align-items: stretch;
     width: 100%;
     box-sizing: border-box;
 }
 
-/* RWD 設定 */
 @media (max-width: 1100px) {
-    .card-container {
-        grid-template-columns: repeat(2, 1fr); 
-    }
+    .card-container { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 768px) {
-    .card-container {
-        grid-template-columns: 1fr; 
-    }
+    .card-container { grid-template-columns: 1fr; }
 }
 
 .card-wrapper {
     width: 100%;
     min-width: 0; 
-    /* 【修正】設定高度 100%，確保填滿 Grid 欄位高度 */
-    height: 100%;
-    display: flex;
-    flex-direction: column;
+    height: 100%; /* 填滿 Grid 單元格 */
 }
 
+/* --- 卡片本體設定 --- */
 .admin-card {
     background: var(--color-bg-light);
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     padding: 20px;
     text-align: left; 
-    /* 【修正】設定高度 100%，讓卡片背景色填滿 */
-    height: 100%; 
+    height: 100%; /* 撐滿高度 */
     box-sizing: border-box; 
+    
+    /* 【關鍵】Flex 垂直排列 */
     display: flex;
     flex-direction: column; 
     overflow: hidden; 
 }
 
-/* 讓卡片內容區塊自動撐開，把底部按鈕推到底 (可選) */
-.admin-card .control-group:last-child {
-    margin-bottom: 0;
-    margin-top: auto; /* 若希望按鈕置底可保留此行，否則移除 */
-}
-
+/* 卡片標題：固定高度，不縮放 */
 .admin-card h3 {
     display: flex;
     align-items: center;
@@ -167,21 +156,109 @@ body {
     border-bottom: 1px solid #eee;
     padding-bottom: 10px;
     font-weight: bold;
+    flex-shrink: 0; 
 }
 .admin-card h3 .card-icon {
     font-size: 1.2rem;
     margin-right: 10px;
 }
 
+/* 通用控制組：垂直排列 */
 .admin-card .control-group { 
     margin-bottom: 20px; 
     display: flex; 
     flex-direction: column; 
     align-items: center; 
     width: 100%; 
+    flex-shrink: 0; /* 預設不縮放，除非是列表 */
+}
+/* 最後一個元素不需要 margin */
+.admin-card > *:last-child {
+    margin-bottom: 0;
 }
 
-/* --- 3. 按鈕 & 輸入框 --- */
+/* --- 3. 滾動區域設定 (Lists, Logs, Charts) --- */
+
+/* 1. 日誌與列表容器 */
+#admin-log-ui, 
+.list-editor ul, 
+#stats-list-ui, 
+.online-users-ui {
+    width: 100%;
+    margin: 0 0 15px 0;
+    padding: 0;
+    list-style: none;
+    box-sizing: border-box;
+    
+    /* 【關鍵】自動伸縮與滾動 */
+    flex-grow: 1;           /* 有空間就伸展 */
+    flex-shrink: 1;         /* 空間不夠就收縮 */
+    min-height: 100px;      /* 最小高度 */
+    max-height: 300px;      /* 最大高度 (超過出卷軸) */
+    overflow-y: auto;       /* 垂直滾動 */
+    
+    /* 讓滾動條好看一點 */
+    scrollbar-width: thin;
+    scrollbar-color: #ccc transparent;
+}
+
+/* 2. 列表編輯器容器 (包住 ul 的 div) */
+.list-editor {
+    display: flex;
+    flex-direction: column;
+    /* 讓內部的 ul 可以正確計算高度 */
+    flex-grow: 1;
+    min-height: 0; 
+    padding: 15px;
+    background: #f9f9f9;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* 3. 日誌樣式特化 */
+#admin-log-ui {
+    background: var(--color-log-bg); 
+    color: var(--color-log-text); 
+    border-radius: 6px; 
+    padding: 10px;
+    font-family: "Consolas", "Monaco", monospace; 
+    font-size: 0.9rem; 
+    word-break: break-all;
+    white-space: pre-wrap; 
+}
+#admin-log-ui li { padding-bottom: 3px; margin-bottom: 3px; border-bottom: 1px solid var(--color-log-border); }
+#admin-log-ui li:first-child { color: var(--color-success); font-weight: bold; }
+
+/* 4. 統計列表樣式特化 */
+#stats-list-ui {
+    background: #f1f1f1; 
+    padding: 10px; 
+    border-radius: 6px;
+    font-size: 0.9rem;
+    text-align: left;
+}
+
+/* 5. 列表項目樣式 */
+.list-editor li, 
+.online-users-ui li { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    background: var(--color-bg-light); 
+    padding: 8px 12px; 
+    border-radius: 6px; 
+    border: 1px solid #ddd; 
+    margin-bottom: 8px; 
+    font-size: 1.1rem; 
+    text-align: left; 
+    word-break: break-all;
+    word-wrap: break-word;
+}
+.list-editor li:last-child { margin-bottom: 0; }
+
+/* --- 4. 按鈕 & 輸入框 --- */
 
 button { 
     font-size: 1.2rem; 
@@ -195,9 +272,11 @@ button {
     width: 100%; 
     box-sizing: border-box;
     transition: background-color 0.2s ease; 
+    flex-shrink: 0;
 }
 button:disabled { background-color: #999; cursor: not-allowed; opacity: 0.7; }
 
+/* 橫排按鈕組 */
 .control-group.button-row { 
     flex-direction: row; 
     justify-content: center; 
@@ -209,13 +288,14 @@ button:disabled { background-color: #999; cursor: not-allowed; opacity: 0.7; }
     flex-grow: 1; 
 }
 
-/* 數據分析按鈕區塊 */
+/* 數據分析按鈕區塊 (RWD) */
 .stats-actions-row {
     display: flex;
     flex-wrap: wrap; 
     gap: 10px;
     width: 100%;
     margin-top: 10px;
+    flex-shrink: 0;
 }
 .stats-actions-row button {
     flex: 1 1 auto; 
@@ -239,8 +319,19 @@ input, textarea {
     border: 1px solid var(--color-border); 
     margin-top: 10px; 
     box-sizing: border-box; 
+    flex-shrink: 0;
 }
-textarea { height: 80px; text-align: left; padding: 10px; }
+
+/* 【關鍵】Textarea 高度限制與滾動 */
+textarea { 
+    height: auto; 
+    min-height: 80px; 
+    max-height: 150px; /* 超過高度滾動 */
+    overflow-y: auto;
+    text-align: left; 
+    padding: 10px; 
+    resize: vertical; /* 允許使用者手動拉 */
+}
 
 input[type="text"],
 input[type="password"],
@@ -249,69 +340,16 @@ input[type="url"] {
     padding-left: 12px;
 }
 
-/* --- 4. 列表編輯器 GUI --- */
-
-.list-editor { 
-    border: 1px solid var(--color-border); 
-    border-radius: 8px; 
-    padding: 15px; 
-    background: #f9f9f9; 
-    width: 100%;
-    box-sizing: border-box; 
-    text-align: center; 
-}
-
-.list-editor ul { 
-    list-style: none; 
-    padding: 0; 
-    margin: 0 0 15px 0; 
-    width: 100%;
-    max-height: 150px; 
-    overflow-y: auto;  
-    padding-right: 5px; 
-}
-
-.list-editor li { 
+/* 輸入框按鈕組 */
+.input-group { 
     display: flex; 
-    justify-content: space-between; 
+    flex-wrap: wrap; 
+    justify-content: center; 
     align-items: center; 
-    background: var(--color-bg-light); 
-    padding: 8px 12px; 
-    border-radius: 6px; 
-    border: 1px solid #ddd; 
-    margin-bottom: 8px; 
-    font-size: 1.1rem; 
-    text-align: left; 
-    word-break: break-all;
-    word-wrap: break-word;
+    width: 100%; 
+    flex-shrink: 0;
 }
-.list-editor li span { margin-right: 10px; color: #555; }
-.list-editor li .delete-item-btn { 
-    background: var(--color-danger-light); 
-    color: white; 
-    border: none; 
-    border-radius: 50%; 
-    width: 30px; 
-    height: 30px; 
-    font-size: 1.2rem; 
-    cursor: pointer; 
-    flex-shrink: 0; 
-    padding: 0; 
-    margin: 0; 
-    min-width: 30px; 
-    width: 30px !important; 
-    transition: background-color 0.2s, color 0.2s, transform 0.2s; 
-}
-
-.list-editor li .delete-item-btn.is-confirming {
-    background: var(--color-warning-dark) !important;
-    color: white;
-    font-size: 1rem; 
-}
-
-.input-group { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; width: 100%; }
 .input-group input { flex: 1; min-width: 80px; margin: 5px; max-width: 100%; }
-
 .input-group button {
     margin: 5px;
     flex-shrink: 0;
@@ -320,7 +358,6 @@ input[type="url"] {
     border-radius: 50%; 
     box-sizing: border-box; 
 }
-
 .input-group .btn-add { 
     font-size: 1.5rem; 
     font-weight: bold; 
@@ -328,19 +365,12 @@ input[type="url"] {
     color: white; 
     width: 40px; 
     min-width: 40px; 
-    width: 40px !important; 
 }
-
 .input-group .btn-action {
     font-size: 1rem; 
-    color: white;
     min-width: 60px; 
     width: auto; 
-    padding: 0 15px; 
     border-radius: 8px; 
-}
-.input-group .btn-secondary.btn-action {
-    margin: 5px; 
 }
 
 .list-editor .input-group-label {
@@ -348,18 +378,11 @@ input[type="url"] {
     font-size: 0.9rem;
     font-weight: bold;
     color: var(--color-neutral);
-    margin-top: 20px; 
+    margin-top: 15px; 
     margin-bottom: 0px; 
     text-align: left;
     width: 100%;
     padding-left: 5px;
-    box-sizing: border-box;
-}
-.list-editor .input-group-label:first-of-type {
-    margin-top: 5px; 
-}
-.list-editor .input-group {
-    margin-top: 5px;
 }
 
 /* --- 5. 按鈕顏色 --- */
@@ -377,10 +400,9 @@ input[type="url"] {
 #next { background-color: var(--color-success); }
 #setNumber { background-color: var(--color-primary); }
 
-/* --- 6. 重置區域 --- */
+/* --- 6. 雜項元件 (Reset Zone, Toggle) --- */
 
-.reset-zone { margin-top: 20px; width: 100%; text-align: center; }
-
+.reset-zone { margin-top: auto; width: 100%; text-align: center; flex-shrink: 0; }
 .btn-reset-single { 
     background-color: var(--color-warning); 
     font-size: 1rem; 
@@ -391,54 +413,6 @@ input[type="url"] {
 }
 
 .list-editor .btn-reset-single { margin-top: 15px; }
-.form-group-boxed .btn-reset-single { margin-top: 5px; }
-
-#resetAll { width: 100%; }
-#resetAllConfirm { width: 100%; }
-
-/* --- 7. RWD --- */
-
-@media (max-width: 768px) { 
-    body { 
-        padding: 10px; 
-        padding-top: 20px; 
-        width: 100vw;
-    }
-    
-    #admin-panel {
-        width: 100%;
-        margin: 0;
-    }
-
-    .admin-card {
-        padding: 15px; 
-    }
-    
-    #login-container { margin: 30px auto; padding: 20px; } 
-    #admin-panel h1 { font-size: 2rem; } 
-    #number { font-size: 4rem; } 
-    .list-editor { padding: 10px; } 
-}
-
-/* --- 8. 連線狀態提示條 --- */
-
-#status-bar { 
-    position: fixed; 
-    top: 0; 
-    left: 0; 
-    width: 100%; 
-    background-color: var(--color-danger); 
-    color: white; 
-    padding: 8px; 
-    font-weight: bold; 
-    text-align: center; 
-    z-index: 1000; 
-    transform: translateY(-100%); 
-    transition: transform 0.3s ease; 
-}
-#status-bar.visible { transform: translateY(0); }
-
-/* --- 9. Toggle & Boxed Controls --- */
 
 .control-group.sound-toggle-group,
 .control-group.system-toggle-group { 
@@ -452,19 +426,10 @@ input[type="url"] {
     width: 100%; 
     box-sizing: border-box; 
     margin-bottom: 20px; 
+    flex-shrink: 0;
 }
-
-.sound-toggle-group label,
-.system-toggle-group label { 
-    margin-bottom: 0; 
-    display: inline; 
-}
-
-.sound-toggle-group input[type="checkbox"],
-.system-toggle-group input[type="checkbox"] { 
-    margin-top: 0;  
-    width: auto;    
-}
+.sound-toggle-group label, .system-toggle-group label { margin-bottom: 0; display: inline; }
+.sound-toggle-group input, .system-toggle-group input { margin-top: 0; width: auto; }
 
 .control-group.form-group-boxed {
     background: #f9f9f9; 
@@ -474,155 +439,22 @@ input[type="url"] {
     width: 100%;
     box-sizing: border-box;
     margin-bottom: 20px;
+    flex-shrink: 0;
 }
+.form-group-boxed .input-group { margin-top: 10px; }
 
-.form-group-boxed .input-group {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    gap: 10px; 
-    margin-top: 10px;
+#status-bar { 
+    position: fixed; top: 0; left: 0; width: 100%; 
+    background-color: var(--color-danger); color: white; padding: 8px; 
+    font-weight: bold; text-align: center; z-index: 1000; 
+    transform: translateY(-100%); transition: transform 0.3s ease; 
 }
+#status-bar.visible { transform: translateY(0); }
 
-#btn-broadcast {
-    height: 42px; 
-    margin: 0;    
-    border-radius: 8px; 
-}
+#main-number-controls { margin-top: -20px; margin-bottom: 30px; }
 
-.system-toggle-group label.is-confirming-label {
-    color: var(--color-warning-dark);
-    font-weight: bold;
-    animation: pulse 1s infinite;
-}
+/* --- 7. 圖表與其他 --- */
 
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.7; }
-    100% { opacity: 1; }
-}
-
-
-/* --- 10. 管理員日誌樣式 --- */
-
-.admin-log-container { 
-    max-width: 100%; 
-    flex-grow: 1; 
-    display: flex;
-    flex-direction: column;
-}
-
-#admin-log-ui { 
-    list-style: none; 
-    padding: 10px; 
-    margin: 0; 
-    width: 100%; 
-    height: 150px; 
-    flex-grow: 1; 
-    overflow-y: auto; 
-    background: var(--color-log-bg); 
-    color: var(--color-log-text); 
-    border-radius: 6px; 
-    text-align: left; 
-    font-family: "Consolas", "Monaco", monospace; 
-    font-size: 0.9rem; 
-    box-sizing: border-box; 
-    word-break: break-all;
-    white-space: pre-wrap; 
-}
-#admin-log-ui li { padding-bottom: 3px; margin-bottom: 3px; border-bottom: 1px solid var(--color-log-border); }
-#admin-log-ui li:first-child { color: var(--color-success); font-weight: bold; }
-
-.admin-log-container .btn-clear-log {
-    width: 100%; 
-    padding: 5px 12px;
-    font-size: 0.9rem;
-    background-color: var(--color-neutral); 
-    margin-top: 10px;
-    flex-shrink: 0; 
-    display: none; 
-}
-.admin-log-container .btn-clear-log:hover { opacity: 0.9; }
-
-/* --- 11. 主要號碼控制按鈕的樣式 --- */
-#main-number-controls {
-    margin-top: -20px; 
-    margin-bottom: 30px; 
-}
-
-/* --- 12. Toast 通知 --- */
-#toast-notification {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 15px 25px;
-    border-radius: 8px;
-    background: var(--color-text);
-    color: white;
-    font-weight: bold;
-    z-index: 2000;
-    opacity: 0;
-    transform: translateY(-20px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-    pointer-events: none; 
-}
-#toast-notification.show {
-    opacity: 1;
-    transform: translateY(0);
-}
-#toast-notification.success {
-    background: var(--color-success);
-    color: white;
-}
-#toast-notification.error {
-    background: var(--color-danger);
-    color: white;
-}
-
-/* --- 13. 在線管理員列表樣式 --- */
-.online-users-ui {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    width: 100%;
-}
-.online-users-ui li {
-    display: flex;
-    align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid #eee;
-    font-size: 1.1rem;
-}
-.online-users-ui li:last-child {
-    border-bottom: none;
-}
-.online-users-ui li .role-icon {
-    margin-right: 10px;
-    font-size: 1rem;
-}
-.online-users-ui li .username {
-    font-weight: bold;
-    color: var(--color-text);
-}
-.online-users-ui li .is-self {
-    color: var(--color-primary);
-    font-weight: bold;
-}
-.online-users-ui li .is-self::after {
-    content: ' (您)';
-    font-size: 0.9rem;
-    font-weight: normal;
-    color: var(--color-neutral);
-    margin-left: 5px;
-}
-
-#card-user-management {
-    display: none;
-}
-
-/* --- 14. 統計圖表樣式 --- */
 .chart-container {
     display: flex;
     align-items: flex-end;
@@ -636,77 +468,43 @@ input[type="url"] {
     margin-bottom: 15px;
     background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
     border-radius: 8px;
+    flex-shrink: 0;
 }
 
 .chart-col {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-    flex: 1;
-    min-width: 25px; 
-    height: 100%;
-    position: relative;
-    cursor: pointer; 
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    flex: 1; min-width: 25px; height: 100%; position: relative; cursor: pointer; 
     transition: transform 0.1s;
 }
-
-.chart-col:hover {
-    transform: translateY(-2px); 
-}
-
+.chart-col:hover { transform: translateY(-2px); }
 .chart-bar {
-    width: 100%;
-    background-color: var(--color-primary);
-    border-radius: 4px 4px 0 0;
-    transition: height 0.5s ease, background-color 0.3s;
-    min-height: 1px; 
-    position: relative;
+    width: 100%; background-color: var(--color-primary); border-radius: 4px 4px 0 0;
+    transition: height 0.5s ease, background-color 0.3s; min-height: 1px; 
 }
+.chart-col:hover .chart-bar { background-color: var(--color-secondary); }
+.chart-val { font-size: 0.8rem; font-weight: bold; color: var(--color-text); margin-bottom: 2px; }
+.chart-label { font-size: 0.75rem; color: #666; margin-top: 4px; }
+.chart-col.current .chart-bar { background-color: var(--color-danger); }
+.chart-col.current .chart-label { color: var(--color-danger); font-weight: bold; }
 
-.chart-col:hover .chart-bar {
-    background-color: var(--color-secondary); 
-}
-
-.chart-val {
-    font-size: 0.8rem;
-    font-weight: bold;
-    color: var(--color-text);
-    margin-bottom: 2px;
-}
-
-.chart-label {
-    font-size: 0.75rem;
-    color: #666;
-    margin-top: 4px;
-}
-
-.chart-col.current .chart-bar {
-    background-color: var(--color-danger);
-}
-.chart-col.current .chart-label {
-    color: var(--color-danger);
-    font-weight: bold;
-}
-
-/* --- 15. 彈出視窗 (Modal) --- */
+/* Modal */
 .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center;
     z-index: 3000;
 }
 .modal-content {
-    background: white;
-    padding: 25px;
-    border-radius: 12px;
-    width: 300px;
-    text-align: center;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    background: white; padding: 25px; border-radius: 12px; width: 300px;
+    text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
+
+/* Toast */
+#toast-notification {
+    position: fixed; top: 20px; right: 20px; padding: 15px 25px;
+    border-radius: 8px; background: var(--color-text); color: white;
+    font-weight: bold; z-index: 2000; opacity: 0; pointer-events: none;
+    transform: translateY(-20px); transition: opacity 0.3s ease, transform 0.3s ease;
+}
+#toast-notification.show { opacity: 1; transform: translateY(0); }
+#toast-notification.success { background: var(--color-success); }
+#toast-notification.error { background: var(--color-danger); }
