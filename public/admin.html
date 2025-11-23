@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>後台管理 - 叫號控制</title>
 <script src="/socket.io/socket.io.js"></script>
-<link rel="stylesheet" href="/css/admin.css?v=24"> 
+<link rel="stylesheet" href="/css/admin.css?v=25"> 
 </head>
 <body>
 
@@ -86,14 +86,31 @@
         </div> 
         
         <div class="card-wrapper" id="card-logs">
-            <div class="admin-card">
-                <h3><span class="card-icon">📋</span> 操作日誌</h3>
-                <div class="control-group admin-log-container">
-                <ul id="admin-log-ui">
-                    <li>等待連線...</li>
-                </ul>
-                <button id="clear-log-btn" type="button" class="btn-clear-log" style="display: none;">清除日誌</button>
+            <div class="admin-card" style="display: flex; flex-direction: column;">
+                
+                <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; margin-bottom: 20px; border-bottom: 2px dashed #eee; padding-bottom: 15px;">
+                    <h3 style="border-bottom: none; margin-bottom: 10px;"><span class="card-icon">📋</span> 操作日誌</h3>
+                    <div class="control-group admin-log-container" style="height: 100%; display: flex; flex-direction: column;">
+                        <ul id="admin-log-ui" style="flex: 1; max-height: none; height: auto;">
+                            <li>等待連線...</li>
+                        </ul>
+                        <button id="clear-log-btn" type="button" class="btn-clear-log" style="display: none; margin-top: 10px;">清除日誌</button>
+                    </div>
                 </div>
+
+                <div style="flex: 0 0 auto;">
+                    <h3 style="border-bottom: none; margin-bottom: 10px; margin-top: 0;"><span class="card-icon">⚙️</span> 系統設定</h3>
+                    
+                    <div class="control-group system-toggle-group">
+                        <label for="public-toggle" id="public-toggle-label">對外開放前台</label>
+                        <input type="checkbox" id="public-toggle" checked>
+                    </div>
+                    
+                    <div class="reset-zone" style="margin-top: 15px;">
+                        <button id="resetAll" type="button" class="btn-danger">💥 全域重置</button>
+                    </div>
+                </div>
+
             </div>
         </div> 
         
@@ -177,20 +194,6 @@
             </div>
         </div>
 
-        <div class="card-wrapper" id="card-settings">
-            <div class="admin-card">
-                <h3><span class="card-icon">⚙️</span> 系統設定</h3>
-                <div class="control-group system-toggle-group">
-                    <label for="public-toggle" id="public-toggle-label">對外開放前台</label>
-                    <input type="checkbox" id="public-toggle" checked>
-                </div>
-                
-                <div class="reset-zone">
-                    <button id="resetAll" type="button" class="btn-danger">💥 全域重置</button>
-                </div>
-            </div>
-        </div> 
-
         <div class="card-wrapper" id="card-user-management" style="display: none;">
             <div class="admin-card">
                 <h3><span class="card-icon">👑</span> 用戶管理</h3>
@@ -237,6 +240,6 @@
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=24"></script> 
+<script src="/js/admin.js?v=25"></script> 
 </body>
 </html>
