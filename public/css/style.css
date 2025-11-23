@@ -1,380 +1,107 @@
-/* --- 1. 頁面佈局 --- */
-
 :root {
-    --color-text: #333;
-    --color-text-light: #555;
-    --color-text-lighter: #666;
-    --color-text-lightest: #888;
-    --color-bg: #f0f4f8;
-    --color-bg-light: #ffffff;
-    --color-primary: #2563eb;
-    --color-danger: #dc2626;
-    --color-success: #10b981; 
-    --color-secondary: #8b5cf6;
-    --color-secondary-light: #f5f3ff; 
-    --color-mute: #f44336;
-    --color-border: #ccc;
-    --color-warning: #d97706; 
-    
-    --font-h1: clamp(1.5rem, 4vw, 2.2rem); 
-    --font-h2: clamp(2rem, 6vw, 3rem); 
-    --font-h3: clamp(1.5rem, 5vw, 2rem); 
-    --font-number: clamp(8rem, 30vw, 12rem);
-    --font-passed: clamp(2.5rem, 7vw, 3.5rem);
-    --font-featured: clamp(1.2rem, 4vw, 1.5rem); 
+    --primary: #2563eb;
+    --danger: #dc2626;
+    --bg: #f0f4f8;
+    --card-bg: #fff;
 }
 
-html, body { min-height: 100%; margin: 0; padding: 0; }
-body { 
-    font-family: "Microsoft JhengHei", sans-serif; 
-    text-align: center; 
-    background: var(--color-bg); 
-    display: flex; 
-    flex-direction: column; 
-    align-items: center; 
-    padding: 20px; 
-    padding-top: 30px; 
-    box-sizing: border-box; 
+body {
+    font-family: "Microsoft JhengHei", sans-serif;
+    margin: 0; padding: 20px;
+    background: var(--bg);
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh;
 }
 
-/* --- 2. 【改善】內容排版 & 卡片結構 --- */
+.hidden { display: none !important; }
 
-.top-header {
-    width: 100%;
-    margin-bottom: 10px;
+/* 標題與狀態 */
+.top-header { text-align: center; margin-bottom: 20px; }
+.top-header h1 { margin: 0; color: var(--danger); font-size: 2rem; }
+#connection-status { font-size: 0.9rem; color: #666; margin-top: 5px; }
+
+/* 佇列 Tabs */
+.queue-tabs {
+    display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;
 }
-h1 { font-size: var(--font-h1); color: var(--color-danger); margin: 0; }
-#last-updated { font-size: 1rem; color: var(--color-text-light); margin: 5px 0 0 0; }
-
-.content-wrapper {
-    width: 100%;
-    max-width: 900px; 
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+.queue-tab {
+    padding: 10px 20px; background: #ddd; border-radius: 20px;
+    cursor: pointer; font-weight: bold; transition: 0.2s;
 }
+.queue-tab.active { background: var(--primary); color: white; transform: scale(1.05); }
 
+/* 卡片 */
+.content-wrapper { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 15px; }
 .card {
-    background: var(--color-bg-light);
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    padding: 20px;
-    width: 100%;
-    box-sizing: border-box;
+    background: var(--card-bg); padding: 20px; border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center;
 }
 
-/* 號碼卡片 */
-#current-number-card h2 { 
-    font-size: var(--font-h2); 
-    color: var(--color-text); 
-    margin: 0 0 10px 0; 
+.number-display {
+    font-size: 8rem; font-weight: bold; color: var(--primary);
+    line-height: 1; margin: 10px 0;
 }
-#number { 
-    font-size: var(--font-number); 
-    color: var(--color-primary); 
-    margin: 0; 
-    font-weight: bold; 
-    line-height: 1; 
-}
-@keyframes flash { 
-    0% { transform: scale(1); opacity: 1; } 
-    50% { transform: scale(1.1); opacity: 0.8; color: var(--color-danger); }
-    100% { transform: scale(1); opacity: 1; } 
-}
-#number.updated { animation: flash 0.5s ease; }
+.number-display.updated { animation: flash 0.5s; }
+@keyframes flash { 50% { color: var(--danger); transform: scale(1.1); } }
 
-/* 過號卡片 */
-#passed-container { margin-top: 0; } 
-#passed-container h3 { 
-    font-size: var(--font-h3); 
-    color: var(--color-text-lighter); 
-    margin: 0 0 15px 0; 
-}
+/* 過號列表 */
 #passedList { 
-    list-style: none; 
-    padding: 0; 
-    margin: 0; 
-    display: flex; 
-    flex-wrap: wrap; 
-    justify-content: center; 
-    gap: 10px; 
+    list-style: none; padding: 0; margin: 0; 
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; 
+}
+#passedList li {
+    background: #e5e7eb; padding: 5px 15px; border-radius: 8px;
+    font-size: 1.5rem; color: #666;
 }
 
-#passedList li { 
-    font-size: var(--font-passed); 
-    color: var(--color-text-lightest); 
-    background: #e0e0e0; 
-    padding: 5px 10px; 
-    border-radius: 10px; 
-    min-width: 40px; 
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); 
-}
+/* 互動區 (手機版顯示) */
+.interactive-zone { width: 100%; max-width: 600px; margin-top: 20px; }
+.btn-pill { background: white; padding: 10px 20px; border-radius: 50px; cursor: pointer; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.btn-line { background: #00B900; color: white; border: none; padding: 10px 20px; border-radius: 8px; width: 100%; font-size: 1rem; cursor: pointer; }
+.btn-primary { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; width: 100%; font-size: 1rem; cursor: pointer; margin-top: 10px;}
 
-/* --- 3. 【D. 改善】精選連結 --- */
+/* =========================================
+   📺 Digital Signage Mode (電子看板模式)
+   當螢幕寬度 > 1280px (橫式螢幕/電視) 自動觸發
+   ========================================= */
+@media (min-width: 1280px) {
+    body {
+        justify-content: center; padding: 0; overflow: hidden;
+        background: radial-gradient(circle, #f8fafc 0%, #e2e8f0 100%);
+    }
 
-#featured-container { 
-    margin-top: 25px; 
-    width: 100%;
-    max-width: 900px; 
-    display: flex;
-    flex-wrap: wrap; 
-    justify-content: center; 
-    gap: 12px; 
-}
-.featured-link { 
-    font-size: var(--font-featured); 
-    color: var(--color-secondary); 
-    font-weight: bold; 
-    text-decoration: none; 
-    padding: 10px 20px; 
-    border-radius: 50px; 
-    background: var(--color-secondary-light); 
-    border: 1px solid var(--color-secondary);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
-    transition: all 0.2s ease-in-out; 
-}
-.featured-link:hover { 
-    background-color: var(--color-secondary); 
-    color: white;
-    transform: translateY(-2px); 
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
-}
+    .top-header h1 { font-size: 3rem; margin-bottom: 20px; }
+    
+    .content-wrapper {
+        flex-direction: row; /* 改為並排 */
+        max-width: 90%; 
+        align-items: stretch;
+        height: 70vh;
+    }
 
-/* --- 4. 浮動元件 --- */
+    .main-card {
+        flex: 2; /* 號碼區佔較大比例 */
+        display: flex; flex-direction: column; justify-content: center;
+    }
 
-#qr-code-container { 
-    position: fixed; 
-    bottom: 20px; 
-    right: 20px; 
-    background: white; 
-    padding: 10px; 
-    border-radius: 8px; 
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); 
-    z-index: 100; 
-}
-#qr-code-placeholder { 
-    width: 120px; 
-    height: 120px; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-}
-#qr-code-placeholder img,
-#qr-code-placeholder canvas { width: 100% !important; height: 100% !important; }
-#qr-code-container p { margin: 5px 0 0 0; font-size: 0.8rem; color: var(--color-text); }
+    .number-display { font-size: 25vw; /* 超巨大字體 */ }
+    
+    #queue-title-display { font-size: 3rem; }
 
-#status-bar { 
-    position: fixed; 
-    top: 0; 
-    left: 0; 
-    width: 100%; 
-    background-color: var(--color-danger); 
-    color: white; 
-    padding: 8px; 
-    font-weight: bold; 
-    text-align: center; 
-    z-index: 1000; 
-    transform: translateY(-100%); 
-    transition: transform 0.3s ease; 
-}
-#status-bar.visible { transform: translateY(0); }
+    #passed-container {
+        flex: 1;
+        background: rgba(255,255,255,0.8);
+    }
+    
+    #passedList li { font-size: 2.5rem; padding: 10px 20px; }
 
-/* --- 5. 【改善】 空狀態提示 (CSS Class-based) --- */
-
-.empty-state-message {
-    display: none; 
-    font-size: 1.2rem;
-    color: var(--color-text-lightest);
-    margin: 10px 0;
-    font-style: italic;
+    /* 隱藏互動元素 */
+    .interactive-zone, #sound-prompt { display: none !important; }
 }
-
-#passed-container.is-empty .empty-state-message {
-    display: block; 
-}
-#passed-container.is-empty #passedList {
-    display: none; 
-}
-
-#featured-container.is-empty .empty-state-message {
-    display: block; 
-}
-#featured-container.is-empty .featured-link {
-    display: none; 
-}
-
-/* --- 6. 【新功能】 維護模式遮罩 --- */
 
 #maintenance-overlay {
-    display: none; 
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: var(--color-bg); 
-    z-index: 9999; 
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    color: var(--color-text-light);
-    padding: 20px;
-    box-sizing: border-box;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: white; z-index: 9999; display: none;
+    flex-direction: column; justify-content: center; align-items: center;
 }
-#maintenance-overlay h1 {
-    color: var(--color-danger);
-    font-size: var(--font-h2);
-}
-#maintenance-overlay p {
-    font-size: var(--font-featured);
-}
-body.is-closed #maintenance-overlay {
-    display: flex; 
-}
-
-/* --- 7. 【修改】 文字提示按鈕 (新排版) --- */
-
-/* 【新】 按鈕的容器 */
-.utility-buttons {
-    display: flex;
-    flex-direction: row; /* 水平排列 */
-    flex-wrap: wrap; /* 允許換行 */
-    justify-content: center;
-    gap: 15px;
-    width: 100%;
-    max-width: 900px; /* 同 .content-wrapper 寬度 */
-    /* 【重要】 featured-container 也有 25px 的 margin-top，
-       我們這裡使用 20px，讓它和精選連結的間距保持一致
-    */
-    margin: 20px 0 0 0; 
-}
-
-/* 【修改】 按鈕的共同樣式 (移除了 position: fixed) */
-#sound-prompt,
-#copy-link-prompt {
-    /* (移除 position, bottom, left, z-index, font-size) */
-    background: #fff;
-    padding: 10px 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08); /* 陰影淡一點 */
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 1rem; /* 統一字體大小 */
-    transition: background-color 0.2s, color 0.2s, transform 0.2s;
-    text-align: center;
-    flex-grow: 0; 
-    flex-shrink: 0;
-}
-
-#sound-prompt:active,
-#copy-link-prompt:active {
-    transform: scale(0.98); /* 點擊回饋 */
-}
-
-/* 音效按鈕的特定顏色 */
-#sound-prompt {
-    color: var(--color-warning);
-}
-#sound-prompt.is-active {
-    color: var(--color-text-light);
-    background: #f0f0f0;
-}
-
-/* 複製按鈕的特定顏色 */
-#copy-link-prompt {
-    color: var(--color-text-light); 
-}
-#copy-link-prompt.is-copied {
-    background-color: var(--color-success);
-    color: white;
-}
-
-/* --- 【修改】 強化 RWD 區塊 --- */
-@media (max-width: 768px) {
-    
-    /* (原有的 RWD 規則) */
-    #qr-code-container { 
-        display: none; 
-    }
-    
-    /* --- NEW OPTIMIZATIONS --- */
-
-    /* 1. 覆蓋 :root 變數，全面縮小字體 */
-    :root {
-        --font-h1: clamp(1.3rem, 5vw, 1.6rem); /* 縮小 "熱血不宜攔！" */
-        --font-h2: clamp(1.2rem, 5vw, 1.4rem);  /* 縮小 "目前號碼" */
-        --font-h3: clamp(1.1rem, 4vw, 1.3rem);  /* 縮小 "已過號" */
-        
-        /* 【修改】 將主要號碼極致放大，以填補垂直空間 */
-        --font-number: clamp(10rem, 40vw, 15rem); 
-        
-        /* 縮小過號字體 */
-        --font-passed: clamp(1.5rem, 6vw, 2rem);
-        /* 縮小精選連結字體 */
-        --font-featured: clamp(0.9rem, 4vw, 1.1rem); 
-    }
-
-    /* 2. 減少 body 邊距並設定最小高度 */
-    body {
-        padding: 15px;
-        padding-top: 20px;
-        
-        /* 讓 body 至少填滿整個螢幕高度 */
-        min-height: 100vh; 
-        box-sizing: border-box; /* 確保 padding 不會讓 vh 溢出 */
-
-        /* 【修改】 移除 space-around，讓內容緊湊地靠在頂部 (flex-start) */
-        justify-content: flex-start; 
-    }
-
-    /* 3. 【修改】將 .content-wrapper 改回垂直堆疊 */
-    .content-wrapper {
-        /* 恢復堆疊，不再使用 grid */
-        display: flex;
-        flex-direction: column;
-        gap: 15px; /* 堆疊時的卡片間距 */
-    }
-    
-    /* 4. 縮小卡片內距 */
-    .card {
-        padding: 10px; /* 縮小內距 */
-        /* 移除 height: 100%，讓卡片高度自適應 */
-    }
-
-    /* 5. 讓過號列表更緊湊 */
-    #passedList {
-        gap: 6px; /* 縮小號碼間距 */
-    }
-    #passedList li {
-        padding: 4px 8px; /* 縮小號碼內距 */
-        min-width: 30px;
-        border-radius: 6px;
-    }
-    /* 讓空狀態文字小一點 */
-    .empty-state-message {
-        font-size: 1rem;
-    }
-
-
-    /* 6. 縮小功能按鈕 (複製/音效) */
-    .utility-buttons {
-        margin: 15px 0 0 0; /* 縮小上方間距 */
-        gap: 10px;
-    }
-    #sound-prompt,
-    #copy-link-prompt {
-        padding: 8px 15px;
-        font-size: 0.9rem;
-    }
-    
-    /* 7. 縮小精選連結區塊 */
-    #featured-container {
-        margin-top: 15px; /* 縮小上方間距 */
-        gap: 8px;
-    }
-    .featured-link {
-        padding: 8px 15px;
-    }
-
-}
+body.maintenance #maintenance-overlay { display: flex; }
