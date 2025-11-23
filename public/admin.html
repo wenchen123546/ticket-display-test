@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>後台管理 - 叫號控制</title>
 <script src="/socket.io/socket.io.js"></script>
-<link rel="stylesheet" href="/css/admin.css?v=25"> 
+<link rel="stylesheet" href="/css/admin.css?v=26"> 
 </head>
 <body>
 
@@ -104,6 +104,18 @@
                     <div class="control-group system-toggle-group">
                         <label for="public-toggle" id="public-toggle-label">對外開放前台</label>
                         <input type="checkbox" id="public-toggle" checked>
+                    </div>
+
+                    <div id="mode-switcher-group" class="control-group form-group-boxed" style="display:none; background:#e0f2fe; border-color:#93c5fd;">
+                        <label style="color:#0369a1; font-weight:bold;">使用者取號模式</label>
+                        <div style="display:flex; gap:15px; justify-content:center; margin-top:10px;">
+                            <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+                                <input type="radio" name="systemMode" value="ticketing" checked> 線上取號
+                            </label>
+                            <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+                                <input type="radio" name="systemMode" value="input"> 手動輸入
+                            </label>
+                        </div>
                     </div>
                     
                     <div class="reset-zone" style="margin-top: 15px;">
@@ -240,6 +252,6 @@
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=25"></script> 
+<script src="/js/admin.js?v=26"></script> 
 </body>
 </html>
