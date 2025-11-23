@@ -1,14 +1,12 @@
 {
   "name": "socket-number-system",
-  "version": "1.1.0",
-  "description": "使用 Socket.io、Redis 與 LINE Bot 的即時叫號系統",
+  "version": "2.0.0",
+  "description": "即時叫號系統 v2 - 多佇列與持久化版本",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
-  "author": "Your Name Here",
-  "license": "ISC",
   "dependencies": {
     "express": "^4.19.2",
     "socket.io": "^4.7.5",
@@ -17,7 +15,9 @@
     "helmet": "^7.1.0",
     "bcrypt": "^5.1.1",
     "uuid": "^9.0.1",
-    "@line/bot-sdk": "^7.5.2"
+    "@line/bot-sdk": "^7.5.2",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
