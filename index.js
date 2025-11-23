@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v13.1 Env Vars Update
+ * 伺服器 (index.js) - v13.1 Final
  * ==========================================
  */
 
@@ -19,35 +19,35 @@ const app = express();
 const server = http.createServer(app);
 const io = socketio(server, { cors: { origin: "*" }, pingTimeout: 60000 });
 
+// --- 環境變數讀取 ---
 const PORT = process.env.PORT || 3000;
 const REDIS_URL = process.env.UPSTASH_REDIS_URL;
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN; 
+const ADMIN_RICH_MENU_ID = process.env.ADMIN_RICH_MENU_ID; // LINE 管理員選單 ID
+const ADMIN_SWITCH_PASSWORD = process.env.ADMIN_SWITCH_PASSWORD; // 切換指令密碼 (!admin xxx)
+
 const SALT_ROUNDS = 10; 
 
-// --- 環境變數設定區 ---
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN; // 網頁版 Superadmin 登入密碼
-const ADMIN_RICH_MENU_ID = process.env.ADMIN_RICH_MENU_ID; // LINE 管理員選單 ID
-const ADMIN_SWITCH_PASSWORD = process.env.ADMIN_SWITCH_PASSWORD; // LINE 切換指令密碼 (!admin xxx)
-
+// --- 參數設定 ---
 // 1. 叫號提醒緩衝 (提前 5 號)
 const REMIND_BUFFER = 5;
 
-// 2. 智慧預測參數
-const MAX_HISTORY_FOR_PREDICTION = 15; // 參考最近 15 筆
-const MAX_VALID_SERVICE_MINUTES = 20;  // 超過 20 分鐘視為異常
+// 2. 智慧預測參數 (參考最近 15 筆，超過 20 分鐘視為異常)
+const MAX_HISTORY_FOR_PREDICTION = 15; 
+const MAX_VALID_SERVICE_MINUTES = 20;  
 
 const lineConfig = {
     channelAccessToken: process.env.LINE_ACCESS_TOKEN,
     channelSecret: process.env.LINE_CHANNEL_SECRET
 };
 
-// 檢查必要環境變數
+// --- 檢查環境變數 ---
 if (!ADMIN_TOKEN || !REDIS_URL) {
     console.error("❌ 錯誤：核心環境變數 (ADMIN_TOKEN, UPSTASH_REDIS_URL) 未設定");
     process.exit(1);
 }
-
 if (!ADMIN_RICH_MENU_ID || !ADMIN_SWITCH_PASSWORD) {
-    console.warn("⚠️ 警告：未設定 ADMIN_RICH_MENU_ID 或 ADMIN_SWITCH_PASSWORD，LINE 管理員切換功能將無法使用。");
+    console.warn("⚠️ 警告：未設定 ADMIN_RICH_MENU_ID 或 ADMIN_SWITCH_PASSWORD，管理員選單切換功能將失效。");
 }
 
 let lineClient = null;
@@ -64,48 +64,6 @@ const redis = new Redis(REDIS_URL, {
 });
 redis.on('connect', () => console.log("✅ Redis 連線成功"));
 redis.on('error', (err) => console.error("❌ Redis 錯誤:", err));
-
-// --- 每日自動歸零排程 (每天 04:00) ---
-cron.schedule('0 4 * * *', async () => {
-    console.log("⏰ 執行每日自動重置...");
-    try {
-        const multi = redis.multi();
-        multi.set(KEY_CURRENT_NUMBER, 0);
-        multi.del(KEY_PASSED_NUMBERS);
-        
-        // 重置 LINE 相關通知 (保留設定文案，只清除使用者訂閱)
-        const keys = await redis.keys(`${KEY_LINE_SUB_PREFIX}*`);
-        const userKeys = await redis.keys(`${KEY_LINE_USER_STATUS}*`);
-        const allLineKeys = [...keys, ...userKeys];
-        if(allLineKeys.length > 0) multi.del(allLineKeys);
-
-        await multi.exec();
-        
-        // 廣播重置訊息
-        io.emit("update", 0);
-        io.emit("updatePassed", []);
-        io.emit("adminBroadcast", "系統已執行每日自動歸零");
-        addAdminLog("系統", "⏰ 執行每日自動歸零");
-        
-        console.log("✅ 每日自動重置完成");
-    } catch (e) {
-        console.error("❌ 自動重置失敗:", e);
-    }
-}, {
-    timezone: "Asia/Taipei"
-});
-
-redis.defineCommand("decrIfPositive", {
-    numberOfKeys: 1,
-    lua: `
-        local currentValue = tonumber(redis.call("GET", KEYS[1]))
-        if currentValue and currentValue > 0 then
-            return redis.call("DECR", KEYS[1])
-        else
-            return currentValue or 0
-        end
-    `,
-});
 
 // --- Keys ---
 const KEY_CURRENT_NUMBER = 'callsys:number';
@@ -178,6 +136,48 @@ const superAdminAuthMiddleware = (req, res, next) => {
     if (req.user?.role === 'super') next();
     else res.status(403).json({ error: "權限不足" });
 };
+
+// --- 每日自動歸零排程 (每天 04:00) ---
+cron.schedule('0 4 * * *', async () => {
+    console.log("⏰ 執行每日自動重置...");
+    try {
+        const multi = redis.multi();
+        multi.set(KEY_CURRENT_NUMBER, 0);
+        multi.del(KEY_PASSED_NUMBERS);
+        
+        // 重置 LINE 相關通知 (保留設定文案，只清除使用者訂閱)
+        const keys = await redis.keys(`${KEY_LINE_SUB_PREFIX}*`);
+        const userKeys = await redis.keys(`${KEY_LINE_USER_STATUS}*`);
+        const allLineKeys = [...keys, ...userKeys];
+        if(allLineKeys.length > 0) multi.del(allLineKeys);
+
+        await multi.exec();
+        
+        // 廣播重置訊息
+        io.emit("update", 0);
+        io.emit("updatePassed", []);
+        io.emit("adminBroadcast", "系統已執行每日自動歸零");
+        addAdminLog("系統", "⏰ 執行每日自動歸零");
+        
+        console.log("✅ 每日自動重置完成");
+    } catch (e) {
+        console.error("❌ 自動重置失敗:", e);
+    }
+}, {
+    timezone: "Asia/Taipei"
+});
+
+redis.defineCommand("decrIfPositive", {
+    numberOfKeys: 1,
+    lua: `
+        local currentValue = tonumber(redis.call("GET", KEYS[1]))
+        if currentValue and currentValue > 0 then
+            return redis.call("DECR", KEYS[1])
+        else
+            return currentValue or 0
+        end
+    `,
+});
 
 // --- Helpers ---
 
@@ -369,18 +369,17 @@ async function handleLineEvent(event) {
     const text = event.message.text.trim();
     const userId = event.source.userId;
 
-    // --- 1. 管理員選單切換 (!admin / !logout) ---
+    // --- 1. 管理員選單切換 ---
     if (text.startsWith('!admin ')) {
         const inputPass = text.split(' ')[1];
         if (!ADMIN_RICH_MENU_ID) {
-             return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 系統未設定 ADMIN_RICH_MENU_ID' });
+            return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 系統未設定 ADMIN_RICH_MENU_ID，無法切換。' });
         }
-
         if (inputPass === ADMIN_SWITCH_PASSWORD) {
             try {
                 await lineClient.linkRichMenuToUser(userId, ADMIN_RICH_MENU_ID);
                 return lineClient.replyMessage(event.replyToken, {
-                    type: 'text', text: '🔐 身份驗證成功！已切換為「管理員模式」。'
+                    type: 'text', text: '🔐 身份驗證成功！\n選單已切換為「管理員模式」。'
                 });
             } catch (e) {
                 console.error("Link Menu Error:", e);
@@ -390,6 +389,8 @@ async function handleLineEvent(event) {
             return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 密碼錯誤' });
         }
     }
+    
+    // --- 2. 登出管理員模式 ---
     if (text === '!logout' || text === '登出') {
         try {
             await lineClient.unlinkRichMenuFromUser(userId);
@@ -399,12 +400,12 @@ async function handleLineEvent(event) {
         } catch (e) { console.error("Unlink Menu Error:", e); }
     }
 
-    // --- 2. 關鍵字判定 (支援圖文選單按鈕) ---
+    // --- 3. 關鍵字判定 (支援圖文選單按鈕) ---
     const isQuery = ['查詢', '號碼', '進度', '?', '？', '查詢捐血進度', '查詢進度', '🔍 查詢進度'].some(k => text.includes(k));
     const isPassed = ['過號', '過號查詢', '📋 過號名單', '過號名單'].some(k => text.includes(k));
     const isCancel = ['取消提醒', '❌ 取消提醒'].includes(text);
 
-    // 查詢進度
+    // A. 查詢進度
     if (isQuery) {
         const currentNum = parseInt(await redis.get(KEY_CURRENT_NUMBER)) || 0;
         const waitTime = await calculateSmartWaitTime();
@@ -413,7 +414,7 @@ async function handleLineEvent(event) {
         return lineClient.replyMessage(event.replyToken, createStatusFlexMessage(currentNum, waitTime, userTarget));
     }
 
-    // 過號查詢
+    // B. 過號查詢
     if (isPassed) {
         const passedList = await redis.zrange(KEY_PASSED_NUMBERS, 0, -1);
         if (!passedList || passedList.length === 0) {
@@ -422,7 +423,7 @@ async function handleLineEvent(event) {
         return lineClient.replyMessage(event.replyToken, { type: 'text', text: `📋 目前過號名單：\n\n${passedList.join(', ')}` });
     }
 
-    // 取消提醒
+    // C. 取消提醒
     if (isCancel) {
         const userTargetStr = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
         if (!userTargetStr) {
@@ -436,14 +437,14 @@ async function handleLineEvent(event) {
         return lineClient.replyMessage(event.replyToken, { type: 'text', text: `🗑️ 已取消 ${targetNum} 號的到號提醒。` });
     }
 
-    // 設定提醒引導
+    // D. 設定提醒引導
     if (text === '設定提醒') {
         return lineClient.replyMessage(event.replyToken, {
             type: 'text', text: '💡 請直接輸入您的號碼以設定提醒。\n\n例如：若您是 88 號，請直接回覆「88」。'
         });
     }
 
-    // 設定提醒 (純數字)
+    // E. 設定提醒 (純數字)
     const match = text.match(/^(?:提醒|設定)?\s*(\d+)$/);
     if (match) {
         const targetNum = parseInt(match[1]);
@@ -467,7 +468,7 @@ async function handleLineEvent(event) {
         });
     }
     
-    // 預設說明
+    // F. 預設說明
     return lineClient.replyMessage(event.replyToken, {
         type: 'text',
         text: '👋 您好！叫號小幫手指令：\n\n🔹 輸入「查詢進度」：看現場號碼\n🔹 輸入「過號名單」：看過號名單\n🔹 輸入數字 (如 88)：設定到號提醒\n🔹 點選「取消提醒」：移除提醒'
@@ -895,5 +896,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v13.0 ready on port ${PORT}`);
+    console.log(`🚀 Server v13.1 ready on port ${PORT}`);
 });
