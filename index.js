@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v11.1 LINE Bot Update
+ * 伺服器 (index.js) - v11.2 LINE Bot Update
  * ==========================================
  */
 
@@ -341,7 +341,7 @@ async function handleLineEvent(event) {
     }
 
     // 取消指令
-    if (text === '取消' || text === '取消提醒') {
+    if (text === '取消提醒') {
         const userTargetStr = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
         if (!userTargetStr) {
             return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 您目前沒有設定任何提醒喔！' });
@@ -401,7 +401,7 @@ async function handleLineEvent(event) {
     
     return lineClient.replyMessage(event.replyToken, {
         type: 'text',
-        text: '👋 您好！叫號小幫手指令：\n\n🔹 輸入「查詢捐血進度」：看現場號碼\n🔹 輸入「過號查詢」：看過號名單\n🔹 輸入數字 (如 88)：設定到號提醒\n🔹 輸入「取消」：移除提醒'
+        text: '👋 您好！叫號小幫手指令：\n\n🔹 輸入「查詢捐血進度」：看現場號碼\n🔹 輸入「過號查詢」：看過號名單\n🔹 輸入數字 (如 88)：設定到號提醒\n🔹 點選「取消提醒」：移除提醒'
     });
 }
 
@@ -843,5 +843,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v11.1 ready on port ${PORT}`);
+    console.log(`🚀 Server v11.2 ready on port ${PORT}`);
 });
