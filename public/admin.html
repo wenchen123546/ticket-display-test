@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>後台管理 - 叫號控制</title>
 <script src="/socket.io/socket.io.js"></script>
-<link rel="stylesheet" href="/css/admin.css?v=23"> 
+<link rel="stylesheet" href="/css/admin.css?v=24"> 
 </head>
 <body>
 
@@ -50,9 +50,18 @@
             <div class="admin-card">
                 <h3><span class="card-icon">🕹️</span> 主要控制</h3>
                 
+                <div class="control-group form-group-boxed">
+                    <label for="manualNumber">手動設定號碼</label>
+                    <div class="input-group">
+                        <input type="number" id="manualNumber" placeholder="輸入號碼" style="flex:2;" />
+                        <button id="setNumber" type="button" class="btn-primary" style="flex:1;">設定</button>
+                    </div>
+                    <button id="resetNumber" type="button" class="btn-reset-single" style="margin-top:10px;">重置號碼</button>
+                </div>
+
                 <div class="control-group sound-toggle-group">
-                <label for="sound-toggle">啟用前台音效</label>
-                <input type="checkbox" id="sound-toggle">
+                    <label for="sound-toggle">啟用前台音效</label>
+                    <input type="checkbox" id="sound-toggle">
                 </div>
                 
                 <div class="control-group form-group-boxed">
@@ -61,13 +70,6 @@
                         <input type="text" id="broadcast-msg" placeholder="輸入內容" style="flex:2;">
                         <button id="btn-broadcast" type="button" class="btn-secondary" style="flex:1; min-width:60px;">發送</button>
                     </div>
-                </div>
-
-                <div class="control-group form-group-boxed">
-                    <label for="manualNumber">手動設定號碼</label>
-                    <input type="number" id="manualNumber" placeholder="輸入號碼" />
-                    <button id="setNumber" type="button" class="btn-primary">設定</button>
-                    <button id="resetNumber" type="button" class="btn-reset-single">重置</button>
                 </div>
                 
                 <div class="control-group list-editor">
@@ -235,6 +237,6 @@
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=23"></script> 
+<script src="/js/admin.js?v=24"></script> 
 </body>
 </html>
