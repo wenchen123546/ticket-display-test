@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v13.2 Render Fix
+ * 伺服器 (index.js) - v13.3 With Setup Tool
  * ==========================================
  */
 
@@ -13,11 +13,13 @@ const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid'); 
 const bcrypt = require('bcrypt'); 
 const line = require('@line/bot-sdk'); 
-const cron = require('node-cron'); // 排程套件
+const cron = require('node-cron'); 
+const fs = require('fs'); // 新增：用於讀取圖片
+const path = require('path'); // 新增：用於路徑處理
 
 const app = express();
 
-// 【新增】設定信任代理 (解決 Render/Heroku 部署時的 Rate Limit 錯誤)
+// 設定信任代理 (解決 Render 部署問題)
 app.set('trust proxy', 1);
 
 const server = http.createServer(app);
@@ -27,16 +29,11 @@ const io = socketio(server, { cors: { origin: "*" }, pingTimeout: 60000 });
 const PORT = process.env.PORT || 3000;
 const REDIS_URL = process.env.UPSTASH_REDIS_URL;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN; 
-const ADMIN_RICH_MENU_ID = process.env.ADMIN_RICH_MENU_ID; // LINE 管理員選單 ID
-const ADMIN_SWITCH_PASSWORD = process.env.ADMIN_SWITCH_PASSWORD; // 切換指令密碼 (!admin xxx)
+const ADMIN_RICH_MENU_ID = process.env.ADMIN_RICH_MENU_ID; 
+const ADMIN_SWITCH_PASSWORD = process.env.ADMIN_SWITCH_PASSWORD;
 
 const SALT_ROUNDS = 10; 
-
-// --- 參數設定 ---
-// 1. 叫號提醒緩衝 (提前 5 號)
 const REMIND_BUFFER = 5;
-
-// 2. 智慧預測參數 (參考最近 15 筆，超過 20 分鐘視為異常)
 const MAX_HISTORY_FOR_PREDICTION = 15; 
 const MAX_VALID_SERVICE_MINUTES = 20;  
 
@@ -69,7 +66,7 @@ const redis = new Redis(REDIS_URL, {
 redis.on('connect', () => console.log("✅ Redis 連線成功"));
 redis.on('error', (err) => console.error("❌ Redis 錯誤:", err));
 
-// --- Keys ---
+// Keys
 const KEY_CURRENT_NUMBER = 'callsys:number';
 const KEY_PASSED_NUMBERS = 'callsys:passed';
 const KEY_FEATURED_CONTENTS = 'callsys:featured';
@@ -82,8 +79,6 @@ const KEY_NICKNAMES = 'callsys:nicknames';
 const SESSION_PREFIX = 'callsys:session:';
 const KEY_HISTORY_STATS = 'callsys:stats:history';
 const KEY_STATS_HOURLY_PREFIX = 'callsys:stats:hourly:'; 
-
-// --- LINE 相關 Keys ---
 const KEY_LINE_SUB_PREFIX = 'callsys:line:notify:'; 
 const KEY_LINE_USER_STATUS = 'callsys:line:user:';  
 const KEY_LINE_MSG_APPROACH = 'callsys:line:msg:approach';
@@ -94,7 +89,7 @@ const DEFAULT_LINE_MSG_ARRIVAL = "🎉 輪到您了！\n\n目前號碼：{curren
 
 const onlineAdmins = new Map();
 
-// --- Middleware ---
+// Middleware
 app.use(helmet({
     contentSecurityPolicy: {
       directives: {
@@ -105,6 +100,78 @@ app.use(helmet({
       },
     },
 }));
+
+// ==========================================
+// 🛠️ [新功能] 自動建立選單的工具路徑
+// ==========================================
+app.get('/setup-rich-menu', async (req, res) => {
+    if (!lineClient) return res.status(500).send("❌ LINE Client 未初始化 (請檢查 LINE_ACCESS_TOKEN)");
+
+    // 檢查圖片是否存在
+    const publicImgPath = path.join(__dirname, 'menu_public.jpg');
+    const adminImgPath = path.join(__dirname, 'menu_admin.jpg');
+
+    if (!fs.existsSync(publicImgPath) || !fs.existsSync(adminImgPath)) {
+        return res.status(400).send(`
+            <h1>❌ 圖片缺失</h1>
+            <p>請確認您的專案根目錄中已上傳以下兩張圖片：</p>
+            <ul>
+                <li>menu_public.jpg (目前狀態: ${fs.existsSync(publicImgPath) ? '✅' : '❌'})</li>
+                <li>menu_admin.jpg (目前狀態: ${fs.existsSync(adminImgPath) ? '✅' : '❌'})</li>
+            </ul>
+        `);
+    }
+
+    try {
+        const results = [];
+
+        // 1. 建立民眾版 (預設)
+        const publicMenuId = await lineClient.createRichMenu({
+            size: { width: 2500, height: 1686 },
+            selected: true,
+            name: "Public Menu",
+            chatBarText: "叫號服務",
+            areas: [
+                { bounds: { x: 0, y: 0, width: 1250, height: 1686 }, action: { type: "message", text: "查詢進度" } },
+                { bounds: { x: 1250, y: 0, width: 1250, height: 1686 }, action: { type: "message", text: "過號名單" } }
+            ]
+        });
+        await lineClient.setRichMenuImage(publicMenuId, fs.createReadStream(publicImgPath));
+        await lineClient.setDefaultRichMenu(publicMenuId);
+        results.push(`✅ 民眾版選單建立成功 (已設為預設): ${publicMenuId}`);
+
+        // 2. 建立管理員版
+        const adminMenuId = await lineClient.createRichMenu({
+            size: { width: 2500, height: 1686 },
+            selected: true,
+            name: "Admin Menu",
+            chatBarText: "後台操作",
+            areas: [
+                { bounds: { x: 0, y: 0, width: 2500, height: 1686 }, action: { type: "message", text: "!logout" } }
+            ]
+        });
+        await lineClient.setRichMenuImage(adminMenuId, fs.createReadStream(adminImgPath));
+        results.push(`✅ 管理員版選單建立成功: ${adminMenuId}`);
+
+        // 回傳結果頁面
+        res.send(`
+            <h1>🎉 選單建立成功！</h1>
+            <p>請複製下方的 ID，並填入 Render 的 Environment Variables 中：</p>
+            <hr>
+            <h3>Key: <span style="color:red">ADMIN_RICH_MENU_ID</span></h3>
+            <h3>Value: <span style="background:#eee; padding:5px; border:1px solid #ccc">${adminMenuId}</span></h3>
+            <hr>
+            <p>設定完成後，Render 會自動重啟，警告訊息就會消失。</p>
+            <pre>${results.join('\n')}</pre>
+        `);
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).send(`<h1>❌ 建立失敗</h1><p>${e.message}</p><pre>${JSON.stringify(e.originalError?.response?.data, null, 2)}</pre>`);
+    }
+});
+// ==========================================
+
 
 if (lineClient) {
     app.post('/callback', line.middleware(lineConfig), (req, res) => {
@@ -141,35 +208,25 @@ const superAdminAuthMiddleware = (req, res, next) => {
     else res.status(403).json({ error: "權限不足" });
 };
 
-// --- 每日自動歸零排程 (每天 04:00) ---
 cron.schedule('0 4 * * *', async () => {
     console.log("⏰ 執行每日自動重置...");
     try {
         const multi = redis.multi();
         multi.set(KEY_CURRENT_NUMBER, 0);
         multi.del(KEY_PASSED_NUMBERS);
-        
-        // 重置 LINE 相關通知 (保留設定文案，只清除使用者訂閱)
         const keys = await redis.keys(`${KEY_LINE_SUB_PREFIX}*`);
         const userKeys = await redis.keys(`${KEY_LINE_USER_STATUS}*`);
         const allLineKeys = [...keys, ...userKeys];
         if(allLineKeys.length > 0) multi.del(allLineKeys);
 
         await multi.exec();
-        
-        // 廣播重置訊息
         io.emit("update", 0);
         io.emit("updatePassed", []);
         io.emit("adminBroadcast", "系統已執行每日自動歸零");
         addAdminLog("系統", "⏰ 執行每日自動歸零");
-        
         console.log("✅ 每日自動重置完成");
-    } catch (e) {
-        console.error("❌ 自動重置失敗:", e);
-    }
-}, {
-    timezone: "Asia/Taipei"
-});
+    } catch (e) { console.error("❌ 自動重置失敗:", e); }
+}, { timezone: "Asia/Taipei" });
 
 redis.defineCommand("decrIfPositive", {
     numberOfKeys: 1,
@@ -184,7 +241,6 @@ redis.defineCommand("decrIfPositive", {
 });
 
 // --- Helpers ---
-
 function sanitize(str) {
     if (typeof str !== 'string') return '';
     return str.replace(/<[^>]*>?/gm, '');
@@ -230,22 +286,17 @@ async function addAdminLog(nickname, message) {
     } catch (e) { console.error("Log error:", e); }
 }
 
-// --- 智慧預測：加權移動平均 ---
 async function calculateSmartWaitTime() {
     try {
         const historyRaw = await redis.lrange(KEY_HISTORY_STATS, 0, MAX_HISTORY_FOR_PREDICTION); 
         const history = historyRaw.map(JSON.parse).filter(r => typeof r.num === 'number');
         if (history.length < 2) return 0;
-
-        let totalWeightedTime = 0;
-        let totalWeight = 0;
-
+        let totalWeightedTime = 0, totalWeight = 0;
         for (let i = 0; i < history.length - 1; i++) {
             const current = history[i];
             const prev = history[i+1];
             const timeDiff = (new Date(current.time) - new Date(prev.time)) / 1000 / 60;
             const numDiff = Math.abs(current.num - prev.num);
-
             if (numDiff > 0 && timeDiff > 0) {
                 const timePerNum = timeDiff / numDiff;
                 if (timePerNum <= MAX_VALID_SERVICE_MINUTES) {
@@ -278,92 +329,27 @@ function broadcastOnlineAdmins() {
     io.emit("updateOnlineAdmins", Array.from(onlineAdmins.values()));
 }
 
-// --- LINE Logic ---
-
+// --- LINE Flex Messages ---
 function createStatusFlexMessage(currentNum, waitTime, myTarget = null) {
-    let statusText = "目前無設定提醒";
-    let statusColor = "#aaaaaa";
-    let diffText = "無";
-    
+    let statusText = "目前無設定提醒", statusColor = "#aaaaaa", diffText = "無";
     if (myTarget) {
         const diff = myTarget - currentNum;
         if (diff > 0) {
-            statusText = `等待 ${myTarget} 號`;
-            statusColor = "#ef4444"; 
-            diffText = `還有 ${diff} 組`;
+            statusText = `等待 ${myTarget} 號`; statusColor = "#ef4444"; diffText = `還有 ${diff} 組`;
         } else {
-            statusText = "您可能已過號";
-            statusColor = "#d97706"; 
-            diffText = "已到號";
+            statusText = "您可能已過號"; statusColor = "#d97706"; diffText = "已到號";
         }
     }
-
     let waitTimeStr = waitTime > 0 ? (waitTime < 1 ? `約 < 1 分/組` : `約 ${waitTime.toFixed(1)} 分/組`) : "計算中...";
-
     return {
         type: "flex",
         altText: `目前叫號：${currentNum}`,
         contents: {
-            type: "bubble",
-            size: "giga",
-            header: {
-                type: "box",
-                layout: "vertical",
-                backgroundColor: "#2563eb",
-                paddingAll: "lg",
-                contents: [
-                    { type: "text", text: "現場叫號進度", weight: "bold", color: "#ffffff", size: "lg" }
-                ]
-            },
-            hero: {
-                type: "box",
-                layout: "vertical",
-                paddingAll: "xxl",
-                spacing: "md",
-                contents: [
-                    { type: "text", text: "目前號碼", size: "sm", color: "#888888", align: "center" },
-                    { type: "text", text: `${currentNum}`, size: "5xl", weight: "bold", color: "#2563eb", align: "center" }
-                ]
-            },
-            body: {
-                type: "box",
-                layout: "vertical",
-                contents: [
-                    {
-                        type: "box",
-                        layout: "horizontal",
-                        contents: [
-                            { type: "text", text: "平均等待", size: "sm", color: "#aaaaaa", flex: 1 },
-                            { type: "text", text: waitTimeStr, size: "sm", color: "#666666", align: "end", flex: 2 }
-                        ]
-                    },
-                    { type: "separator", margin: "lg" },
-                    {
-                        type: "box",
-                        layout: "vertical",
-                        margin: "lg",
-                        spacing: "sm",
-                        contents: [
-                            { type: "text", text: "您的狀態", weight: "bold", color: "#333333" },
-                            {
-                                type: "box",
-                                layout: "horizontal",
-                                contents: [
-                                    { type: "text", text: statusText, size: "md", color: statusColor, flex: 2, weight: "bold" },
-                                    { type: "text", text: diffText, size: "md", color: "#333333", align: "end", flex: 1 }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            },
-            footer: {
-                type: "box",
-                layout: "vertical",
-                contents: [
-                    { type: "text", text: "點選「取消提醒」可移除", size: "xs", color: "#bbbbbb", align: "center", margin: "md" }
-                ]
-            }
+            type: "bubble", size: "giga",
+            header: { type: "box", layout: "vertical", backgroundColor: "#2563eb", paddingAll: "lg", contents: [{ type: "text", text: "現場叫號進度", weight: "bold", color: "#ffffff", size: "lg" }] },
+            hero: { type: "box", layout: "vertical", paddingAll: "xxl", spacing: "md", contents: [{ type: "text", text: "目前號碼", size: "sm", color: "#888888", align: "center" }, { type: "text", text: `${currentNum}`, size: "5xl", weight: "bold", color: "#2563eb", align: "center" }] },
+            body: { type: "box", layout: "vertical", contents: [{ type: "box", layout: "horizontal", contents: [{ type: "text", text: "平均等待", size: "sm", color: "#aaaaaa", flex: 1 }, { type: "text", text: waitTimeStr, size: "sm", color: "#666666", align: "end", flex: 2 }] }, { type: "separator", margin: "lg" }, { type: "box", layout: "vertical", margin: "lg", spacing: "sm", contents: [{ type: "text", text: "您的狀態", weight: "bold", color: "#333333" }, { type: "box", layout: "horizontal", contents: [{ type: "text", text: statusText, size: "md", color: statusColor, flex: 2, weight: "bold" }, { type: "text", text: diffText, size: "md", color: "#333333", align: "end", flex: 1 }] }] }] },
+            footer: { type: "box", layout: "vertical", contents: [{ type: "text", text: "點選「取消提醒」可移除", size: "xs", color: "#bbbbbb", align: "center", margin: "md" }] }
         }
     };
 }
@@ -373,43 +359,30 @@ async function handleLineEvent(event) {
     const text = event.message.text.trim();
     const userId = event.source.userId;
 
-    // --- 1. 管理員選單切換 ---
     if (text.startsWith('!admin ')) {
         const inputPass = text.split(' ')[1];
-        if (!ADMIN_RICH_MENU_ID) {
-            return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 系統未設定 ADMIN_RICH_MENU_ID，無法切換。' });
-        }
+        if (!ADMIN_RICH_MENU_ID) return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 系統未設定 ADMIN_RICH_MENU_ID，無法切換。' });
         if (inputPass === ADMIN_SWITCH_PASSWORD) {
             try {
                 await lineClient.linkRichMenuToUser(userId, ADMIN_RICH_MENU_ID);
-                return lineClient.replyMessage(event.replyToken, {
-                    type: 'text', text: '🔐 身份驗證成功！\n選單已切換為「管理員模式」。'
-                });
-            } catch (e) {
-                console.error("Link Menu Error:", e);
-                return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 切換失敗，請檢查 Rich Menu ID 設定' });
-            }
+                return lineClient.replyMessage(event.replyToken, { type: 'text', text: '🔐 身份驗證成功！選單已切換為「管理員模式」。' });
+            } catch (e) { return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 切換失敗，請檢查 Rich Menu ID 設定' }); }
         } else {
             return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 密碼錯誤' });
         }
     }
     
-    // --- 2. 登出管理員模式 ---
     if (text === '!logout' || text === '登出') {
         try {
             await lineClient.unlinkRichMenuFromUser(userId);
-            return lineClient.replyMessage(event.replyToken, {
-                type: 'text', text: '👋 已登出，選單已恢復為「民眾模式」。'
-            });
+            return lineClient.replyMessage(event.replyToken, { type: 'text', text: '👋 已登出，選單已恢復為「民眾模式」。' });
         } catch (e) { console.error("Unlink Menu Error:", e); }
     }
 
-    // --- 3. 關鍵字判定 (支援圖文選單按鈕) ---
     const isQuery = ['查詢', '號碼', '進度', '?', '？', '查詢捐血進度', '查詢進度', '🔍 查詢進度'].some(k => text.includes(k));
     const isPassed = ['過號', '過號查詢', '📋 過號名單', '過號名單'].some(k => text.includes(k));
     const isCancel = ['取消提醒', '❌ 取消提醒'].includes(text);
 
-    // A. 查詢進度
     if (isQuery) {
         const currentNum = parseInt(await redis.get(KEY_CURRENT_NUMBER)) || 0;
         const waitTime = await calculateSmartWaitTime();
@@ -418,21 +391,15 @@ async function handleLineEvent(event) {
         return lineClient.replyMessage(event.replyToken, createStatusFlexMessage(currentNum, waitTime, userTarget));
     }
 
-    // B. 過號查詢
     if (isPassed) {
         const passedList = await redis.zrange(KEY_PASSED_NUMBERS, 0, -1);
-        if (!passedList || passedList.length === 0) {
-            return lineClient.replyMessage(event.replyToken, { type: 'text', text: '🟢 目前沒有任何過號紀錄喔！' });
-        }
+        if (!passedList || passedList.length === 0) return lineClient.replyMessage(event.replyToken, { type: 'text', text: '🟢 目前沒有任何過號紀錄喔！' });
         return lineClient.replyMessage(event.replyToken, { type: 'text', text: `📋 目前過號名單：\n\n${passedList.join(', ')}` });
     }
 
-    // C. 取消提醒
     if (isCancel) {
         const userTargetStr = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
-        if (!userTargetStr) {
-            return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 您目前沒有設定任何提醒喔！' });
-        }
+        if (!userTargetStr) return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 您目前沒有設定任何提醒喔！' });
         const targetNum = parseInt(userTargetStr);
         const pipeline = redis.multi();
         pipeline.srem(`${KEY_LINE_SUB_PREFIX}${targetNum}`, userId); 
@@ -441,42 +408,27 @@ async function handleLineEvent(event) {
         return lineClient.replyMessage(event.replyToken, { type: 'text', text: `🗑️ 已取消 ${targetNum} 號的到號提醒。` });
     }
 
-    // D. 設定提醒引導
     if (text === '設定提醒') {
-        return lineClient.replyMessage(event.replyToken, {
-            type: 'text', text: '💡 請直接輸入您的號碼以設定提醒。\n\n例如：若您是 88 號，請直接回覆「88」。'
-        });
+        return lineClient.replyMessage(event.replyToken, { type: 'text', text: '💡 請直接輸入您的號碼以設定提醒。\n\n例如：若您是 88 號，請直接回覆「88」。' });
     }
 
-    // E. 設定提醒 (純數字)
     const match = text.match(/^(?:提醒|設定)?\s*(\d+)$/);
     if (match) {
         const targetNum = parseInt(match[1]);
         const currentNum = parseInt(await redis.get(KEY_CURRENT_NUMBER)) || 0;
-        if (targetNum <= currentNum) {
-            return lineClient.replyMessage(event.replyToken, { type: 'text', text: `❌ 目前已經是 ${currentNum} 號囉！\n請直接前往櫃台。` });
-        }
+        if (targetNum <= currentNum) return lineClient.replyMessage(event.replyToken, { type: 'text', text: `❌ 目前已經是 ${currentNum} 號囉！\n請直接前往櫃台。` });
         const existingTarget = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
         const pipeline = redis.multi();
         if (existingTarget) pipeline.srem(`${KEY_LINE_SUB_PREFIX}${existingTarget}`, userId);
-
         const subKey = `${KEY_LINE_SUB_PREFIX}${targetNum}`;
-        pipeline.sadd(subKey, userId);               
-        pipeline.expire(subKey, 86400); 
+        pipeline.sadd(subKey, userId); pipeline.expire(subKey, 86400); 
         pipeline.set(`${KEY_LINE_USER_STATUS}${userId}`, targetNum, "EX", 86400); 
         await pipeline.exec();
-
         const notifyAt = Math.max(currentNum, targetNum - REMIND_BUFFER);
-        return lineClient.replyMessage(event.replyToken, { 
-            type: 'text', text: `✅ 設定成功！\n\n您的號碼：${targetNum} 號\n當叫到 ${notifyAt} 號時 (前 ${REMIND_BUFFER} 號)，我會通知您。` 
-        });
+        return lineClient.replyMessage(event.replyToken, { type: 'text', text: `✅ 設定成功！\n\n您的號碼：${targetNum} 號\n當叫到 ${notifyAt} 號時 (前 ${REMIND_BUFFER} 號)，我會通知您。` });
     }
     
-    // F. 預設說明
-    return lineClient.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '👋 您好！叫號小幫手指令：\n\n🔹 輸入「查詢進度」：看現場號碼\n🔹 輸入「過號名單」：看過號名單\n🔹 輸入數字 (如 88)：設定到號提醒\n🔹 點選「取消提醒」：移除提醒'
-    });
+    return lineClient.replyMessage(event.replyToken, { type: 'text', text: '👋 您好！叫號小幫手指令：\n\n🔹 輸入「查詢進度」：看現場號碼\n🔹 輸入「過號名單」：看過號名單\n🔹 輸入數字 (如 88)：設定到號提醒\n🔹 點選「取消提醒」：移除提醒' });
 }
 
 function formatLineMessage(template, current, target) {
@@ -503,21 +455,17 @@ async function checkAndNotifyLineUsers(currentNum) {
 
         const exactKey = `${KEY_LINE_SUB_PREFIX}${currentNum}`;
         const exactSubscribers = await redis.smembers(exactKey);
-        
         if (exactSubscribers.length > 0) {
             const msgText = formatLineMessage(tplArrival, currentNum, currentNum);
             await lineClient.multicast(exactSubscribers, [{ type: 'text', text: msgText }]);
-            
             const pipeline = redis.multi();
             exactSubscribers.forEach(uid => pipeline.del(`${KEY_LINE_USER_STATUS}${uid}`));
-            pipeline.del(exactKey); 
-            await pipeline.exec();
+            pipeline.del(exactKey); await pipeline.exec();
         }
     } catch (e) { console.error("Line Notify Error:", e); }
 }
 
 // --- Routes ---
-
 app.post("/login", loginLimiter, async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "請輸入帳號密碼" });
@@ -539,28 +487,19 @@ app.post("/login", loginLimiter, async (req, res) => {
 });
 
 const protectedAPIs = [
-    "/change-number", "/set-number",
-    "/api/passed/add", "/api/passed/remove", "/api/passed/clear",
-    "/api/featured/add", "/api/featured/remove", "/api/featured/clear",
-    "/set-sound-enabled", "/set-public-status", "/reset",
-    "/api/logs/clear", "/api/admin/stats", "/api/admin/broadcast",
-    "/api/admin/stats/adjust", "/api/admin/stats/clear",
-    "/api/admin/export-csv",
-    "/api/admin/line-settings/get", "/api/admin/line-settings/save", "/api/admin/line-settings/reset"
+    "/change-number", "/set-number", "/api/passed/add", "/api/passed/remove", "/api/passed/clear",
+    "/api/featured/add", "/api/featured/remove", "/api/featured/clear", "/set-sound-enabled", "/set-public-status", "/reset",
+    "/api/logs/clear", "/api/admin/stats", "/api/admin/broadcast", "/api/admin/stats/adjust", "/api/admin/stats/clear",
+    "/api/admin/export-csv", "/api/admin/line-settings/get", "/api/admin/line-settings/save", "/api/admin/line-settings/reset"
 ];
 app.use(protectedAPIs, apiLimiter, authMiddleware);
 
 app.post("/api/admin/line-settings/get", async (req, res) => {
     try {
         const [approach, arrival] = await redis.mget(KEY_LINE_MSG_APPROACH, KEY_LINE_MSG_ARRIVAL);
-        res.json({
-            success: true,
-            approach: approach || DEFAULT_LINE_MSG_APPROACH,
-            arrival: arrival || DEFAULT_LINE_MSG_ARRIVAL
-        });
+        res.json({ success: true, approach: approach || DEFAULT_LINE_MSG_APPROACH, arrival: arrival || DEFAULT_LINE_MSG_ARRIVAL });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
-
 app.post("/api/admin/line-settings/save", async (req, res) => {
     try {
         const { approach, arrival } = req.body;
@@ -570,7 +509,6 @@ app.post("/api/admin/line-settings/save", async (req, res) => {
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
-
 app.post("/api/admin/line-settings/reset", async (req, res) => {
     try {
         await redis.del(KEY_LINE_MSG_APPROACH, KEY_LINE_MSG_ARRIVAL);
@@ -586,7 +524,6 @@ app.post("/api/admin/export-csv", superAdminAuthMiddleware, async (req, res) => 
         const history = historyRaw.map(JSON.parse);
         let csvContent = "\uFEFF時間,號碼,操作員,服務耗時(秒),備註\n";
         const reversedHistory = history.reverse();
-
         for (let i = 0; i < reversedHistory.length; i++) {
             const item = reversedHistory[i];
             const time = new Date(item.time).toLocaleTimeString('zh-TW', { hour12: false });
@@ -616,9 +553,7 @@ app.post("/change-number", async (req, res) => {
             num = await redis.decrIfPositive(KEY_CURRENT_NUMBER);
             await logHistory(num, req.user.nickname, 0); 
             addAdminLog(req.user.nickname, `號碼回退為 ${num}`);
-        } else {
-            num = await redis.get(KEY_CURRENT_NUMBER) || 0;
-        }
+        } else { num = await redis.get(KEY_CURRENT_NUMBER) || 0; }
         io.emit("update", num);
         checkAndNotifyLineUsers(num);
         io.emit("updateWaitTime", await calculateSmartWaitTime());
@@ -657,13 +592,9 @@ app.post("/api/admin/broadcast", async (req, res) => {
                 keys.forEach(k => pipeline.smembers(k));
                 const results = await pipeline.exec();
                 const allUserIds = new Set();
-                results.forEach(([err, members]) => {
-                    if (members) members.forEach(m => allUserIds.add(m));
-                });
+                results.forEach(([err, members]) => { if (members) members.forEach(m => allUserIds.add(m)); });
                 const uniqueUsers = Array.from(allUserIds);
-                if (uniqueUsers.length > 0) {
-                    await lineClient.multicast(uniqueUsers, [{ type: 'text', text: `📢 店家公告：${cleanMsg}` }]);
-                }
+                if (uniqueUsers.length > 0) await lineClient.multicast(uniqueUsers, [{ type: 'text', text: `📢 店家公告：${cleanMsg}` }]);
             }
         } catch (e) { console.error("LINE Broadcast error:", e); }
     }
@@ -674,23 +605,18 @@ app.post("/api/admin/broadcast", async (req, res) => {
 app.post("/api/admin/stats", async (req, res) => {
     try {
         const { dateStr, hour } = getTaiwanDateInfo();
-        const [historyRaw, hourlyData] = await Promise.all([
-            redis.lrange(KEY_HISTORY_STATS, 0, 99),
-            redis.hgetall(`${KEY_STATS_HOURLY_PREFIX}${dateStr}`)
-        ]);
+        const [historyRaw, hourlyData] = await Promise.all([redis.lrange(KEY_HISTORY_STATS, 0, 99), redis.hgetall(`${KEY_STATS_HOURLY_PREFIX}${dateStr}`)]);
         const hourlyCounts = new Array(24).fill(0);
         let todayTotal = 0;
         if (hourlyData) {
             for (const [hStr, count] of Object.entries(hourlyData)) {
-                const h = parseInt(hStr);
-                const c = parseInt(count);
+                const h = parseInt(hStr); const c = parseInt(count);
                 if (h >= 0 && h < 24) { hourlyCounts[h] = c; todayTotal += c; }
             }
         }
         res.json({ success: true, history: historyRaw.map(JSON.parse), hourlyCounts, todayCount: todayTotal, serverHour: hour });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
-
 app.post("/api/admin/stats/adjust", async (req, res) => {
     try {
         const { hour, delta } = req.body;
@@ -698,25 +624,19 @@ app.post("/api/admin/stats/adjust", async (req, res) => {
         const key = `${KEY_STATS_HOURLY_PREFIX}${dateStr}`;
         const newVal = await redis.hincrby(key, hour, delta);
         if (newVal < 0) await redis.hset(key, hour, 0);
-        const record = {
-            num: "Adj",
-            time: new Date().toISOString(),
-            operator: `${req.user.nickname} (調整${hour}點: ${delta>0?'+':''}${delta})`
-        };
+        const record = { num: "Adj", time: new Date().toISOString(), operator: `${req.user.nickname} (調整${hour}點: ${delta>0?'+':''}${delta})` };
         await redis.lpush(KEY_HISTORY_STATS, JSON.stringify(record));
         await redis.ltrim(KEY_HISTORY_STATS, 0, 999);
         addAdminLog(req.user.nickname, `手動調整 ${hour}點 統計`);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
-
 app.post("/api/admin/stats/clear", async (req, res) => {
     try {
         const { dateStr } = getTaiwanDateInfo();
         const multi = redis.multi();
         multi.del(`${KEY_STATS_HOURLY_PREFIX}${dateStr}`); 
-        multi.del(KEY_HISTORY_STATS); 
-        await multi.exec();
+        multi.del(KEY_HISTORY_STATS); await multi.exec();
         addAdminLog(req.user.nickname, `⚠️ 清空了統計數據`);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -731,14 +651,12 @@ app.post("/api/passed/add", async (req, res) => {
     broadcastData(KEY_PASSED_NUMBERS, "updatePassed", false);
     res.json({ success: true });
 });
-
 app.post("/api/passed/remove", async (req, res) => {
     await redis.zrem(KEY_PASSED_NUMBERS, req.body.number);
     addAdminLog(req.user.nickname, `過號移除 ${req.body.number}`);
     broadcastData(KEY_PASSED_NUMBERS, "updatePassed", false);
     res.json({ success: true });
 });
-
 app.post("/api/passed/clear", async (req, res) => {
     await redis.del(KEY_PASSED_NUMBERS);
     addAdminLog(req.user.nickname, `過號清空`);
@@ -753,7 +671,6 @@ app.post("/api/featured/add", async (req, res) => {
     broadcastData(KEY_FEATURED_CONTENTS, "updateFeaturedContents", true);
     res.json({ success: true });
 });
-
 app.post("/api/featured/remove", async (req, res) => {
     const { linkText, linkUrl } = req.body;
     await redis.lrem(KEY_FEATURED_CONTENTS, 1, JSON.stringify({ linkText, linkUrl }));
@@ -761,7 +678,6 @@ app.post("/api/featured/remove", async (req, res) => {
     broadcastData(KEY_FEATURED_CONTENTS, "updateFeaturedContents", true);
     res.json({ success: true });
 });
-
 app.post("/api/featured/clear", async (req, res) => {
     await redis.del(KEY_FEATURED_CONTENTS);
     addAdminLog(req.user.nickname, `連結清空`);
@@ -776,7 +692,6 @@ app.post("/set-sound-enabled", async (req, res) => {
     io.emit("updateSoundSetting", enabled);
     res.json({ success: true });
 });
-
 app.post("/set-public-status", async (req, res) => {
     const { isPublic } = req.body;
     await redis.set(KEY_IS_PUBLIC, isPublic ? "1" : "0");
@@ -818,8 +733,7 @@ app.post("/api/logs/clear", async (req, res) => {
     res.json({ success: true });
 });
 
-app.use(["/api/admin/users", "/api/admin/add-user", "/api/admin/del-user", "/api/admin/set-nickname"], 
-    authMiddleware, superAdminAuthMiddleware);
+app.use(["/api/admin/users", "/api/admin/add-user", "/api/admin/del-user", "/api/admin/set-nickname"], authMiddleware, superAdminAuthMiddleware);
 
 app.post("/api/admin/users", async (req, res) => {
     const nicknames = await redis.hgetall(KEY_NICKNAMES) || {};
@@ -828,7 +742,6 @@ app.post("/api/admin/users", async (req, res) => {
     normalUsers.forEach(u => list.push({ username: u, nickname: nicknames[u] || u, role: 'normal' }));
     res.json({ success: true, users: list });
 });
-
 app.post("/api/admin/add-user", async (req, res) => {
     const { newUsername, newPassword, newNickname } = req.body;
     if(await redis.hexists(KEY_USERS, newUsername)) return res.status(400).json({error: "帳號已存在"});
@@ -838,7 +751,6 @@ app.post("/api/admin/add-user", async (req, res) => {
     addAdminLog(req.user.nickname, `新增管理員 ${newUsername}`);
     res.json({ success: true });
 });
-
 app.post("/api/admin/del-user", async (req, res) => {
     const { delUsername } = req.body;
     if (delUsername === 'superadmin') return res.status(400).json({error: "不可刪除超級管理員"});
@@ -847,7 +759,6 @@ app.post("/api/admin/del-user", async (req, res) => {
     addAdminLog(req.user.nickname, `刪除管理員 ${delUsername}`);
     res.json({ success: true });
 });
-
 app.post("/api/admin/set-nickname", async (req, res) => {
     const { targetUsername, nickname } = req.body;
     await redis.hset(KEY_NICKNAMES, targetUsername, sanitize(nickname));
@@ -900,5 +811,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v13.1 ready on port ${PORT}`);
+    console.log(`🚀 Server v13.3 ready on port ${PORT}`);
 });
