@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v17.2 Dynamic LINE Unlock Password
+ * 伺服器 (index.js) - v17.3 Rich Menu Logic Fix
  * ==========================================
  */
 
@@ -17,6 +17,7 @@ const cron = require('node-cron');
 
 const app = express();
 
+// 設定 Trust Proxy (針對 Render/Heroku 等平台)
 app.set('trust proxy', 1);
 
 const server = http.createServer(app);
@@ -31,13 +32,15 @@ const REMIND_BUFFER = 5; // 提醒緩衝區 (前5號通知)
 const MAX_HISTORY_FOR_PREDICTION = 15; 
 const MAX_VALID_SERVICE_MINUTES = 20;  
 
+// LINE 設定
 const lineConfig = {
     channelAccessToken: process.env.LINE_ACCESS_TOKEN,
     channelSecret: process.env.LINE_CHANNEL_SECRET
 };
 
+// 檢查必要變數
 if (!ADMIN_TOKEN || !REDIS_URL) {
-    console.error("❌ 錯誤：核心環境變數未設定");
+    console.error("❌ 錯誤：核心環境變數未設定 (ADMIN_TOKEN 或 UPSTASH_REDIS_URL)");
     process.exit(1);
 }
 
@@ -52,7 +55,7 @@ const redis = new Redis(REDIS_URL, {
     retryStrategy: (times) => Math.min(times * 50, 2000)
 });
 
-// Keys
+// Redis Keys
 const KEY_CURRENT_NUMBER = 'callsys:number';
 const KEY_LAST_ISSUED = 'callsys:issued'; 
 const KEY_SYSTEM_MODE = 'callsys:mode'; 
@@ -81,6 +84,7 @@ const DEFAULT_LINE_MSG_ARRIVAL = "🎉 輪到您了！\n\n目前號碼：{curren
 
 const onlineAdmins = new Map();
 
+// 安全設定
 app.use(helmet({
     contentSecurityPolicy: {
       directives: {
@@ -92,19 +96,27 @@ app.use(helmet({
     },
 }));
 
+// LINE Webhook 入口
 if (lineClient) {
     app.post('/callback', line.middleware(lineConfig), (req, res) => {
-        Promise.all(req.body.events.map(handleLineEvent)).then((r) => res.json(r)).catch((e) => res.status(500).end());
+        Promise.all(req.body.events.map(handleLineEvent))
+            .then((r) => res.json(r))
+            .catch((e) => {
+                console.error("LINE Webhook Error:", e);
+                res.status(500).end();
+            });
     });
 }
 
 app.use(express.static("public"));
 app.use(express.json()); 
 
+// Rate Limiters
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 });
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
 const ticketLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, message: "操作過於頻繁" });
 
+// Middleware
 const authMiddleware = async (req, res, next) => {
     try {
         const { token } = req.body; 
@@ -123,7 +135,7 @@ const superAdminAuthMiddleware = (req, res, next) => {
     else res.status(403).json({ error: "權限不足" });
 };
 
-// 每日重置
+// 每日重置排程 (凌晨 4 點)
 cron.schedule('0 4 * * *', async () => {
     try {
         const multi = redis.multi();
@@ -135,7 +147,6 @@ cron.schedule('0 4 * * *', async () => {
         const allLineKeys = [...keys, ...userKeys];
         if(allLineKeys.length > 0) multi.del(allLineKeys);
 
-        // 也可以選擇每日重置解鎖密碼，這裡暫不重置密碼
         await multi.exec();
         
         io.emit("update", 0);
@@ -154,7 +165,7 @@ redis.defineCommand("decrIfPositive", {
     `,
 });
 
-// --- Helpers ---
+// --- Helper Functions ---
 function sanitize(str) {
     if (typeof str !== 'string') return '';
     return str.replace(/<[^>]*>?/gm, '');
@@ -287,24 +298,30 @@ async function checkAndNotifyLineUsers(currentNum) {
     } catch (e) { console.error("Line Notify Error:", e); }
 }
 
-// --- LINE Event Handler (動態密碼版) ---
+// --- LINE Event Handler ---
 async function handleLineEvent(event) {
     if (event.type !== 'message' || event.message.type !== 'text') return Promise.resolve(null);
     
+    // 移除前後空白，確保比對準確
     const text = event.message.text.trim();
     const userId = event.source.userId;
     const replyToken = event.replyToken;
 
-    // --- 1. 後台登入與解鎖 ---
+    /* * [重要] 後台按鈕邏輯
+     * 1. 使用者按鈕需傳送文字「後台登入」
+     * 2. 伺服器檢查 Redis 是否有該 userId 的解鎖記錄
+     * 3. 若無 -> 回傳鎖定訊息
+     * 4. 若有 -> 回傳連結
+     */
     
-    // (A) 點擊後台登入
+    // (A) 使用者點擊「後台登入」 (LINE圖文選單需設定為傳送文字)
     if (text === '後台登入') {
         const isUnlocked = await redis.get(`${KEY_LINE_ADMIN_UNLOCK}${userId}`);
 
         if (isUnlocked) {
-            // 已解鎖：發送連結 (請修改下方 your-domain.com 為真實網址)
-            // 可替換為 liff://... 以獲得更好體驗
-            const host = process.env.RENDER_EXTERNAL_URL || "https://your-domain.com"; 
+            // 已解鎖：動態抓取 Render/Heroku 的網址 (若無環境變數則需手動更改)
+            const host = process.env.RENDER_EXTERNAL_URL || "https://您的網域"; 
+            
             return lineClient.replyMessage(replyToken, {
                 type: "text",
                 text: `🔗 後台傳送門已開啟：\n\n請點擊連結進入後台：\n${host}/admin.html\n\n(此連結包含敏感權限，請勿轉傳)`
@@ -318,13 +335,14 @@ async function handleLineEvent(event) {
         }
     }
 
-    // (B) 檢查是否輸入了解鎖密碼
-    // 先從 Redis 抓取設定的密碼，如果沒有設定，預設為 "unlock" + ADMIN_TOKEN
+    // (B) 使用者輸入密碼解鎖
+    // 優先讀取後台設定的密碼，若無則預設為 "unlock" + ADMIN_TOKEN
     let currentUnlockPass = await redis.get(KEY_LINE_UNLOCK_PWD);
     if (!currentUnlockPass) currentUnlockPass = `unlock${ADMIN_TOKEN}`;
 
+    // 比對密碼 (區分大小寫)
     if (text === currentUnlockPass) {
-        // 密碼正確 -> 設定 10 分鐘 (600秒) 解鎖 Session
+        // 密碼正確 -> 在 Redis 記錄已解鎖，有效期限 600 秒 (10分鐘)
         await redis.set(`${KEY_LINE_ADMIN_UNLOCK}${userId}`, "1", "EX", 600);
         
         return lineClient.replyMessage(replyToken, {
@@ -333,10 +351,9 @@ async function handleLineEvent(event) {
         });
     }
 
+    // --- 一般使用者功能 ---
 
-    // --- 2. 一般使用者功能 ---
-
-    // 查詢進度
+    // 1. 查詢進度
     if (['查詢進度', '查詢', '進度', 'status', '？', '?'].includes(text)) {
         const [current, issued] = await redis.mget(KEY_CURRENT_NUMBER, KEY_LAST_ISSUED);
         const currentNum = parseInt(current) || 0;
@@ -362,7 +379,7 @@ async function handleLineEvent(event) {
         });
     }
 
-    // 過號名單
+    // 2. 過號名單
     if (['過號名單', '過號', 'passed'].includes(text)) {
         const passedList = await redis.zrange(KEY_PASSED_NUMBERS, 0, -1);
         let msgText = "";
@@ -374,7 +391,7 @@ async function handleLineEvent(event) {
         return lineClient.replyMessage(replyToken, { type: "text", text: msgText });
     }
 
-    // 設定提醒
+    // 3. 設定提醒
     if (text.startsWith('設定提醒')) {
         const inputNumStr = text.replace('設定提醒', '').trim();
         const targetNum = parseInt(inputNumStr);
@@ -388,9 +405,11 @@ async function handleLineEvent(event) {
             return lineClient.replyMessage(replyToken, { type: "text", text: `⚠️ 設定失敗\n${targetNum} 號已經過號或正在叫號 (目前 ${currentNum} 號)。` });
         }
 
+        // 清除舊訂閱
         const oldTarget = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
         if (oldTarget) await redis.srem(`${KEY_LINE_SUB_PREFIX}${oldTarget}`, userId);
 
+        // 寫入新訂閱
         const pipeline = redis.multi();
         pipeline.set(`${KEY_LINE_USER_STATUS}${userId}`, targetNum); 
         pipeline.sadd(`${KEY_LINE_SUB_PREFIX}${targetNum}`, userId); 
@@ -405,7 +424,7 @@ async function handleLineEvent(event) {
         });
     }
 
-    // 取消提醒
+    // 4. 取消提醒
     if (['取消提醒', '取消', 'cancel'].includes(text)) {
         const trackingNum = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
         if (!trackingNum) {
@@ -422,6 +441,7 @@ async function handleLineEvent(event) {
 }
 
 // --- Routes ---
+
 app.post("/login", loginLimiter, async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "請輸入帳號密碼" });
@@ -442,6 +462,7 @@ app.post("/login", loginLimiter, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// 保護的 API 路由清單
 const protectedAPIs = [
     "/change-number", "/set-number", "/set-system-mode", "/set-issued-number",
     "/api/passed/add", "/api/passed/remove", "/api/passed/clear",
@@ -477,13 +498,12 @@ app.post("/api/admin/line-settings/reset", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 新增：超級管理員設定 LINE 解鎖密碼的 API
+// --- 新增：超級管理員設定 LINE 解鎖密碼 API ---
 app.post("/api/admin/line-settings/set-unlock-pass", superAdminAuthMiddleware, async (req, res) => {
     try {
         const { password } = req.body;
         if (!password || password.trim() === "") return res.status(400).json({ error: "密碼不可為空" });
         
-        // 儲存密碼
         await redis.set(KEY_LINE_UNLOCK_PWD, password.trim());
         addAdminLog(req.user.nickname, "🔑 更新了 LINE 後台解鎖密碼");
         
@@ -497,7 +517,6 @@ app.post("/api/admin/line-settings/get-unlock-pass", superAdminAuthMiddleware, a
         res.json({ success: true, password: password || "" });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
-
 
 app.post("/api/admin/export-csv", superAdminAuthMiddleware, async (req, res) => {
     try {
@@ -795,5 +814,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v17.2 (Dynamic LINE Unlock) ready on port ${PORT}`);
+    console.log(`🚀 Server v17.3 (Rich Menu Fix) ready on port ${PORT}`);
 });
