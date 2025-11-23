@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v13.4 OA Manager Mode
+ * 伺服器 (index.js) - v14.0 Manual Rich Menu Mode
  * ==========================================
  */
 
@@ -14,8 +14,8 @@ const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcrypt'); 
 const line = require('@line/bot-sdk'); 
 const cron = require('node-cron'); 
-const fs = require('fs'); 
-const path = require('path'); 
+// const fs = require('fs'); // 不再需要讀取圖片檔
+// const path = require('path'); // 不再需要處理路徑
 
 const app = express();
 
@@ -29,8 +29,8 @@ const io = socketio(server, { cors: { origin: "*" }, pingTimeout: 60000 });
 const PORT = process.env.PORT || 3000;
 const REDIS_URL = process.env.UPSTASH_REDIS_URL;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN; 
-const ADMIN_RICH_MENU_ID = process.env.ADMIN_RICH_MENU_ID; 
-const ADMIN_SWITCH_PASSWORD = process.env.ADMIN_SWITCH_PASSWORD;
+
+// 【修改說明】 移除了 ADMIN_RICH_MENU_ID 與 ADMIN_SWITCH_PASSWORD，因為選單將由 LINE 後台全權管理
 
 const SALT_ROUNDS = 10; 
 const REMIND_BUFFER = 5;
@@ -47,14 +47,11 @@ if (!ADMIN_TOKEN || !REDIS_URL) {
     console.error("❌ 錯誤：核心環境變數 (ADMIN_TOKEN, UPSTASH_REDIS_URL) 未設定");
     process.exit(1);
 }
-if (!ADMIN_RICH_MENU_ID || !ADMIN_SWITCH_PASSWORD) {
-    console.warn("⚠️ 警告：未設定 ADMIN_RICH_MENU_ID 或 ADMIN_SWITCH_PASSWORD，管理員選單切換功能將失效。");
-}
 
 let lineClient = null;
 if (lineConfig.channelAccessToken && lineConfig.channelSecret) {
     lineClient = new line.Client(lineConfig);
-    console.log("✅ LINE Bot Client 已初始化");
+    console.log("✅ LINE Bot Client 已初始化 (Manual Menu Mode)");
 } else {
     console.warn("⚠️ 警告：未設定 LINE 環境變數");
 }
@@ -101,65 +98,7 @@ app.use(helmet({
     },
 }));
 
-// ==========================================
-// 🛠️ [修改版] 自動建立選單工具 (只建立 Admin 版)
-// ==========================================
-app.get('/setup-rich-menu', async (req, res) => {
-    if (!lineClient) return res.status(500).send("❌ LINE Client 未初始化");
-
-    // 只需要檢查 Admin 圖片
-    const adminImgPath = path.join(__dirname, 'menu_admin.jpg');
-
-    if (!fs.existsSync(adminImgPath)) {
-        return res.status(400).send(`
-            <h1>❌ 圖片缺失</h1>
-            <p>請確認您的專案根目錄中已上傳以下圖片：</p>
-            <ul>
-                <li>menu_admin.jpg (目前狀態: ❌)</li>
-            </ul>
-        `);
-    }
-
-    try {
-        const results = [];
-
-        // 1. 建立管理員版選單
-        const adminMenuId = await lineClient.createRichMenu({
-            size: { width: 2500, height: 1686 }, // 您可以根據圖片實際尺寸調整高度 1686 或 843
-            selected: true,
-            name: "Admin Menu",
-            chatBarText: "後台操作",
-            areas: [
-                { 
-                    // 整個版面都是按鈕，點擊觸發登出
-                    bounds: { x: 0, y: 0, width: 2500, height: 1686 }, 
-                    action: { type: "message", text: "!logout" } 
-                }
-            ]
-        });
-        await lineClient.setRichMenuImage(adminMenuId, fs.createReadStream(adminImgPath));
-        results.push(`✅ 管理員版選單建立成功: ${adminMenuId}`);
-        results.push(`ℹ️ 民眾版選單：未透過程式設定 (請至 LINE Official Account Manager 後台自行設定)`);
-
-        // 回傳結果頁面
-        res.send(`
-            <h1>🎉 管理員選單建立成功！</h1>
-            <p>請複製下方的 ID，並填入 Render 的 Environment Variables 中：</p>
-            <hr>
-            <h3>Key: <span style="color:red">ADMIN_RICH_MENU_ID</span></h3>
-            <h3>Value: <span style="background:#eee; padding:5px; border:1px solid #ccc">${adminMenuId}</span></h3>
-            <hr>
-            <p>民眾看到的選單將由您在 LINE 官方後台的設定決定。</p>
-            <pre>${results.join('\n')}</pre>
-        `);
-
-    } catch (e) {
-        console.error(e);
-        res.status(500).send(`<h1>❌ 建立失敗</h1><p>${e.message}</p><pre>${JSON.stringify(e.originalError?.response?.data, null, 2)}</pre>`);
-    }
-});
-// ==========================================
-
+// 【修改說明】 移除了 app.get('/setup-rich-menu') 路由
 
 if (lineClient) {
     app.post('/callback', line.middleware(lineConfig), (req, res) => {
@@ -347,26 +286,11 @@ async function handleLineEvent(event) {
     const text = event.message.text.trim();
     const userId = event.source.userId;
 
-    if (text.startsWith('!admin ')) {
-        const inputPass = text.split(' ')[1];
-        if (!ADMIN_RICH_MENU_ID) return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 系統未設定 ADMIN_RICH_MENU_ID，無法切換。' });
-        if (inputPass === ADMIN_SWITCH_PASSWORD) {
-            try {
-                await lineClient.linkRichMenuToUser(userId, ADMIN_RICH_MENU_ID);
-                return lineClient.replyMessage(event.replyToken, { type: 'text', text: '🔐 身份驗證成功！選單已切換為「管理員模式」。' });
-            } catch (e) { return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 切換失敗，請檢查 Rich Menu ID 設定' }); }
-        } else {
-            return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 密碼錯誤' });
-        }
-    }
+    // 【修改說明】 移除了 !admin 與 !logout 指令
+    // 由於我們改用 LINE 官方後台手動建立選單，
+    // API 無法控制手動選單的切換，因此移除這些切換邏輯。
     
-    if (text === '!logout' || text === '登出') {
-        try {
-            await lineClient.unlinkRichMenuFromUser(userId);
-            return lineClient.replyMessage(event.replyToken, { type: 'text', text: '👋 已登出，選單已恢復為「民眾模式」。' });
-        } catch (e) { console.error("Unlink Menu Error:", e); }
-    }
-
+    // 關鍵字比對 (對應您在 LINE 後台設定的按鈕文字)
     const isQuery = ['查詢', '號碼', '進度', '?', '？', '查詢捐血進度', '查詢進度', '🔍 查詢進度'].some(k => text.includes(k));
     const isPassed = ['過號', '過號查詢', '📋 過號名單', '過號名單'].some(k => text.includes(k));
     const isCancel = ['取消提醒', '❌ 取消提醒'].includes(text);
@@ -416,6 +340,7 @@ async function handleLineEvent(event) {
         return lineClient.replyMessage(event.replyToken, { type: 'text', text: `✅ 設定成功！\n\n您的號碼：${targetNum} 號\n當叫到 ${notifyAt} 號時 (前 ${REMIND_BUFFER} 號)，我會通知您。` });
     }
     
+    // 預設回覆
     return lineClient.replyMessage(event.replyToken, { type: 'text', text: '👋 您好！叫號小幫手指令：\n\n🔹 輸入「查詢進度」：看現場號碼\n🔹 輸入「過號名單」：看過號名單\n🔹 輸入數字 (如 88)：設定到號提醒\n🔹 點選「取消提醒」：移除提醒' });
 }
 
@@ -799,5 +724,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v13.4 ready on port ${PORT}`);
+    console.log(`🚀 Server v14.0 (Manual Menu) ready on port ${PORT}`);
 });
