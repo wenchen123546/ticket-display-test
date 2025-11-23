@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>候位號碼顯示</title>
+    <title>即時叫號與取號</title>
 
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#2563eb">
@@ -34,35 +34,66 @@
             <p id="number">0</p>
         </div>
 
+        <div class="card" id="ticket-section" style="padding: 0; overflow: hidden;">
+            
+            <div id="take-ticket-view" style="padding: 25px;">
+                <h3 style="margin-top:0; color:#555;">線上取號</h3>
+                <p style="color:#666; font-size: 0.9rem; margin-bottom: 20px;">
+                    免排隊、免等待！線上領取號碼牌，<br>到號自動通知您。
+                </p>
+                <div style="display:flex; justify-content:center; align-items:center; gap:15px; flex-direction:column;">
+                    <p style="margin:0; font-size:1.1rem; color:#333;">目前發到：<span id="issued-number" style="font-weight:bold; color:#2563eb; font-size:1.4rem;">-</span> 號</p>
+                    <button id="btn-take-ticket" class="btn-primary-action">
+                        🎫 立即取號
+                    </button>
+                </div>
+            </div>
+
+            <div id="my-ticket-view" style="display: none; background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white; padding: 25px; position: relative;">
+                <div id="btn-cancel-ticket" style="position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; transition: background 0.2s;">
+                    🗑️ 放棄
+                </div>
+                <h3 style="margin:0; font-size:1rem; opacity:0.9; border:none; padding:0;">您的號碼</h3>
+                <div style="font-size: 5rem; font-weight: bold; line-height: 1; margin: 10px 0;">
+                    <span id="my-ticket-num">?</span>
+                </div>
+                
+                <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 15px; margin-top: 10px; display: flex; justify-content: space-around; align-items: center;">
+                    <div style="text-align: center;">
+                        <span style="display:block; font-size:0.8rem; opacity:0.8;">目前叫號</span>
+                        <span id="ticket-current-display" style="font-size:1.5rem; font-weight:bold;">0</span>
+                    </div>
+                    <div style="width:1px; height: 30px; background:rgba(255,255,255,0.3);"></div>
+                    <div style="text-align: center;">
+                        <span style="display:block; font-size:0.8rem; opacity:0.8;">前方等待</span>
+                        <span id="ticket-waiting-count" style="font-size:1.5rem; font-weight:bold;">0</span> <span style="font-size:0.8rem;">組</span>
+                    </div>
+                </div>
+
+                <p id="ticket-status-text" style="margin: 15px 0 0 0; font-weight: bold; font-size: 1.1rem;">
+                    ⏳ 等待中...
+                </p>
+                <p id="ticket-wait-time" style="margin: 5px 0 0 0; font-size: 0.9rem; opacity: 0.8; display:none;">
+                    預估時間：計算中
+                </p>
+            </div>
+        </div>
+
         <div class="card" id="passed-container">
             <h3>已過號</h3>
-            <ul id="passedList">
-            </ul>
+            <ul id="passedList"></ul>
             <p id="passed-empty-msg" class="empty-state-message">目前尚無過號</p>
         </div>
 
     </div>
+    
     <div class="utility-buttons">
         <div id="copy-link-prompt">
-            <span class="emoji">🔗</span> 點此複製網頁連結
+            <span class="emoji">🔗</span> 複製連結
         </div>
-        <div id="sound-prompt" style="display: none;">
-            <span class="emoji">🔊</span> 點此啟用提示音效
+        <div id="sound-prompt">
+            <span class="emoji">🔊</span> 啟用音效
         </div>
-    </div>
-
-    <div class="card" style="margin-top: 20px; max-width: 900px; padding: 15px;">
-        <h3 style="font-size: 1.2rem; margin: 0 0 10px 0; color: #555;">🔔 到號提醒</h3>
-        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-            <input type="number" id="my-number" placeholder="輸入您的號碼" style="padding: 8px; border-radius: 8px; border: 1px solid #ccc; width: 120px; text-align: center; font-size: 1rem;">
-            <button id="enable-notify-btn" style="background-color: #2563eb; color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;">設定提醒</button>
-        </div>
-        
-        <p id="estimated-wait" style="font-size: 0.9rem; color: #2563eb; margin-top: 10px; display:none; font-weight: bold;">
-            ⏳ 預估等待時間：約 <span id="wait-minutes">0</span> 分鐘
-        </p>
-
-        <p id="notify-status" style="font-size: 0.9rem; color: #666; margin-top: 8px; margin-bottom: 0;">(設定後，即使網頁在背景也會收到通知)</p>
     </div>
 
     <div id="featured-container">
