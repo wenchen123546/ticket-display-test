@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v14.2 Fix Rich Menu Link
+ * 伺服器 (index.js) - v14.1 Official Rich Menu Mode
  * ==========================================
  */
 
@@ -17,13 +17,13 @@ const cron = require('node-cron');
 
 const app = express();
 
-// 設定信任代理 (解決 Render/Cloud 部署 IP 問題)
+// 設定信任代理 (解決 Render 部署問題)
 app.set('trust proxy', 1);
 
 const server = http.createServer(app);
 const io = socketio(server, { cors: { origin: "*" }, pingTimeout: 60000 });
 
-// --- 1. 環境變數讀取 ---
+// --- 環境變數讀取 ---
 const PORT = process.env.PORT || 3000;
 const REDIS_URL = process.env.UPSTASH_REDIS_URL;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN; 
@@ -38,7 +38,7 @@ const lineConfig = {
     channelSecret: process.env.LINE_CHANNEL_SECRET
 };
 
-// --- 2. 檢查關鍵環境變數 ---
+// --- 檢查環境變數 ---
 if (!ADMIN_TOKEN || !REDIS_URL) {
     console.error("❌ 錯誤：核心環境變數 (ADMIN_TOKEN, UPSTASH_REDIS_URL) 未設定");
     process.exit(1);
@@ -47,7 +47,7 @@ if (!ADMIN_TOKEN || !REDIS_URL) {
 let lineClient = null;
 if (lineConfig.channelAccessToken && lineConfig.channelSecret) {
     lineClient = new line.Client(lineConfig);
-    console.log("✅ LINE Bot Client 已初始化");
+    console.log("✅ LINE Bot Client 已初始化 (Official Menu Mode)");
 } else {
     console.warn("⚠️ 警告：未設定 LINE 環境變數");
 }
@@ -59,7 +59,7 @@ const redis = new Redis(REDIS_URL, {
 redis.on('connect', () => console.log("✅ Redis 連線成功"));
 redis.on('error', (err) => console.error("❌ Redis 錯誤:", err));
 
-// --- 3. Redis Keys ---
+// Keys
 const KEY_CURRENT_NUMBER = 'callsys:number';
 const KEY_PASSED_NUMBERS = 'callsys:passed';
 const KEY_FEATURED_CONTENTS = 'callsys:featured';
@@ -82,7 +82,7 @@ const DEFAULT_LINE_MSG_ARRIVAL = "🎉 輪到您了！\n\n目前號碼：{curren
 
 const onlineAdmins = new Map();
 
-// --- 4. Middleware & Security ---
+// Middleware
 app.use(helmet({
     contentSecurityPolicy: {
       directives: {
@@ -94,7 +94,6 @@ app.use(helmet({
     },
 }));
 
-// LINE Webhook
 if (lineClient) {
     app.post('/callback', line.middleware(lineConfig), (req, res) => {
         Promise.all(req.body.events.map(handleLineEvent))
@@ -112,7 +111,6 @@ app.use(express.json());
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 });
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
 
-// 驗證中間件
 const authMiddleware = async (req, res, next) => {
     try {
         const { token } = req.body; 
@@ -131,7 +129,6 @@ const superAdminAuthMiddleware = (req, res, next) => {
     else res.status(403).json({ error: "權限不足" });
 };
 
-// --- 5. 排程任務 (每日重置) ---
 cron.schedule('0 4 * * *', async () => {
     console.log("⏰ 執行每日自動重置...");
     try {
@@ -152,7 +149,6 @@ cron.schedule('0 4 * * *', async () => {
     } catch (e) { console.error("❌ 自動重置失敗:", e); }
 }, { timezone: "Asia/Taipei" });
 
-// Lua Script (防止負數)
 redis.defineCommand("decrIfPositive", {
     numberOfKeys: 1,
     lua: `
@@ -165,7 +161,7 @@ redis.defineCommand("decrIfPositive", {
     `,
 });
 
-// --- 6. Helper Functions ---
+// --- Helpers ---
 function sanitize(str) {
     if (typeof str !== 'string') return '';
     return str.replace(/<[^>]*>?/gm, '');
@@ -254,7 +250,7 @@ function broadcastOnlineAdmins() {
     io.emit("updateOnlineAdmins", Array.from(onlineAdmins.values()));
 }
 
-// --- 7. LINE Flex Messages ---
+// --- LINE Flex Messages ---
 function createStatusFlexMessage(currentNum, waitTime, myTarget = null) {
     let statusText = "目前無設定提醒", statusColor = "#aaaaaa", diffText = "無";
     if (myTarget) {
@@ -279,31 +275,12 @@ function createStatusFlexMessage(currentNum, waitTime, myTarget = null) {
     };
 }
 
-// --- 8. LINE Event Handler ---
 async function handleLineEvent(event) {
     if (event.type !== 'message' || event.message.type !== 'text') return Promise.resolve(null);
     const text = event.message.text.trim();
     const userId = event.source.userId;
 
-    // --- 【修復】 強制解除舊選單的指令 ---
-    if (text === '!resetmenu') {
-        try {
-            await lineClient.unlinkRichMenuFromUser(userId);
-            return lineClient.replyMessage(event.replyToken, { 
-                type: 'text', 
-                text: '✅ 已解除舊的選單綁定！\n\n請嘗試「離開聊天室」再「重新進入」，您在後台設定的新選單就會出現了。' 
-            });
-        } catch (err) {
-            console.error("Unlink Error:", err);
-            return lineClient.replyMessage(event.replyToken, { 
-                type: 'text', 
-                text: '⚠️ 解除失敗 (可能系統目前沒有綁定舊選單)。\n請嘗試直接點選後台設定的選單，或重新進入聊天室。' 
-            });
-        }
-    }
-    // ------------------------------------
-
-    // 關鍵字比對 (對應 LINE 後台圖文選單設定的文字動作)
+    // 關鍵字比對 (對應您在 LINE 後台圖文選單設定的文字動作)
     const isQuery = ['查詢', '號碼', '進度', '?', '？', '查詢捐血進度', '查詢進度', '🔍 查詢進度'].some(k => text.includes(k));
     const isPassed = ['過號', '過號查詢', '📋 過號名單', '過號名單'].some(k => text.includes(k));
     const isCancel = ['取消提醒', '❌ 取消提醒'].includes(text);
@@ -392,7 +369,7 @@ async function checkAndNotifyLineUsers(currentNum) {
     } catch (e) { console.error("Line Notify Error:", e); }
 }
 
-// --- 9. API Routes ---
+// --- Routes ---
 app.post("/login", loginLimiter, async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "請輸入帳號密碼" });
@@ -693,7 +670,6 @@ app.post("/api/admin/set-nickname", async (req, res) => {
     res.json({ success: true });
 });
 
-// --- 10. Socket.io Connection ---
 io.on("connection", async (socket) => {
     const token = socket.handshake.auth.token;
     if (token) {
@@ -739,5 +715,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v14.2 (Official Menu Fix) ready on port ${PORT}`);
+    console.log(`🚀 Server v14.1 (Official Menu) ready on port ${PORT}`);
 });
