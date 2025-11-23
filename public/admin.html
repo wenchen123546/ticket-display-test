@@ -3,207 +3,221 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>後台管理 - 登入</title>
+<title>後台管理 - 叫號控制</title>
 <script src="/socket.io/socket.io.js"></script>
-
-<link rel="stylesheet" href="/css/admin.css?v=21"> 
+<link rel="stylesheet" href="/css/admin.css?v=22"> 
 </head>
 <body>
 
 <div id="status-bar">連線中斷，正在嘗試重新連線...</div>
 
 <div id="login-container">
-<h1>後台管理登入</h1>
-<label for="username-input" class="sr-only">管理帳號</label>
-<input type="text" id="username-input" placeholder="請輸入管理帳號" />
-<label for="password-input" class="sr-only">管理密碼</label>
-<input type="password" id="password-input" placeholder="請輸入管理密碼" style="margin-top: 15px;"/>
-<button id="login-button" type="button">登入</button>
-<p id="login-error"></p>
+    <h1>後台管理登入</h1>
+    <label for="username-input" class="sr-only">管理帳號</label>
+    <input type="text" id="username-input" placeholder="請輸入管理帳號" />
+    <label for="password-input" class="sr-only">管理密碼</label>
+    <input type="password" id="password-input" placeholder="請輸入管理密碼" style="margin-top: 15px;"/>
+    <button id="login-button" type="button">登入</button>
+    <p id="login-error"></p>
 </div>
 
 <div id="admin-panel">
-<h1>目前號碼：<span id="number">0</span></h1>
-
-<div class="control-group button-row" id="main-number-controls">
-<button id="prev" type="button" class="btn-warn">上一號</button>
-<button id="next" type="button" class="btn-success">下一號</button>
-</div>
-
-<div class="card-container">
-    
-    <div class="card-wrapper" id="card-control">
-        <div class="admin-card">
-            <h3><span class="card-icon">🕹️</span> 主要控制</h3>
-            
-            <div class="control-group sound-toggle-group">
-            <label for="sound-toggle">啟用前台音效</label>
-            <input type="checkbox" id="sound-toggle">
-            </div>
-            
-            <div class="control-group form-group-boxed">
-                <label>📢 語音廣播 (TTS)</label>
-                <div class="input-group">
-                    <input type="text" id="broadcast-msg" placeholder="輸入內容" style="flex:2;">
-                    <button id="btn-broadcast" type="button" class="btn-secondary" style="flex:1; min-width:60px;">發送</button>
-                </div>
-            </div>
-
-            <div class="control-group form-group-boxed">
-                <label for="manualNumber">手動設定號碼</label>
-                <input type="number" id="manualNumber" placeholder="輸入號碼" />
-                <button id="setNumber" type="button" class="btn-primary">設定</button>
-                <button id="resetNumber" type="button" class="btn-reset-single">重置</button>
-            </div>
-            
-            <div class="control-group list-editor">
-            <label>手動編輯過號</label>
-            <ul id="passed-list-ui"></ul>
-            <div class="input-group">
-                <label for="new-passed-number" class="sr-only">過號號碼</label>
-                <input type="number" id="new-passed-number" placeholder="號碼">
-                <button id="add-passed-btn" type="button" class="btn-add">+</button>
-            </div>
-            <button id="resetPassed" type="button" class="btn-reset-single">清空過號</button>
-            </div>
+    <div class="dashboard-header">
+        <div class="dashboard-item">
+            <span class="label">目前叫號</span>
+            <span class="value big-number" id="number">0</span>
         </div>
-    </div> 
-    
-    <div class="card-wrapper" id="card-logs">
-        <div class="admin-card">
-            <h3><span class="card-icon">📋</span> 操作日誌</h3>
-            <div class="control-group admin-log-container">
-            <ul id="admin-log-ui">
-                <li>等待連線...</li>
-            </ul>
-            <button id="clear-log-btn" type="button" class="btn-clear-log" style="display: none;">清除日誌</button>
-            </div>
+        <div class="dashboard-divider"></div>
+        <div class="dashboard-item">
+            <span class="label">已發號至</span>
+            <span class="value sub-number" id="issued-number">0</span>
         </div>
-    </div> 
-    
-    <div class="card-wrapper" id="card-stats">
-        <div class="admin-card">
-            <h3><span class="card-icon">📊</span> 數據分析</h3>
-            <div class="control-group">
-                <div style="display:flex; justify-content:space-between; width:100%; align-items:baseline;">
-                    <p style="font-size: 1.1rem; margin-bottom: 5px;">今日叫號總計</p>
-                    <span id="stats-today-count" style="font-weight:bold; color:#2563eb; font-size:1.5rem;">0</span>
-                </div>
+        <div class="dashboard-divider"></div>
+        <div class="dashboard-item">
+            <span class="label">等待組數</span>
+            <span class="value sub-number" id="waiting-count" style="color: #d97706;">0</span>
+        </div>
+    </div>
 
-                <div id="hourly-chart" class="chart-container" title="點擊長條圖可手動增減數值">
-                    <p style="margin:auto; color:#999;">載入圖表...</p>
+    <div class="control-group button-row" id="main-number-controls">
+        <button id="prev" type="button" class="btn-warn">上一號</button>
+        <button id="next" type="button" class="btn-success">下一號</button>
+    </div>
+
+    <div class="card-container">
+        
+        <div class="card-wrapper" id="card-control">
+            <div class="admin-card">
+                <h3><span class="card-icon">🕹️</span> 主要控制</h3>
+                
+                <div class="control-group sound-toggle-group">
+                <label for="sound-toggle">啟用前台音效</label>
+                <input type="checkbox" id="sound-toggle">
                 </div>
                 
-                <div class="stats-actions-row">
-                    <button id="btn-refresh-stats" type="button" class="btn-secondary">重整</button>
-                    <button id="btn-export-csv" type="button" class="btn-success" style="display:none;">📥 CSV</button> 
-                    <button id="btn-clear-stats" type="button" class="btn-danger">清空</button>
+                <div class="control-group form-group-boxed">
+                    <label>📢 語音廣播 (TTS)</label>
+                    <div class="input-group">
+                        <input type="text" id="broadcast-msg" placeholder="輸入內容" style="flex:2;">
+                        <button id="btn-broadcast" type="button" class="btn-secondary" style="flex:1; min-width:60px;">發送</button>
+                    </div>
+                </div>
+
+                <div class="control-group form-group-boxed">
+                    <label for="manualNumber">手動設定號碼</label>
+                    <input type="number" id="manualNumber" placeholder="輸入號碼" />
+                    <button id="setNumber" type="button" class="btn-primary">設定</button>
+                    <button id="resetNumber" type="button" class="btn-reset-single">重置</button>
                 </div>
                 
-                <label style="margin-top:20px; display:block; font-weight:bold;">最近紀錄</label>
-                <ul id="stats-list-ui" style="width: 100%; max-height: 200px; overflow-y: auto; text-align: left; background: #f1f1f1; padding: 10px; list-style: none; font-size: 0.9rem; border-radius: 6px; box-sizing: border-box;">
-                    <li>(載入中...)</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <div class="card-wrapper" id="card-editor">
-        <div class="admin-card">
-            <h3><span class="card-icon">📝</span> 列表編輯</h3>
-            <div class="control-group list-editor">
-            <label>編輯精選連結</label>
-            <ul id="featured-list-ui"></ul>
-            <div class="input-group">
-                <label for="new-link-text" class="sr-only">文字</label>
-                <input type="text" id="new-link-text" placeholder="文字">
-                <label for="new-link-url" class="sr-only">網址</label>
-                <input type="text" id="new-link-url" placeholder="網址">
-                <button id="add-featured-btn" type="button" class="btn-add">+</button>
-            </div>
-            <button id="resetFeaturedContents" type="button" class="btn-reset-single">清空連結</button>
-            </div>
-        </div>
-    </div> 
-
-    <div class="card-wrapper" id="card-online-users">
-        <div class="admin-card">
-            <h3><span class="card-icon">🟢</span> 在線管理員</h3>
-            <div class="control-group">
-                <ul id="online-users-list" class="online-users-ui">
-                    <li>(正在連線...)</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <div class="card-wrapper" id="card-line-settings">
-        <div class="admin-card">
-            <h3><span class="card-icon">💬</span> LINE 通知設定</h3>
-            
-            <div class="control-group form-group-boxed">
-                <label>🔔 即將到號 (前3號)</label>
-                <p style="font-size:0.8rem; color:#666; margin:0 0 5px 0;">
-                    {current}目前 {target}用戶 {diff}差幾組
-                </p>
-                <textarea id="line-msg-approach" style="height: 80px; text-align: left;"></textarea>
-            </div>
-
-            <div class="control-group form-group-boxed">
-                <label>🎉 正式到號</label>
-                <textarea id="line-msg-arrival" style="height: 80px; text-align: left;"></textarea>
-            </div>
-
-            <div class="control-group button-row">
-                <button id="btn-save-line-msg" type="button" class="btn-primary">儲存</button>
-                <button id="btn-reset-line-msg" type="button" class="btn-reset-single">重置</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="card-wrapper" id="card-settings">
-        <div class="admin-card">
-            <h3><span class="card-icon">⚙️</span> 系統設定</h3>
-            <div class="control-group system-toggle-group">
-                <label for="public-toggle" id="public-toggle-label">對外開放前台</label>
-                <input type="checkbox" id="public-toggle" checked>
-            </div>
-            
-            <div class="reset-zone">
-                <button id="resetAll" type="button" class="btn-danger">💥 全域重置</button>
-            </div>
-        </div>
-    </div> 
-
-    <div class="card-wrapper" id="card-user-management" style="display: none;">
-        <div class="admin-card">
-            <h3><span class="card-icon">👑</span> 用戶管理</h3>
-            
-            <div class="control-group list-editor">
-                <label>管理員列表</label>
-                <ul id="user-list-ui">
-                    <li>(載入中...)</li>
-                </ul>
-
-                <label class="input-group-label">新增管理員</label>
+                <div class="control-group list-editor">
+                <label>手動編輯過號</label>
+                <ul id="passed-list-ui"></ul>
                 <div class="input-group">
-                    <input type="text" id="new-user-username" placeholder="帳號">
-                    <input type="text" id="new-user-nickname" placeholder="綽號">
-                    <input type="password" id="new-user-password" placeholder="密碼">
-                    <button id="add-user-btn" type="button" class="btn-add">+</button>
+                    <label for="new-passed-number" class="sr-only">過號號碼</label>
+                    <input type="number" id="new-passed-number" placeholder="號碼">
+                    <button id="add-passed-btn" type="button" class="btn-add">+</button>
                 </div>
+                <button id="resetPassed" type="button" class="btn-reset-single">清空過號</button>
+                </div>
+            </div>
+        </div> 
+        
+        <div class="card-wrapper" id="card-logs">
+            <div class="admin-card">
+                <h3><span class="card-icon">📋</span> 操作日誌</h3>
+                <div class="control-group admin-log-container">
+                <ul id="admin-log-ui">
+                    <li>等待連線...</li>
+                </ul>
+                <button id="clear-log-btn" type="button" class="btn-clear-log" style="display: none;">清除日誌</button>
+                </div>
+            </div>
+        </div> 
+        
+        <div class="card-wrapper" id="card-stats">
+            <div class="admin-card">
+                <h3><span class="card-icon">📊</span> 數據分析</h3>
+                <div class="control-group">
+                    <div style="display:flex; justify-content:space-between; width:100%; align-items:baseline;">
+                        <p style="font-size: 1.1rem; margin-bottom: 5px;">今日叫號總計</p>
+                        <span id="stats-today-count" style="font-weight:bold; color:#2563eb; font-size:1.5rem;">0</span>
+                    </div>
 
-                <label class="input-group-label">修改綽號</label>
-                <div class="input-group">
-                    <input type="text" id="set-nick-username" placeholder="帳號">
-                    <input type="text" id="set-nick-nickname" placeholder="新綽號">
-                    <button id="set-nickname-btn" type="button" class="btn-secondary btn-action">設定</button>
+                    <div id="hourly-chart" class="chart-container" title="點擊長條圖可手動增減數值">
+                        <p style="margin:auto; color:#999;">載入圖表...</p>
+                    </div>
+                    
+                    <div class="stats-actions-row">
+                        <button id="btn-refresh-stats" type="button" class="btn-secondary">重整</button>
+                        <button id="btn-export-csv" type="button" class="btn-success" style="display:none;">📥 CSV</button> 
+                        <button id="btn-clear-stats" type="button" class="btn-danger">清空</button>
+                    </div>
+                    
+                    <label style="margin-top:20px; display:block; font-weight:bold;">最近紀錄</label>
+                    <ul id="stats-list-ui" style="width: 100%; max-height: 200px; overflow-y: auto; text-align: left; background: #f1f1f1; padding: 10px; list-style: none; font-size: 0.9rem; border-radius: 6px; box-sizing: border-box;">
+                        <li>(載入中...)</li>
+                    </ul>
                 </div>
             </div>
         </div>
-    </div>
 
-</div> 
+        <div class="card-wrapper" id="card-editor">
+            <div class="admin-card">
+                <h3><span class="card-icon">📝</span> 列表編輯</h3>
+                <div class="control-group list-editor">
+                <label>編輯精選連結</label>
+                <ul id="featured-list-ui"></ul>
+                <div class="input-group">
+                    <label for="new-link-text" class="sr-only">文字</label>
+                    <input type="text" id="new-link-text" placeholder="文字">
+                    <label for="new-link-url" class="sr-only">網址</label>
+                    <input type="text" id="new-link-url" placeholder="網址">
+                    <button id="add-featured-btn" type="button" class="btn-add">+</button>
+                </div>
+                <button id="resetFeaturedContents" type="button" class="btn-reset-single">清空連結</button>
+                </div>
+            </div>
+        </div> 
+
+        <div class="card-wrapper" id="card-online-users">
+            <div class="admin-card">
+                <h3><span class="card-icon">🟢</span> 在線管理員</h3>
+                <div class="control-group">
+                    <ul id="online-users-list" class="online-users-ui">
+                        <li>(正在連線...)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-wrapper" id="card-line-settings">
+            <div class="admin-card">
+                <h3><span class="card-icon">💬</span> LINE 通知設定</h3>
+                
+                <div class="control-group form-group-boxed">
+                    <label>🔔 即將到號 (前3號)</label>
+                    <p style="font-size:0.8rem; color:#666; margin:0 0 5px 0;">
+                        {current}目前 {target}用戶 {diff}差幾組
+                    </p>
+                    <textarea id="line-msg-approach" style="height: 80px; text-align: left;"></textarea>
+                </div>
+
+                <div class="control-group form-group-boxed">
+                    <label>🎉 正式到號</label>
+                    <textarea id="line-msg-arrival" style="height: 80px; text-align: left;"></textarea>
+                </div>
+
+                <div class="control-group button-row">
+                    <button id="btn-save-line-msg" type="button" class="btn-primary">儲存</button>
+                    <button id="btn-reset-line-msg" type="button" class="btn-reset-single">重置</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-wrapper" id="card-settings">
+            <div class="admin-card">
+                <h3><span class="card-icon">⚙️</span> 系統設定</h3>
+                <div class="control-group system-toggle-group">
+                    <label for="public-toggle" id="public-toggle-label">對外開放前台</label>
+                    <input type="checkbox" id="public-toggle" checked>
+                </div>
+                
+                <div class="reset-zone">
+                    <button id="resetAll" type="button" class="btn-danger">💥 全域重置</button>
+                </div>
+            </div>
+        </div> 
+
+        <div class="card-wrapper" id="card-user-management" style="display: none;">
+            <div class="admin-card">
+                <h3><span class="card-icon">👑</span> 用戶管理</h3>
+                
+                <div class="control-group list-editor">
+                    <label>管理員列表</label>
+                    <ul id="user-list-ui">
+                        <li>(載入中...)</li>
+                    </ul>
+
+                    <label class="input-group-label">新增管理員</label>
+                    <div class="input-group">
+                        <input type="text" id="new-user-username" placeholder="帳號">
+                        <input type="text" id="new-user-nickname" placeholder="綽號">
+                        <input type="password" id="new-user-password" placeholder="密碼">
+                        <button id="add-user-btn" type="button" class="btn-add">+</button>
+                    </div>
+
+                    <label class="input-group-label">修改綽號</label>
+                    <div class="input-group">
+                        <input type="text" id="set-nick-username" placeholder="帳號">
+                        <input type="text" id="set-nick-nickname" placeholder="新綽號">
+                        <button id="set-nickname-btn" type="button" class="btn-secondary btn-action">設定</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div> 
 </div> 
 
 <div id="edit-stats-overlay" class="modal-overlay" style="display: none;">
@@ -221,6 +235,6 @@
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=21"></script> 
+<script src="/js/admin.js?v=22"></script> 
 </body>
 </html>
