@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v10.1 Layout Fix & CSV Log
+ * 伺服器 (index.js) - v11.0 LINE System Overhaul
  * ==========================================
  */
 
@@ -73,7 +73,10 @@ const KEY_NICKNAMES = 'callsys:nicknames';
 const SESSION_PREFIX = 'callsys:session:';
 const KEY_HISTORY_STATS = 'callsys:stats:history';
 const KEY_STATS_HOURLY_PREFIX = 'callsys:stats:hourly:'; 
-const KEY_LINE_SUB_PREFIX = 'callsys:line:notify:';
+
+// --- LINE 相關 Keys (更新) ---
+const KEY_LINE_SUB_PREFIX = 'callsys:line:notify:'; // 用號碼查 User IDs (Set)
+const KEY_LINE_USER_STATUS = 'callsys:line:user:';  // 用 User ID 查號碼 (String) [NEW]
 const KEY_LINE_MSG_APPROACH = 'callsys:line:msg:approach';
 const KEY_LINE_MSG_ARRIVAL = 'callsys:line:msg:arrival';
 
@@ -176,23 +179,15 @@ async function addAdminLog(nickname, message) {
     } catch (e) { console.error("Log error:", e); }
 }
 
-// 【修復】計算平均時間：過濾掉手動調整的非數字紀錄 (num="Adj")
 async function calculateAverageWaitTime() {
     try {
         const historyRaw = await redis.lrange(KEY_HISTORY_STATS, 0, 10); 
-        // 只保留 num 為數字的紀錄
-        const history = historyRaw
-            .map(JSON.parse)
-            .filter(r => typeof r.num === 'number');
-
+        const history = historyRaw.map(JSON.parse).filter(r => typeof r.num === 'number');
         if (history.length < 2) return 0;
-
         const newest = history[0];
         const oldest = history[history.length - 1];
-        
         const timeDiff = (new Date(newest.time) - new Date(oldest.time)) / 1000 / 60;
         const numDiff = Math.abs(newest.num - oldest.num);
-        
         if (numDiff === 0 || timeDiff <= 0) return 0;
         return timeDiff / numDiff; 
     } catch (e) { return 0; }
@@ -216,23 +211,134 @@ function broadcastOnlineAdmins() {
     io.emit("updateOnlineAdmins", Array.from(onlineAdmins.values()));
 }
 
-// --- LINE Logic ---
+// --- LINE Logic (Enhanced) ---
 
+// 1. Helper: 產生 Flex Message
+function createStatusFlexMessage(currentNum, waitTime, myTarget = null) {
+    let statusText = "目前無設定提醒";
+    let statusColor = "#aaaaaa";
+    let diffText = "無";
+    
+    if (myTarget) {
+        const diff = myTarget - currentNum;
+        if (diff > 0) {
+            statusText = `等待 ${myTarget} 號`;
+            statusColor = "#ef4444"; // Red
+            diffText = `還有 ${diff} 組`;
+        } else {
+            statusText = "您可能已過號";
+            statusColor = "#d97706"; // Orange
+            diffText = "已到號";
+        }
+    }
+
+    const waitTimeStr = waitTime > 0 ? `約 ${Math.ceil(waitTime)} 分/號` : "計算中...";
+
+    return {
+        type: "flex",
+        altText: `目前叫號：${currentNum}`,
+        contents: {
+            type: "bubble",
+            size: "giga",
+            header: {
+                type: "box",
+                layout: "vertical",
+                backgroundColor: "#2563eb",
+                paddingAll: "lg",
+                contents: [
+                    { type: "text", text: "現場叫號進度", weight: "bold", color: "#ffffff", size: "lg" }
+                ]
+            },
+            hero: {
+                type: "box",
+                layout: "vertical",
+                paddingAll: "xxl",
+                spacing: "md",
+                contents: [
+                    { type: "text", text: "目前號碼", size: "sm", color: "#888888", align: "center" },
+                    { type: "text", text: `${currentNum}`, size: "5xl", weight: "bold", color: "#2563eb", align: "center" }
+                ]
+            },
+            body: {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                    {
+                        type: "box",
+                        layout: "horizontal",
+                        contents: [
+                            { type: "text", text: "平均等待", size: "sm", color: "#aaaaaa", flex: 1 },
+                            { type: "text", text: waitTimeStr, size: "sm", color: "#666666", align: "end", flex: 2 }
+                        ]
+                    },
+                    { type: "separator", margin: "lg" },
+                    {
+                        type: "box",
+                        layout: "vertical",
+                        margin: "lg",
+                        spacing: "sm",
+                        contents: [
+                            { type: "text", text: "您的狀態", weight: "bold", color: "#333333" },
+                            {
+                                type: "box",
+                                layout: "horizontal",
+                                contents: [
+                                    { type: "text", text: statusText, size: "md", color: statusColor, flex: 2, weight: "bold" },
+                                    { type: "text", text: diffText, size: "md", color: "#333333", align: "end", flex: 1 }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            footer: {
+                type: "box",
+                layout: "vertical",
+                contents: [
+                    { type: "text", text: "輸入「取消」可移除提醒", size: "xs", color: "#bbbbbb", align: "center", margin: "md" }
+                ]
+            }
+        }
+    };
+}
+
+// 2. Handle LINE Events
 async function handleLineEvent(event) {
     if (event.type !== 'message' || event.message.type !== 'text') return Promise.resolve(null);
     const text = event.message.text.trim();
     const userId = event.source.userId;
 
-    if (text === '查詢' || text === '號碼' || text === '進度' || text === '?' || text === '？') {
-        const currentNum = await redis.get(KEY_CURRENT_NUMBER) || 0;
-        const waitTime = await calculateAverageWaitTime(); 
-        let replyMsg = `📊 目前叫號：${currentNum} 號`;
-        if (waitTime > 0) replyMsg += `\n⏳ 平均等待：約 ${Math.ceil(waitTime)} 分鐘/號`;
-        else replyMsg += `\n🚀 目前處理速度極快或剛開始叫號`;
-        replyMsg += `\n\n💡 輸入「提醒 100」或「100」可設定到號通知！`;
-        return lineClient.replyMessage(event.replyToken, { type: 'text', text: replyMsg });
+    // A. 查詢指令
+    if (['查詢', '號碼', '進度', '?', '？'].includes(text)) {
+        const currentNum = parseInt(await redis.get(KEY_CURRENT_NUMBER)) || 0;
+        const waitTime = await calculateAverageWaitTime();
+        
+        // 查詢使用者是否有設定提醒 (使用反向索引)
+        const userTargetStr = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
+        const userTarget = userTargetStr ? parseInt(userTargetStr) : null;
+
+        const flexMsg = createStatusFlexMessage(currentNum, waitTime, userTarget);
+        return lineClient.replyMessage(event.replyToken, flexMsg);
     }
 
+    // B. 取消指令
+    if (text === '取消' || text === '取消提醒') {
+        const userTargetStr = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
+        if (!userTargetStr) {
+            return lineClient.replyMessage(event.replyToken, { type: 'text', text: '❌ 您目前沒有設定任何提醒喔！' });
+        }
+        const targetNum = parseInt(userTargetStr);
+        
+        // 從 Set 和 String 中移除
+        const pipeline = redis.multi();
+        pipeline.srem(`${KEY_LINE_SUB_PREFIX}${targetNum}`, userId); // 移除訂閱清單
+        pipeline.del(`${KEY_LINE_USER_STATUS}${userId}`);            // 移除個人狀態
+        await pipeline.exec();
+
+        return lineClient.replyMessage(event.replyToken, { type: 'text', text: `🗑️ 已取消 ${targetNum} 號的到號提醒。` });
+    }
+
+    // C. 設定指令 (數字)
     const match = text.match(/^(?:提醒|設定)?\s*(\d+)$/);
     if (match) {
         const targetNum = parseInt(match[1]);
@@ -243,19 +349,32 @@ async function handleLineEvent(event) {
                 type: 'text', text: `❌ 目前已經是 ${currentNum} 號囉！\n請直接前往櫃台。` 
             });
         }
+
+        // 檢查是否已經有設定其他號碼 (避免重複訂閱多個)
+        const existingTarget = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
+        const pipeline = redis.multi();
+        
+        if (existingTarget) {
+            // 如果有舊的，先從舊的清單移除
+            pipeline.srem(`${KEY_LINE_SUB_PREFIX}${existingTarget}`, userId);
+        }
+
+        // 寫入新的
         const subKey = `${KEY_LINE_SUB_PREFIX}${targetNum}`;
-        await redis.sadd(subKey, userId);
-        await redis.expire(subKey, 86400); 
+        pipeline.sadd(subKey, userId);               // 加入號碼訂閱清單
+        pipeline.expire(subKey, 86400); 
+        pipeline.set(`${KEY_LINE_USER_STATUS}${userId}`, targetNum, "EX", 86400); // 記錄這個人訂了幾號
+        await pipeline.exec();
 
         return lineClient.replyMessage(event.replyToken, { 
             type: 'text', 
-            text: `✅ 設定成功！\n\n您的號碼：${targetNum} 號\n當叫到 ${Math.max(currentNum, targetNum - 3)} 號時，我會發送通知給您。` 
+            text: `✅ 設定成功！\n\n您的號碼：${targetNum} 號\n當叫到 ${Math.max(currentNum, targetNum - 3)} 號時，我會通知您。` 
         });
     }
     
     return lineClient.replyMessage(event.replyToken, {
         type: 'text',
-        text: '👋 您好！我是叫號小幫手。\n\n🔹 輸入「查詢」：查看目前進度\n🔹 輸入數字 (如 88)：設定到號提醒'
+        text: '👋 您好！叫號小幫手指令：\n\n🔹 輸入「查詢」：看進度卡片\n🔹 輸入數字 (如 88)：設定提醒\n🔹 輸入「取消」：移除提醒'
     });
 }
 
@@ -267,6 +386,7 @@ function formatLineMessage(template, current, target) {
         .replace(/{diff}/g, diff);
 }
 
+// 3. Notify Logic (使用 Multicast 優化)
 async function checkAndNotifyLineUsers(currentNum) {
     if (!lineClient) return;
     try {
@@ -275,22 +395,36 @@ async function checkAndNotifyLineUsers(currentNum) {
         if (!tplApproach) tplApproach = DEFAULT_LINE_MSG_APPROACH;
         if (!tplArrival) tplArrival = DEFAULT_LINE_MSG_ARRIVAL;
 
+        // A. 接近通知 (Multicast)
         const notifyTarget = currentNum + 3; 
         const subKey = `${KEY_LINE_SUB_PREFIX}${notifyTarget}`;
         const subscribers = await redis.smembers(subKey);
+        
         if (subscribers.length > 0) {
             const msgText = formatLineMessage(tplApproach, currentNum, notifyTarget);
-            const messages = subscribers.map(userId => ({ to: userId, messages: [{ type: 'text', text: msgText }] }));
-            await Promise.all(messages.map(msg => lineClient.pushMessage(msg.to, msg.messages)));
+            // 使用 multicast 批次發送 (比迴圈 pushMessage 快)
+            // 注意：LINE Multicast 上限一次 500 人，此處假設量體不大。若量大需 chunking。
+            await lineClient.multicast(subscribers, [{ type: 'text', text: msgText }]);
+            console.log(`LINE: 已發送接近通知給 ${subscribers.length} 人`);
         }
 
+        // B. 到號通知 (Multicast + Clean up)
         const exactKey = `${KEY_LINE_SUB_PREFIX}${currentNum}`;
         const exactSubscribers = await redis.smembers(exactKey);
+        
         if (exactSubscribers.length > 0) {
             const msgText = formatLineMessage(tplArrival, currentNum, currentNum);
-             const messages = exactSubscribers.map(userId => ({ to: userId, messages: [{ type: 'text', text: msgText }] }));
-            await Promise.all(messages.map(msg => lineClient.pushMessage(msg.to, msg.messages)));
-            await redis.del(exactKey);
+            await lineClient.multicast(exactSubscribers, [{ type: 'text', text: msgText }]);
+            
+            // 清理這些使用者的訂閱狀態 (因為已經到號了)
+            const pipeline = redis.multi();
+            exactSubscribers.forEach(uid => {
+                pipeline.del(`${KEY_LINE_USER_STATUS}${uid}`);
+            });
+            pipeline.del(exactKey); // 刪除該號碼的訂閱清單
+            await pipeline.exec();
+            
+            console.log(`LINE: 已發送到號通知給 ${exactSubscribers.length} 人並清除狀態`);
         }
     } catch (e) { console.error("Line Notify Error:", e); }
 }
@@ -358,7 +492,6 @@ app.post("/api/admin/line-settings/reset", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 【修復】 CSV 匯出：正確讀取歷史紀錄 (包含手動調整)
 app.post("/api/admin/export-csv", superAdminAuthMiddleware, async (req, res) => {
     try {
         const { dateStr } = getTaiwanDateInfo();
@@ -367,7 +500,6 @@ app.post("/api/admin/export-csv", superAdminAuthMiddleware, async (req, res) => 
         let csvContent = "\uFEFF時間,號碼,操作員\n";
         history.forEach(item => {
             const time = new Date(item.time).toLocaleTimeString('zh-TW', { hour12: false });
-            // item.num 可能是數字，也可能是 "Adj" 字串
             const numDisplay = item.num; 
             csvContent += `${time},${numDisplay},${item.operator}\n`;
         });
@@ -421,7 +553,35 @@ app.post("/api/admin/broadcast", async (req, res) => {
     const { message } = req.body;
     if (!message) return res.status(400).json({ error: "訊息內容為空" });
     const cleanMsg = sanitize(message).substring(0, 50); 
+    
+    // 1. Socket 廣播 (網頁版)
     io.emit("adminBroadcast", cleanMsg);
+    
+    // 2. LINE 廣播 (發送給所有正在等待的 LINE 使用者)
+    // 注意：這裡只示範廣播給「已設定訂閱」的使用者，避免過度打擾陌生人
+    if (lineClient) {
+        try {
+            const keys = await redis.keys(`${KEY_LINE_SUB_PREFIX}*`);
+            if (keys.length > 0) {
+                const pipeline = redis.pipeline();
+                keys.forEach(k => pipeline.smembers(k));
+                const results = await pipeline.exec();
+                const allUserIds = new Set();
+                results.forEach(([err, members]) => {
+                    if (members) members.forEach(m => allUserIds.add(m));
+                });
+
+                const uniqueUsers = Array.from(allUserIds);
+                if (uniqueUsers.length > 0) {
+                    await lineClient.multicast(uniqueUsers, [{ 
+                        type: 'text', 
+                        text: `📢 店家公告：${cleanMsg}` 
+                    }]);
+                }
+            }
+        } catch (e) { console.error("LINE Broadcast error:", e); }
+    }
+
     addAdminLog(req.user.nickname, `📢 發送廣播: "${cleanMsg}"`);
     res.json({ success: true });
 });
@@ -446,7 +606,6 @@ app.post("/api/admin/stats", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 【修復】手動調整圖表數據：寫入 History (使用 "Adj" 標記)，讓 CSV 可讀取
 app.post("/api/admin/stats/adjust", async (req, res) => {
     try {
         const { hour, delta } = req.body;
@@ -455,9 +614,8 @@ app.post("/api/admin/stats/adjust", async (req, res) => {
         const newVal = await redis.hincrby(key, hour, delta);
         if (newVal < 0) await redis.hset(key, hour, 0);
 
-        // 新增這段：寫入歷史清單
         const record = {
-            num: "Adj", // 特殊標記，非數字
+            num: "Adj",
             time: new Date().toISOString(),
             operator: `${req.user.nickname} (調整${hour}點: ${delta>0?'+':''}${delta})`
         };
@@ -553,8 +711,13 @@ app.post("/reset", async (req, res) => {
     multi.set(KEY_IS_PUBLIC, "1");
     multi.del(KEY_ADMIN_LOG);
     multi.del(KEY_HISTORY_STATS); 
+    
+    // 重置 LINE 相關 (除了文案設定)
     const keys = await redis.keys(`${KEY_LINE_SUB_PREFIX}*`);
-    if(keys.length > 0) multi.del(keys);
+    const userKeys = await redis.keys(`${KEY_LINE_USER_STATUS}*`); // 清除反向索引
+    const allLineKeys = [...keys, ...userKeys];
+    if(allLineKeys.length > 0) multi.del(allLineKeys);
+
     await multi.exec();
     addAdminLog(req.user.nickname, `💥 系統全域重置`);
     io.emit("update", 0);
@@ -656,5 +819,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v10.1 ready on port ${PORT}`);
+    console.log(`🚀 Server v11.0 ready on port ${PORT}`);
 });
