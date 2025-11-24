@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 前端邏輯 (main.js) - v18.3 i18n Fix & UX
+ * 前端邏輯 (main.js) - v18.13 Optimized (Reconnection UX)
  * ==========================================
  */
 
@@ -33,7 +33,7 @@ const i18nData = {
         "sound_mute": "啟用音效",
         "featured_empty": "暫無精選連結",
         "scan_qr": "掃描查看進度",
-        "error_network": "連線錯誤，請稍後再試",
+        "error_network": "連線中斷",
         "manual_input_placeholder": "輸入號碼",
         "take_success": "取號成功！",
         "take_fail": "取號失敗",
@@ -45,7 +45,8 @@ const i18nData = {
         "arrival_notification": "輪到您了！請前往櫃台",
         "estimated_wait": "預估等待：約 %s 分鐘",
         "time_just_now": "剛剛更新",
-        "time_min_ago": "最後更新於 %s 分鐘前"
+        "time_min_ago": "最後更新於 %s 分鐘前",
+        "status_connected": "✅ 已連線"
     },
     "en": {
         "app_title": "Waiting Queue",
@@ -74,7 +75,7 @@ const i18nData = {
         "sound_mute": "Enable Sound",
         "featured_empty": "No featured links",
         "scan_qr": "Scan to track",
-        "error_network": "Network error, try again",
+        "error_network": "Connection Lost",
         "manual_input_placeholder": "Enter Number",
         "take_success": "Success!",
         "take_fail": "Failed",
@@ -86,7 +87,8 @@ const i18nData = {
         "arrival_notification": "It's your turn!",
         "estimated_wait": "Est. wait: %s mins",
         "time_just_now": "Updated just now",
-        "time_min_ago": "Updated %s min ago"
+        "time_min_ago": "Updated %s min ago",
+        "status_connected": "✅ Connected"
     }
 };
 
@@ -94,7 +96,6 @@ const i18nData = {
 const langSelector = document.getElementById('language-selector');
 let storedLang = localStorage.getItem('callsys_lang');
 if (!storedLang) {
-    // 預設偵測瀏覽器
     storedLang = (navigator.language || navigator.userLanguage).startsWith('zh') ? 'zh-TW' : 'en';
 }
 let currentLang = storedLang;
@@ -115,7 +116,6 @@ function showToast(msg, type = 'info') {
     
     requestAnimationFrame(() => el.classList.add('show'));
     
-    // 震動回饋
     if (navigator.vibrate) navigator.vibrate(50); 
 
     setTimeout(() => {
@@ -179,6 +179,7 @@ let avgServiceTime = 0;
 let currentSystemMode = 'ticketing'; 
 let lastIssuedNumber = 0;
 let myTicket = localStorage.getItem('callsys_ticket') ? parseInt(localStorage.getItem('callsys_ticket')) : null;
+let reconnectTimer = null; // [新增] 用於管理重連倒數
 
 // --- 5. Wake Lock ---
 async function requestWakeLock() {
@@ -199,16 +200,12 @@ function applyI18n() {
         const key = el.getAttribute('data-i18n');
         if(t[key]) el.textContent = t[key];
     });
-    // Placeholder handling
     if(manualTicketInput) manualTicketInput.placeholder = t["manual_input_placeholder"];
-    
-    // Update button text if not processing
     if(btnTakeTicket && !btnTakeTicket.disabled) {
         btnTakeTicket.textContent = t["take_ticket"];
     }
 }
 
-// [Updated] updateTimeText to support i18n
 function updateTimeText() {
     if (!lastUpdateTime) return;
     const diff = Math.floor((new Date() - lastUpdateTime) / 1000);
@@ -227,27 +224,56 @@ if(langSelector) {
         localStorage.setItem('callsys_lang', currentLang);
         t = i18nData[currentLang];
         applyI18n();
-        // Refresh dynamic UI components
         const curr = parseInt(numberEl.textContent) || 0;
         updateTicketUI(curr);
         updateMuteUI(isLocallyMuted);
-        updateTimeText(); // Refresh time immediately
+        updateTimeText();
     });
 }
 
-// --- 7. Socket Events ---
+// --- 7. Socket Events (Optimized) ---
+
 socket.on("connect", () => {
     console.log("Socket connected");
-    // [Performance] Join public room
     socket.emit('joinRoom', 'public');
     
-    if (isPublic) statusBar.classList.remove("visible");
+    // [UX 優化] 清除重連倒數，顯示綠色成功
+    if (reconnectTimer) clearInterval(reconnectTimer);
+    statusBar.textContent = t["status_connected"] || "Connected";
+    statusBar.style.backgroundColor = "#10b981"; 
+    
+    // 延遲隱藏 Status Bar
+    setTimeout(() => {
+        if (socket.connected && isPublic) statusBar.classList.remove("visible");
+    }, 1500);
+    
     requestWakeLock(); 
 });
 
-socket.on("disconnect", () => {
+socket.on("disconnect", (reason) => {
+    console.warn("Socket disconnected:", reason);
     statusBar.classList.add("visible");
-    lastUpdatedEl.textContent = t["error_network"];
+    
+    // [UX 優化] 倒數計時提示
+    if (reconnectTimer) clearInterval(reconnectTimer);
+    
+    let countdownVal = 3;
+    const errorText = t["error_network"] || "Connection Lost";
+    statusBar.textContent = `${errorText} (${countdownVal}s)`;
+    statusBar.style.backgroundColor = "#dc2626"; // 紅色
+
+    reconnectTimer = setInterval(() => {
+        countdownVal--;
+        if (countdownVal > 0) {
+            statusBar.textContent = `${errorText} (${countdownVal}s)`;
+        } else {
+            statusBar.textContent = "Connecting...";
+            statusBar.style.backgroundColor = "#d97706"; // 橘色嘗試中
+            clearInterval(reconnectTimer);
+        }
+    }, 1000);
+    
+    lastUpdatedEl.textContent = errorText;
 });
 
 socket.on("updateQueue", (data) => {
@@ -259,12 +285,11 @@ socket.on("updateQueue", (data) => {
     updateTicketUI(current);
 });
 
-socket.on("update", (num) => {}); // Legacy support
+socket.on("update", (num) => {}); 
 
 socket.on("adminBroadcast", (msg) => {
     if (!isLocallyMuted) {
         speakText(msg, 1.0); 
-        // Use Toast instead of alert
         showToast(`${t["public_announcement"]}${msg}`, "info");
     }
 });
@@ -315,7 +340,6 @@ function handleNewNumber(num) {
         playNotificationSound();
         setTimeout(() => {
             if (numberEl.textContent !== String(num) && isSoundEnabled && !isLocallyMuted) {
-                // Force Chinese for broadcast numbers
                 speakText(`現在號碼，${num}號`, 0.9);
             }
         }, 800);
@@ -347,7 +371,7 @@ function updateTicketUI(currentNum) {
         }
 
         if (diff <= 3) {
-             vibratePattern([100]); // Haptic feedback
+             vibratePattern([100]); 
              if (document.hidden && Notification.permission === "granted") {
                  new Notification(t["app_title"], { body: t["queue_notification"].replace("%s", diff), tag: 'approach' });
              }
@@ -359,7 +383,7 @@ function updateTicketUI(currentNum) {
         ticketWaitTimeEl.style.display = "none";
         
         triggerConfetti();
-        vibratePattern([200, 100, 200, 100, 200]); // Strong feedback
+        vibratePattern([200, 100, 200, 100, 200]); 
 
         if (isSoundEnabled && !isLocallyMuted) speakText("恭喜，輪到您了，請前往櫃台", 1.0);
         if (Notification.permission === "granted") {
