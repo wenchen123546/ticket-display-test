@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v18.2 Optimized (Security & Performance)
+ * 伺服器 (index.js) - v18.5 With Missed Number Handling
  * ==========================================
  */
 
@@ -74,8 +74,6 @@ const KEY_LINE_SUB_PREFIX = 'callsys:line:notify:';
 const KEY_LINE_USER_STATUS = 'callsys:line:user:';  
 const KEY_LINE_MSG_APPROACH = 'callsys:line:msg:approach';
 const KEY_LINE_MSG_ARRIVAL = 'callsys:line:msg:arrival';
-
-// 新增 Keys：後台解鎖密碼 & 使用者解鎖狀態
 const KEY_LINE_UNLOCK_PWD = 'callsys:line:unlock_pwd';
 const KEY_LINE_ADMIN_UNLOCK = 'callsys:line:admin_session:';
 
@@ -441,7 +439,7 @@ app.post("/login", loginLimiter, async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 保護的 API 路由清單
+// 保護的 API 路由清單 [新增 control/pass-current 和 control/recall-passed]
 const protectedAPIs = [
     "/change-number", "/change-issued-number", "/set-number", "/set-system-mode", "/set-issued-number",
     "/api/passed/add", "/api/passed/remove", "/api/passed/clear",
@@ -450,7 +448,8 @@ const protectedAPIs = [
     "/api/logs/clear", "/api/admin/stats", "/api/admin/broadcast", 
     "/api/admin/stats/adjust", "/api/admin/stats/clear", "/api/admin/export-csv", 
     "/api/admin/line-settings/get", "/api/admin/line-settings/save", "/api/admin/line-settings/reset",
-    "/api/admin/line-settings/set-unlock-pass", "/api/admin/line-settings/get-unlock-pass"
+    "/api/admin/line-settings/set-unlock-pass", "/api/admin/line-settings/get-unlock-pass",
+    "/api/control/pass-current", "/api/control/recall-passed" 
 ];
 app.use(protectedAPIs, apiLimiter, authMiddleware);
 
@@ -635,6 +634,62 @@ app.post("/set-issued-number", async (req, res) => {
         await broadcastQueueStatus();
         io.emit("updateWaitTime", await calculateSmartWaitTime());
         
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// [新增] 一鍵過號功能
+app.post("/api/control/pass-current", async (req, res) => {
+    try {
+        const current = parseInt(await redis.get(KEY_CURRENT_NUMBER)) || 0;
+        if (current === 0) return res.status(400).json({ error: "目前無叫號" });
+
+        // 1. 將目前號碼加入過號列表
+        await redis.zadd(KEY_PASSED_NUMBERS, current, current);
+        
+        // 2. 自動跳下一號
+        const nextNum = await redis.incr(KEY_CURRENT_NUMBER);
+        
+        // 3. 紀錄日誌 (統計仍算服務一人)
+        await logHistory(nextNum, req.user.nickname, 1);
+        addAdminLog(req.user.nickname, `⏩ ${current} 號未到，標記過號，跳至 ${nextNum} 號`);
+
+        // 4. 廣播更新
+        await broadcastData(KEY_PASSED_NUMBERS, "updatePassed", false);
+        checkAndNotifyLineUsers(nextNum);
+        io.emit("updateWaitTime", await calculateSmartWaitTime());
+        await updateTimestamp();
+        await broadcastQueueStatus();
+
+        res.json({ success: true, next: nextNum });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// [新增] 過號回溯 (插隊/重呼)
+app.post("/api/control/recall-passed", async (req, res) => {
+    try {
+        const { number } = req.body;
+        const targetNum = parseInt(number);
+        if (isNaN(targetNum)) return res.status(400).json({ error: "無效號碼" });
+        
+        // 1. 從過號列表中移除
+        await redis.zrem(KEY_PASSED_NUMBERS, targetNum);
+        
+        // 2. 設定為目前叫號 (插隊)
+        // 注意：這會直接改變目前螢幕上的號碼，視為優先處理
+        await redis.set(KEY_CURRENT_NUMBER, targetNum);
+
+        // 3. 紀錄日誌
+        addAdminLog(req.user.nickname, `↩️ 重呼過號 ${targetNum} (插隊辦理)`);
+
+        // 4. 廣播
+        await broadcastData(KEY_PASSED_NUMBERS, "updatePassed", false);
+        await updateTimestamp();
+        await broadcastQueueStatus();
+        
+        // 5. 強制觸發語音 (因為是重呼，通常需要語音提醒)
+        io.emit("update", targetNum); 
+
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -843,5 +898,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v18.2 (Optimized) ready on port ${PORT}`);
+    console.log(`🚀 Server v18.5 (Missed Number Handling) ready on port ${PORT}`);
 });
