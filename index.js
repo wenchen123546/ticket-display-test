@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v18.5 With Missed Number Handling
+ * 伺服器 (index.js) - v18.7 Log Fix & Env Support
  * ==========================================
  */
 
@@ -14,6 +14,11 @@ const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcrypt'); 
 const line = require('@line/bot-sdk'); 
 const cron = require('node-cron'); 
+
+// [Fix] 支援本地 .env
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
 
 const app = express();
 
@@ -253,15 +258,21 @@ async function calculateSmartWaitTime() {
     } catch (e) { return 0; }
 }
 
+// [Fix] 修正統計漏洞：允許 delta <= 0 時仍記錄操作，但只在 delta > 0 時增加人數
 async function logHistory(number, operator, delta = 1) {
     try {
-        if (delta <= 0) return;
         const { dateStr, hour } = getTaiwanDateInfo();
         const record = { num: number, time: new Date().toISOString(), operator };
+        
         const pipeline = redis.multi();
         pipeline.lpush(KEY_HISTORY_STATS, JSON.stringify(record));
         pipeline.ltrim(KEY_HISTORY_STATS, 0, 999); 
-        pipeline.hincrby(`${KEY_STATS_HOURLY_PREFIX}${dateStr}`, hour, delta); 
+        
+        // 只有當 delta > 0 時才去增加每小時的統計計數
+        if (delta > 0) {
+            pipeline.hincrby(`${KEY_STATS_HOURLY_PREFIX}${dateStr}`, hour, delta); 
+        }
+        
         pipeline.expire(`${KEY_STATS_HOURLY_PREFIX}${dateStr}`, 30 * 86400);
         await pipeline.exec();
     } catch (e) { console.error("Log history error:", e); }
@@ -898,5 +909,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v18.5 (Missed Number Handling) ready on port ${PORT}`);
+    console.log(`🚀 Server v18.7 (Missed Number Handling) ready on port ${PORT}`);
 });
