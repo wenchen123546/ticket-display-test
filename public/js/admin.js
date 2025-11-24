@@ -1,10 +1,10 @@
 /*
  * ==========================================
- * 後台邏輯 (admin.js) - v18.3 Full i18n & UX
+ * 後台邏輯 (admin.js) - v18.4 Final i18n Fix
  * ==========================================
  */
 
-// --- 0. i18n 翻譯設定 ---
+// --- 0. i18n 翻譯設定 (已修正：移除混雜的英文後綴) ---
 const adminI18n = {
     "zh-TW": {
         "status_disconnected": "連線中斷，正在嘗試重新連線...",
@@ -12,8 +12,8 @@ const adminI18n = {
         "admin_label_current": "目前叫號",
         "admin_label_issued": "已發號至",
         "admin_label_waiting": "等待組數",
-        "card_title_calling": "叫號控制 (Current)",
-        "card_title_ticketing": "發號機設定 (Issued)",
+        "card_title_calling": "叫號控制",
+        "card_title_ticketing": "發號機設定",
         "card_title_broadcast": "廣播與音效",
         "card_title_editor": "過號與公告",
         "card_title_logs": "操作日誌",
@@ -77,9 +77,9 @@ const adminI18n = {
     "en": {
         "status_disconnected": "Disconnected, reconnecting...",
         "status_connected": "✅ Connected",
-        "admin_label_current": "Current",
-        "admin_label_issued": "Issued",
-        "admin_label_waiting": "Waiting",
+        "admin_label_current": "CURRENT",
+        "admin_label_issued": "ISSUED",
+        "admin_label_waiting": "WAITING",
         "card_title_calling": "Calling Control",
         "card_title_ticketing": "Ticketing",
         "card_title_broadcast": "Broadcast & Sound",
@@ -335,10 +335,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 if(label) label.textContent = at["label_public_toggle"]; 
             }
             if(onlineUsersList) onlineUsersList.innerHTML = `<li>${at["list_loading"]}</li>`;
-            
-            // 重新初始化確認按鈕的文字
-            // 注意：因為 setupConfirmationButton 綁定的是 closure，這裡我們讓 applyAdminI18n 處理靜態文字
-            // 對於動態的按鈕文字(如"清除")，我們會透過 setupConfirmationButton 的邏輯動態獲取
         });
     }
     applyAdminI18n();
