@@ -8,11 +8,18 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/admin.css?v=60"> 
+<link rel="stylesheet" href="/css/admin.css?v=61"> 
 </head>
 <body>
 
-<div id="status-bar">連線中斷，正在嘗試重新連線...</div>
+<div id="status-bar" data-i18n="status_disconnected">連線中斷，正在嘗試重新連線...</div>
+
+<div style="position: fixed; top: 10px; right: 10px; z-index: 10001;">
+    <select id="admin-lang-selector" style="padding: 8px; border-radius: 8px; border: 1px solid #94a3b8; background: white; cursor: pointer;">
+        <option value="zh-TW">🇹🇼 中文</option>
+        <option value="en">🇺🇸 EN</option>
+    </select>
+</div>
 
 <div id="login-container">
     <div class="login-header">
@@ -33,19 +40,19 @@
         <div class="dashboard-item">
             <span class="label">CURRENT</span>
             <span class="value big-number" id="number">0</span>
-            <span class="sub-label">目前叫號</span>
+            <span class="sub-label" data-i18n="admin_label_current">目前叫號</span>
         </div>
         <div class="dashboard-divider"></div>
         <div class="dashboard-item">
             <span class="label">ISSUED</span>
             <span class="value sub-number" id="issued-number">0</span>
-            <span class="sub-label">已發號至</span>
+            <span class="sub-label" data-i18n="admin_label_issued">已發號至</span>
         </div>
         <div class="dashboard-divider"></div>
         <div class="dashboard-item">
             <span class="label">WAITING</span>
             <span class="value sub-number" id="waiting-count" style="color: #f59e0b;">0</span>
-            <span class="sub-label">等待組數</span>
+            <span class="sub-label" data-i18n="admin_label_waiting">等待組數</span>
         </div>
     </div>
 
@@ -53,14 +60,14 @@
         
         <div class="card-wrapper" id="card-calling">
             <div class="admin-card accent-blue">
-                <h3><span class="card-icon">📢</span> 叫號控制 (Current)</h3>
+                <h3 data-i18n="card_title_calling"><span class="card-icon">📢</span> 叫號控制 (Current)</h3>
                 
                 <div class="big-action-row">
                     <button id="btn-call-prev" type="button" class="btn-glass btn-big">
-                        <span class="icon">◀</span> 上一號
+                        <span class="icon">◀</span> <span data-i18n="btn_prev">上一號</span>
                     </button>
                     <button id="btn-call-next" type="button" class="btn-primary btn-big btn-large-shadow">
-                        下一號 <span class="icon">▶</span>
+                        <span data-i18n="btn_next">下一號</span> <span class="icon">▶</span>
                     </button>
                 </div>
                 
@@ -70,27 +77,27 @@
                     <label for="manualNumber">指定跳號 / 插隊</label>
                     <div class="input-group">
                         <input type="number" id="manualNumber" placeholder="輸入號碼" />
-                        <button id="setNumber" type="button" class="btn-secondary">設定</button>
+                        <button id="setNumber" type="button" class="btn-secondary" data-i18n="btn_set">設定</button>
                     </div>
-                    <p class="section-hint">直接設定「目前叫號」螢幕顯示的數字</p>
+                    <p class="section-hint" data-i18n="hint_manual_set">直接設定「目前叫號」螢幕顯示的數字</p>
                 </div>
                 
                 <div class="control-group">
-                    <button id="resetNumber" type="button" class="btn-reset-single">↺ 重置叫號歸零</button>
+                    <button id="resetNumber" type="button" class="btn-reset-single" data-i18n="btn_reset_call">↺ 重置叫號歸零</button>
                 </div>
             </div>
         </div>
 
         <div class="card-wrapper" id="card-ticketing">
             <div class="admin-card accent-green">
-                <h3><span class="card-icon">🎟️</span> 發號機設定 (Issued)</h3>
+                <h3 data-i18n="card_title_ticketing"><span class="card-icon">🎟️</span> 發號機設定 (Issued)</h3>
                 
                 <div class="big-action-row">
                     <button id="btn-issue-prev" type="button" class="btn-glass btn-big">
-                        <span class="icon">➖</span> 收回
+                        <span class="icon">➖</span> <span data-i18n="btn_issue_prev">收回</span>
                     </button>
                     <button id="btn-issue-next" type="button" class="btn-success btn-big">
-                        發號 <span class="icon">➕</span>
+                        <span data-i18n="btn_issue_next">發號</span> <span class="icon">➕</span>
                     </button>
                 </div>
 
@@ -100,7 +107,7 @@
                     <label for="manualIssuedNumber">修正已發放總數</label>
                     <div class="input-group">
                         <input type="number" id="manualIssuedNumber" placeholder="輸入號碼" />
-                        <button id="setIssuedNumber" type="button" class="btn-secondary">修正</button>
+                        <button id="setIssuedNumber" type="button" class="btn-secondary" data-i18n="btn_set">修正</button>
                     </div>
                     <p class="section-hint">僅於發號機故障或需手動調整總數時使用</p>
                 </div>
@@ -109,10 +116,10 @@
 
         <div class="card-wrapper" id="card-broadcast">
             <div class="admin-card">
-                <h3><span class="card-icon">🔊</span> 廣播與音效</h3>
+                <h3 data-i18n="card_title_broadcast"><span class="card-icon">🔊</span> 廣播與音效</h3>
                 
                 <div class="control-group sound-toggle-group">
-                    <label for="sound-toggle">啟用前台提示音</label>
+                    <label for="sound-toggle" data-i18n="label_sound_toggle">啟用前台提示音</label>
                     <div class="toggle-wrapper">
                         <input type="checkbox" id="sound-toggle">
                     </div>
@@ -122,7 +129,7 @@
                     <label>語音廣播 (TTS)</label>
                     <div class="input-group">
                         <input type="text" id="broadcast-msg" placeholder="輸入內容...">
-                        <button id="btn-broadcast" type="button" class="btn-secondary">發送</button>
+                        <button id="btn-broadcast" type="button" class="btn-secondary" data-i18n="btn_broadcast">發送</button>
                     </div>
                 </div>
             </div>
@@ -130,7 +137,7 @@
         
         <div class="card-wrapper" id="card-editor">
             <div class="admin-card">
-                <h3><span class="card-icon">📝</span> 過號與公告</h3>
+                <h3 data-i18n="card_title_editor"><span class="card-icon">📝</span> 過號與公告</h3>
                 <div class="control-group list-editor">
                     <label>手動編輯過號</label>
                     <ul id="passed-list-ui"></ul>
@@ -147,7 +154,7 @@
         <div class="card-wrapper" id="card-logs">
             <div class="admin-card flex-card">
                 <div class="card-top">
-                    <h3><span class="card-icon">📋</span> 操作日誌</h3>
+                    <h3 data-i18n="card_title_logs"><span class="card-icon">📋</span> 操作日誌</h3>
                     <div class="control-group admin-log-container">
                         <ul id="admin-log-ui">
                             <li>等待連線...</li>
@@ -157,10 +164,10 @@
                 </div>
 
                 <div class="card-bottom">
-                    <h3><span class="card-icon">⚙️</span> 系統設定</h3>
+                    <h3 data-i18n="card_title_system"><span class="card-icon">⚙️</span> 系統設定</h3>
                     
                     <div class="control-group system-toggle-group">
-                        <label for="public-toggle" id="public-toggle-label">🌐 對外開放前台</label>
+                        <label for="public-toggle" id="public-toggle-label" data-i18n="label_public_toggle">🌐 對外開放前台</label>
                         <input type="checkbox" id="public-toggle" checked>
                     </div>
 
@@ -177,7 +184,7 @@
                     </div>
                     
                     <div class="reset-zone">
-                        <button id="resetAll" type="button" class="btn-danger-outline">💥 全域重置系統</button>
+                        <button id="resetAll" type="button" class="btn-danger-outline" data-i18n="btn_reset_all">💥 全域重置系統</button>
                     </div>
                 </div>
             </div>
@@ -185,7 +192,7 @@
         
         <div class="card-wrapper" id="card-stats">
             <div class="admin-card">
-                <h3><span class="card-icon">📊</span> 數據分析</h3>
+                <h3 data-i18n="card_title_stats"><span class="card-icon">📊</span> 數據分析</h3>
                 <div class="control-group">
                     <div class="stats-header">
                         <p>今日累計叫號</p>
@@ -212,7 +219,7 @@
 
         <div class="card-wrapper" id="card-links">
             <div class="admin-card">
-                <h3><span class="card-icon">🔗</span> 精選連結</h3>
+                <h3 data-i18n="card_title_links"><span class="card-icon">🔗</span> 精選連結</h3>
                 <div class="control-group list-editor">
                     <ul id="featured-list-ui"></ul>
                     <div class="input-group vertical">
@@ -229,7 +236,7 @@
 
         <div class="card-wrapper" id="card-online-users">
             <div class="admin-card">
-                <h3><span class="card-icon">🟢</span> 在線管理員</h3>
+                <h3 data-i18n="card_title_online"><span class="card-icon">🟢</span> 在線管理員</h3>
                 <div class="control-group">
                     <ul id="online-users-list" class="online-users-ui">
                         <li>(連線中...)</li>
@@ -240,7 +247,7 @@
 
         <div class="card-wrapper" id="card-line-settings">
             <div class="admin-card">
-                <h3><span class="card-icon">💬</span> LINE 通知設定</h3>
+                <h3 data-i18n="card_title_line"><span class="card-icon">💬</span> LINE 通知設定</h3>
                 
                 <div class="control-group form-group-boxed highlight-orange" id="unlock-pwd-group" style="display:none;">
                     <label>🔑 LINE 後台解鎖密碼</label>
@@ -318,6 +325,6 @@
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=60"></script> 
+<script src="/js/admin.js?v=61"></script> 
 </body>
 </html>
