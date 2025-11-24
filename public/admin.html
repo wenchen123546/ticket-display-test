@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/admin.css?v=50"> 
+<link rel="stylesheet" href="/css/admin.css?v=60"> 
 </head>
 <body>
 
@@ -31,13 +31,13 @@
     
     <div class="dashboard-header">
         <div class="dashboard-item">
-            <span class="label">CURRENT NUMBER</span>
+            <span class="label">CURRENT</span>
             <span class="value big-number" id="number">0</span>
             <span class="sub-label">目前叫號</span>
         </div>
         <div class="dashboard-divider"></div>
         <div class="dashboard-item">
-            <span class="label">LAST ISSUED</span>
+            <span class="label">ISSUED</span>
             <span class="value sub-number" id="issued-number">0</span>
             <span class="sub-label">已發號至</span>
         </div>
@@ -49,32 +49,32 @@
         </div>
     </div>
 
-    <div class="quick-actions-bar">
-        <button id="prev" type="button" class="btn-glass">
-            <span class="icon">◀</span> 上一號
-        </button>
-        <button id="next" type="button" class="btn-primary btn-large-shadow">
-            下一號 <span class="icon">▶</span>
-        </button>
-    </div>
-
     <div class="card-container">
         
         <div class="card-wrapper" id="card-calling">
             <div class="admin-card accent-blue">
                 <h3><span class="card-icon">📢</span> 叫號控制 (Current)</h3>
                 
-                <div class="control-group">
-                    <label for="manualNumber">手動插隊 / 跳號</label>
-                    <div class="input-group">
-                        <input type="number" id="manualNumber" placeholder="輸入號碼" />
-                        <button id="setNumber" type="button" class="btn-primary">設定</button>
-                    </div>
-                    <p class="section-hint">直接設定「目前叫號」螢幕顯示的數字</p>
+                <div class="big-action-row">
+                    <button id="btn-call-prev" type="button" class="btn-glass btn-big">
+                        <span class="icon">◀</span> 上一號
+                    </button>
+                    <button id="btn-call-next" type="button" class="btn-primary btn-big btn-large-shadow">
+                        下一號 <span class="icon">▶</span>
+                    </button>
                 </div>
                 
                 <div class="control-divider"></div>
 
+                <div class="control-group">
+                    <label for="manualNumber">指定跳號 / 插隊</label>
+                    <div class="input-group">
+                        <input type="number" id="manualNumber" placeholder="輸入號碼" />
+                        <button id="setNumber" type="button" class="btn-secondary">設定</button>
+                    </div>
+                    <p class="section-hint">直接設定「目前叫號」螢幕顯示的數字</p>
+                </div>
+                
                 <div class="control-group">
                     <button id="resetNumber" type="button" class="btn-reset-single">↺ 重置叫號歸零</button>
                 </div>
@@ -85,13 +85,24 @@
             <div class="admin-card accent-green">
                 <h3><span class="card-icon">🎟️</span> 發號機設定 (Issued)</h3>
                 
+                <div class="big-action-row">
+                    <button id="btn-issue-prev" type="button" class="btn-glass btn-big">
+                        <span class="icon">➖</span> 收回
+                    </button>
+                    <button id="btn-issue-next" type="button" class="btn-success btn-big">
+                        發號 <span class="icon">➕</span>
+                    </button>
+                </div>
+
+                <div class="control-divider"></div>
+
                 <div class="control-group">
-                    <label for="manualIssuedNumber">修正已發放號碼</label>
+                    <label for="manualIssuedNumber">修正已發放總數</label>
                     <div class="input-group">
                         <input type="number" id="manualIssuedNumber" placeholder="輸入號碼" />
-                        <button id="setIssuedNumber" type="button" class="btn-success">修正</button>
+                        <button id="setIssuedNumber" type="button" class="btn-secondary">修正</button>
                     </div>
-                    <p class="section-hint">僅於發號機故障或需手動發號時使用</p>
+                    <p class="section-hint">僅於發號機故障或需手動調整總數時使用</p>
                 </div>
             </div>
         </div>
@@ -307,6 +318,6 @@
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=50"></script> 
+<script src="/js/admin.js?v=60"></script> 
 </body>
 </html>
