@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台邏輯 (admin.js) - v18.11 Full Fixes
+ * 後台邏輯 (admin.js) - v18.12 Final Logic
  * ==========================================
  */
 
@@ -63,8 +63,8 @@ const adminI18n = {
         "toast_line_reset": "↺ 已恢復預設文案",
         "toast_pwd_saved": "✅ 解鎖密碼已設定",
         "alert_pwd_empty": "密碼不可為空",
-        "btn_confirm_clear": "⚠️ 點此確認清除",
-        "btn_confirm_reset": "⚠️ 點此確認重置",
+        "btn_confirm_clear": "⚠️ Confirm Clear",
+        "btn_confirm_reset": "⚠️ Confirm Reset",
         "list_loading": "載入中...",
         "list_no_data": "尚無數據",
         "list_load_fail": "載入失敗",
@@ -706,16 +706,17 @@ async function adjustStat(delta) { if (editingHour === null) return; let current
 if(btnModalClose) btnModalClose.onclick = closeEditModal; if(btnStatsMinus) btnStatsMinus.onclick = () => adjustStat(-1); if(btnStatsPlus) btnStatsPlus.onclick = () => adjustStat(1);
 if(modalOverlay) modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeEditModal(); }
 
-// --- LINE 設定邏輯 ---
+// --- LINE 設定邏輯 (Updated with Login Hint) ---
 const domIds = {
-    approach: "line-msg-approach",
-    arrival:  "line-msg-arrival",
-    status:   "line-msg-status",
-    personal: "line-msg-personal",
-    passed:   "line-msg-passed",
-    setOk:    "line-msg-set-ok",
-    cancel:   "line-msg-cancel",
-    unlock:   "line-unlock-pwd"
+    approach:  "line-msg-approach",
+    arrival:   "line-msg-arrival",
+    status:    "line-msg-status",
+    personal:  "line-msg-personal",
+    passed:    "line-msg-passed",
+    setOk:     "line-msg-set-ok",
+    cancel:    "line-msg-cancel",
+    loginHint: "line-msg-login-hint", 
+    unlock:    "line-unlock-pwd"
 };
 
 const btnSaveLineMsg = document.getElementById("btn-save-line-msg");
@@ -727,13 +728,14 @@ async function loadLineSettings() {
     
     const data = await apiRequest("/api/admin/line-settings/get", {}, true);
     if (data && data.success) {
-        document.getElementById(domIds.approach).value = data.approach;
-        document.getElementById(domIds.arrival).value  = data.arrival;
-        document.getElementById(domIds.status).value   = data.status;
-        document.getElementById(domIds.personal).value = data.personal;
-        document.getElementById(domIds.passed).value   = data.passed;
-        document.getElementById(domIds.setOk).value    = data.set_ok;
-        document.getElementById(domIds.cancel).value   = data.cancel;
+        document.getElementById(domIds.approach).value  = data.approach;
+        document.getElementById(domIds.arrival).value   = data.arrival;
+        document.getElementById(domIds.status).value    = data.status;
+        document.getElementById(domIds.personal).value  = data.personal;
+        document.getElementById(domIds.passed).value    = data.passed;
+        document.getElementById(domIds.setOk).value     = data.set_ok;
+        document.getElementById(domIds.cancel).value    = data.cancel;
+        document.getElementById(domIds.loginHint).value = data.login_hint; 
     }
     
     if (userRole === 'super') {
@@ -746,13 +748,14 @@ async function loadLineSettings() {
 
 if (btnSaveLineMsg) btnSaveLineMsg.onclick = async () => { 
     const payload = {
-        approach: document.getElementById(domIds.approach).value.trim(),
-        arrival:  document.getElementById(domIds.arrival).value.trim(),
-        status:   document.getElementById(domIds.status).value.trim(),
-        personal: document.getElementById(domIds.personal).value.trim(),
-        passed:   document.getElementById(domIds.passed).value.trim(),
-        set_ok:   document.getElementById(domIds.setOk).value.trim(),
-        cancel:   document.getElementById(domIds.cancel).value.trim()
+        approach:   document.getElementById(domIds.approach).value.trim(),
+        arrival:    document.getElementById(domIds.arrival).value.trim(),
+        status:     document.getElementById(domIds.status).value.trim(),
+        personal:   document.getElementById(domIds.personal).value.trim(),
+        passed:     document.getElementById(domIds.passed).value.trim(),
+        set_ok:     document.getElementById(domIds.setOk).value.trim(),
+        cancel:     document.getElementById(domIds.cancel).value.trim(),
+        login_hint: document.getElementById(domIds.loginHint).value.trim() 
     };
 
     if(!payload.approach || !payload.status) return alert("主要文案不可為空"); 
@@ -767,13 +770,14 @@ if (btnSaveLineMsg) btnSaveLineMsg.onclick = async () => {
 if (btnResetLineMsg) setupConfirmationButton(btnResetLineMsg, "恢復預設值", "btn_confirm_reset", async () => { 
     const data = await apiRequest("/api/admin/line-settings/reset", {}, true); 
     if (data && data.success) { 
-        document.getElementById(domIds.approach).value = data.approach;
-        document.getElementById(domIds.arrival).value  = data.arrival;
-        document.getElementById(domIds.status).value   = data.status;
-        document.getElementById(domIds.personal).value = data.personal;
-        document.getElementById(domIds.passed).value   = data.passed;
-        document.getElementById(domIds.setOk).value    = data.set_ok;
-        document.getElementById(domIds.cancel).value   = data.cancel;
+        document.getElementById(domIds.approach).value  = data.approach;
+        document.getElementById(domIds.arrival).value   = data.arrival;
+        document.getElementById(domIds.status).value    = data.status;
+        document.getElementById(domIds.personal).value  = data.personal;
+        document.getElementById(domIds.passed).value    = data.passed;
+        document.getElementById(domIds.setOk).value     = data.set_ok;
+        document.getElementById(domIds.cancel).value    = data.cancel;
+        document.getElementById(domIds.loginHint).value = data.login_hint; 
         showToast("↺ 已恢復預設文案", "success"); 
     } 
 });
