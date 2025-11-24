@@ -5,44 +5,57 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>後台管理 - 叫號控制</title>
 <script src="/socket.io/socket.io.js"></script>
-<link rel="stylesheet" href="/css/admin.css?v=35"> 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Microsoft+JhengHei:wght@400;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/admin.css?v=40"> 
 </head>
 <body>
 
 <div id="status-bar">連線中斷，正在嘗試重新連線...</div>
 
 <div id="login-container">
-    <h1>後台管理登入</h1>
+    <div class="login-header">
+        <h1>Admin Console</h1>
+        <p>請輸入憑證以存取管理後台</p>
+    </div>
     <label for="username-input" class="sr-only">管理帳號</label>
-    <input type="text" id="username-input" placeholder="請輸入管理帳號" />
+    <input type="text" id="username-input" placeholder="管理帳號" />
     <label for="password-input" class="sr-only">管理密碼</label>
-    <input type="password" id="password-input" placeholder="請輸入管理密碼" style="margin-top: 15px;"/>
+    <input type="password" id="password-input" placeholder="管理密碼"/>
     <button id="login-button" type="button" class="btn-primary">登入系統</button>
     <p id="login-error"></p>
 </div>
 
 <div id="admin-panel">
+    
     <div class="dashboard-header">
         <div class="dashboard-item">
-            <span class="label">目前叫號</span>
+            <span class="label">CURRENT NUMBER</span>
             <span class="value big-number" id="number">0</span>
+            <span class="sub-label">目前叫號</span>
         </div>
         <div class="dashboard-divider"></div>
         <div class="dashboard-item">
-            <span class="label">已發號至</span>
+            <span class="label">LAST ISSUED</span>
             <span class="value sub-number" id="issued-number">0</span>
+            <span class="sub-label">已發號至</span>
         </div>
         <div class="dashboard-divider"></div>
         <div class="dashboard-item">
-            <span class="label">等待組數</span>
-            <span class="value sub-number" id="waiting-count" style="color: #d97706;">0</span>
+            <span class="label">WAITING</span>
+            <span class="value sub-number" id="waiting-count" style="color: #f59e0b;">0</span>
+            <span class="sub-label">等待組數</span>
         </div>
     </div>
 
-    <div class="control-group button-row" id="main-number-controls">
-        <button id="prev" type="button">上一號</button>
-        <button id="next" type="button" class="btn-primary">下一號</button>
+    <div class="quick-actions-bar">
+        <button id="prev" type="button" class="btn-glass">
+            <span class="icon">◀</span> 上一號
+        </button>
+        <button id="next" type="button" class="btn-primary btn-large-shadow">
+            下一號 <span class="icon">▶</span>
+        </button>
     </div>
 
     <div class="card-container">
@@ -52,8 +65,8 @@
                 <h3><span class="card-icon">🎛️</span> 現場控台</h3>
                 
                 <div class="control-section section-blue">
+                    <div class="section-badge">Active</div>
                     <div class="section-header">
-                        <span class="icon">📢</span>
                         <span class="text">目前叫號控制</span>
                     </div>
                     <div class="control-group">
@@ -62,13 +75,13 @@
                             <input type="number" id="manualNumber" placeholder="輸入號碼" />
                             <button id="setNumber" type="button" class="btn-primary">設定</button>
                         </div>
-                        <button id="resetNumber" type="button" class="btn-reset-single">↺ 重置目前號碼為 0</button>
+                        <button id="resetNumber" type="button" class="btn-reset-single">↺ 重置號碼歸零</button>
                     </div>
                 </div>
 
                 <div class="control-section section-green">
+                    <div class="section-badge">Queue</div>
                     <div class="section-header">
-                        <span class="icon">🎟️</span>
                         <span class="text">發號機設定 (末號)</span>
                     </div>
                     <div class="control-group">
@@ -77,20 +90,22 @@
                             <input type="number" id="manualIssuedNumber" placeholder="輸入號碼" />
                             <button id="setIssuedNumber" type="button" class="btn-success">修正</button>
                         </div>
-                        <p style="font-size:0.8rem; color:#065f46; margin-top:8px; opacity:0.8;">* 當發號機故障或需重設排隊序列時使用</p>
+                        <p class="section-hint">* 僅於發號機故障或需重設排隊時使用</p>
                     </div>
                 </div>
 
                 <div class="control-section section-gray">
                     <div class="control-group sound-toggle-group">
                         <label for="sound-toggle">🔊 啟用前台音效</label>
-                        <input type="checkbox" id="sound-toggle">
+                        <div class="toggle-wrapper">
+                            <input type="checkbox" id="sound-toggle">
+                        </div>
                     </div>
                     
                     <div class="control-group">
                         <label>🗣️ 語音廣播 (TTS)</label>
                         <div class="input-group">
-                            <input type="text" id="broadcast-msg" placeholder="輸入廣播內容">
+                            <input type="text" id="broadcast-msg" placeholder="輸入廣播內容...">
                             <button id="btn-broadcast" type="button" class="btn-secondary">發送</button>
                         </div>
                     </div>
@@ -110,19 +125,18 @@
         </div> 
         
         <div class="card-wrapper" id="card-logs">
-            <div class="admin-card" style="display: flex; flex-direction: column; height: 100%;">
-                
-                <div style="flex: 1; display: flex; flex-direction: column; min-height: 0; margin-bottom: 20px;">
+            <div class="admin-card flex-card">
+                <div class="card-top">
                     <h3><span class="card-icon">📋</span> 操作日誌</h3>
-                    <div class="control-group admin-log-container" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
-                        <ul id="admin-log-ui" style="flex: 1; overflow-y: auto; margin: 0;">
+                    <div class="control-group admin-log-container">
+                        <ul id="admin-log-ui">
                             <li>等待連線...</li>
                         </ul>
-                        <button id="clear-log-btn" type="button" class="btn-reset-single" style="display: none; margin-top: 10px;">清除日誌</button>
+                        <button id="clear-log-btn" type="button" class="btn-ghost" style="display: none;">清除紀錄</button>
                     </div>
                 </div>
 
-                <div style="flex: 0 0 auto; border-top: 2px dashed #e2e8f0; padding-top: 20px;">
+                <div class="card-bottom">
                     <h3><span class="card-icon">⚙️</span> 系統設定</h3>
                     
                     <div class="control-group system-toggle-group">
@@ -130,9 +144,9 @@
                         <input type="checkbox" id="public-toggle" checked>
                     </div>
 
-                    <div id="mode-switcher-group" class="control-group form-group-boxed" style="display:none; background:#eff6ff; border-color:#bfdbfe;">
-                        <label style="color:#1e40af;">🎫 取號模式設定</label>
-                        <div style="display:flex; gap:15px; margin-top:10px;">
+                    <div id="mode-switcher-group" class="control-group form-group-boxed" style="display:none;">
+                        <label>🎫 取號模式設定</label>
+                        <div class="radio-group">
                             <label class="radio-option">
                                 <input type="radio" name="systemMode" value="ticketing" checked> 線上取號
                             </label>
@@ -143,7 +157,7 @@
                     </div>
                     
                     <div class="reset-zone">
-                        <button id="resetAll" type="button" class="btn-danger">💥 全域重置 (號碼/統計/設定)</button>
+                        <button id="resetAll" type="button" class="btn-danger-outline">💥 全域重置系統</button>
                     </div>
                 </div>
             </div>
@@ -153,22 +167,22 @@
             <div class="admin-card">
                 <h3><span class="card-icon">📊</span> 數據分析</h3>
                 <div class="control-group">
-                    <div style="display:flex; justify-content:space-between; width:100%; align-items:baseline; margin-bottom:15px;">
-                        <p style="font-size: 1rem; color:#64748b; font-weight:600;">今日累計叫號</p>
-                        <span id="stats-today-count" style="font-weight:800; color:#2563eb; font-size:1.8rem;">0</span>
+                    <div class="stats-header">
+                        <p>今日累計叫號</p>
+                        <span id="stats-today-count">0</span>
                     </div>
 
                     <div id="hourly-chart" class="chart-container" title="點擊長條圖可手動增減數值">
-                        <p style="margin:auto; color:#999;">載入圖表...</p>
+                        <p class="loading-text">載入圖表...</p>
                     </div>
                     
                     <div class="stats-actions-row">
                         <button id="btn-refresh-stats" type="button" class="btn-secondary">重整</button>
-                        <button id="btn-export-csv" type="button" class="btn-success" style="display:none;">📥 CSV</button> 
-                        <button id="btn-clear-stats" type="button" class="btn-danger">清空</button>
+                        <button id="btn-export-csv" type="button" class="btn-success" style="display:none;">下載 CSV</button> 
+                        <button id="btn-clear-stats" type="button" class="btn-danger-ghost">清空</button>
                     </div>
                     
-                    <label style="margin-top:20px; display:block; font-weight:bold; color:#475569;">最近紀錄</label>
+                    <label class="sub-header">最近紀錄</label>
                     <ul id="stats-list-ui">
                         <li>(載入中...)</li>
                     </ul>
@@ -178,17 +192,17 @@
 
         <div class="card-wrapper" id="card-editor">
             <div class="admin-card">
-                <h3><span class="card-icon">🔗</span> 精選連結設定</h3>
+                <h3><span class="card-icon">🔗</span> 精選連結</h3>
                 <div class="control-group list-editor">
-                <ul id="featured-list-ui"></ul>
-                <div class="input-group" style="flex-direction: column;">
-                    <input type="text" id="new-link-text" placeholder="顯示文字 (例如: 菜單)">
-                    <div style="display:flex; gap:10px; width:100%;">
-                        <input type="text" id="new-link-url" placeholder="網址 (https://...)">
-                        <button id="add-featured-btn" type="button" class="btn-add">+</button>
+                    <ul id="featured-list-ui"></ul>
+                    <div class="input-group vertical">
+                        <input type="text" id="new-link-text" placeholder="顯示文字 (例如: 菜單)">
+                        <div class="input-row">
+                            <input type="text" id="new-link-url" placeholder="網址 (https://...)">
+                            <button id="add-featured-btn" type="button" class="btn-add">+</button>
+                        </div>
                     </div>
-                </div>
-                <button id="resetFeaturedContents" type="button" class="btn-reset-single">清空連結</button>
+                    <button id="resetFeaturedContents" type="button" class="btn-reset-single">清空連結</button>
                 </div>
             </div>
         </div> 
@@ -198,7 +212,7 @@
                 <h3><span class="card-icon">🟢</span> 在線管理員</h3>
                 <div class="control-group">
                     <ul id="online-users-list" class="online-users-ui">
-                        <li>(正在連線...)</li>
+                        <li>(連線中...)</li>
                     </ul>
                 </div>
             </div>
@@ -208,23 +222,24 @@
             <div class="admin-card">
                 <h3><span class="card-icon">💬</span> LINE 通知設定</h3>
                 
-                <div class="control-group form-group-boxed" id="unlock-pwd-group" style="display:none; background:#fff7ed; border-color:#fdba74;">
-                    <label style="color:#c2410c;">🔑 LINE 後台解鎖密碼</label>
+                <div class="control-group form-group-boxed highlight-orange" id="unlock-pwd-group" style="display:none;">
+                    <label>🔑 LINE 後台解鎖密碼</label>
                     <p>使用者在 LINE 輸入此密碼後，可獲得後台連結 (效期10分鐘)。</p>
                     <div class="input-group">
                         <input type="text" id="line-unlock-pwd" placeholder="設定密碼">
-                        <button id="btn-save-unlock-pwd" type="button" class="btn-warn">設定</button>
+                        <button id="btn-save-unlock-pwd" type="button" class="btn-warn">儲存</button>
                     </div>
                 </div>
 
                 <div class="control-group form-group-boxed">
                     <label>🔔 即將到號 (前3號)</label>
-                    <p>{current}目前 {target}用戶 {diff}差幾組</p>
+                    <p class="var-hint">可用變數: {current} {target} {diff}</p>
                     <textarea id="line-msg-approach"></textarea>
                 </div>
 
                 <div class="control-group form-group-boxed">
                     <label>🎉 正式到號</label>
+                    <p class="var-hint">可用變數: {current}</p>
                     <textarea id="line-msg-arrival"></textarea>
                 </div>
 
@@ -245,17 +260,17 @@
                         <li>(載入中...)</li>
                     </ul>
 
-                    <label style="margin-top:15px; display:block;">新增管理員</label>
-                    <div class="input-group" style="flex-direction: column;">
+                    <label class="sub-header">新增管理員</label>
+                    <div class="input-group vertical">
                         <input type="text" id="new-user-username" placeholder="帳號">
                         <input type="text" id="new-user-nickname" placeholder="綽號 (顯示用)">
-                        <div style="display:flex; gap:10px;">
+                        <div class="input-row">
                             <input type="password" id="new-user-password" placeholder="密碼">
                             <button id="add-user-btn" type="button" class="btn-add">+</button>
                         </div>
                     </div>
 
-                    <label style="margin-top:15px; display:block;">修改綽號</label>
+                    <label class="sub-header">修改綽號</label>
                     <div class="input-group">
                         <input type="text" id="set-nick-username" placeholder="帳號">
                         <input type="text" id="set-nick-nickname" placeholder="新綽號">
@@ -272,17 +287,17 @@
     <div class="modal-content">
         <h3 id="modal-title">編輯數據</h3>
         <p>調整該時段的叫號人數：</p>
-        <div style="display: flex; gap: 15px; justify-content: center; margin: 20px 0;">
-            <button id="btn-stats-minus" class="btn-warn" style="font-size: 1.5rem; width: 60px;">-1</button>
-            <span id="modal-current-count" style="font-size: 2.5rem; font-weight: bold; min-width: 80px;">0</span>
-            <button id="btn-stats-plus" class="btn-success" style="font-size: 1.5rem; width: 60px;">+1</button>
+        <div class="modal-actions">
+            <button id="btn-stats-minus" class="btn-warn btn-circle">-1</button>
+            <span id="modal-current-count">0</span>
+            <button id="btn-stats-plus" class="btn-success btn-circle">+1</button>
         </div>
-        <button id="btn-modal-close" class="btn-secondary" style="width:100%">關閉</button>
+        <button id="btn-modal-close" class="btn-secondary full-width">關閉</button>
     </div>
 </div>
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=35"></script> 
+<script src="/js/admin.js?v=40"></script> 
 </body>
 </html>
