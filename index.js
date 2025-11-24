@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v17.3 Rich Menu Logic Fix
+ * 伺服器 (index.js) - v18.0 Separate Issued Control & Mobile Fix
  * ==========================================
  */
 
@@ -464,7 +464,7 @@ app.post("/login", loginLimiter, async (req, res) => {
 
 // 保護的 API 路由清單
 const protectedAPIs = [
-    "/change-number", "/set-number", "/set-system-mode", "/set-issued-number",
+    "/change-number", "/change-issued-number", "/set-number", "/set-system-mode", "/set-issued-number",
     "/api/passed/add", "/api/passed/remove", "/api/passed/clear",
     "/api/featured/add", "/api/featured/remove", "/api/featured/clear", 
     "/set-sound-enabled", "/set-public-status", "/reset",
@@ -587,6 +587,33 @@ app.post("/change-number", async (req, res) => {
         await updateTimestamp();
         await broadcastQueueStatus(); 
         res.json({ success: true, number: num });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// [新增] 調整已發號碼 (上一號/下一號)
+app.post("/change-issued-number", async (req, res) => {
+    try {
+        const { direction } = req.body;
+        
+        const currentNum = parseInt(await redis.get(KEY_CURRENT_NUMBER)) || 0;
+        let issuedNum = parseInt(await redis.get(KEY_LAST_ISSUED)) || 0;
+
+        if (direction === "next") {
+            issuedNum = await redis.incr(KEY_LAST_ISSUED);
+            addAdminLog(req.user.nickname, `手動發號增加至 ${issuedNum}`);
+        } else if (direction === "prev") {
+            if (issuedNum > currentNum) {
+                issuedNum = await redis.decr(KEY_LAST_ISSUED);
+                addAdminLog(req.user.nickname, `手動發號回退至 ${issuedNum}`);
+            } else {
+                return res.status(400).json({ error: "已發號碼不可小於目前叫號" });
+            }
+        }
+
+        await broadcastQueueStatus();
+        io.emit("updateWaitTime", await calculateSmartWaitTime());
+        
+        res.json({ success: true, issued: issuedNum });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -814,5 +841,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v17.3 (Rich Menu Fix) ready on port ${PORT}`);
+    console.log(`🚀 Server v18.0 (Mobile Fix) ready on port ${PORT}`);
 });
