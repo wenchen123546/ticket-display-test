@@ -11,6 +11,12 @@ const numberEl = document.getElementById("number");
 const issuedNumberEl = document.getElementById("issued-number");
 const waitingCountEl = document.getElementById("waiting-count");
 
+// [新增] 獨立的叫號與發號按鈕
+const btnCallPrev = document.getElementById("btn-call-prev");
+const btnCallNext = document.getElementById("btn-call-next");
+const btnIssuePrev = document.getElementById("btn-issue-prev");
+const btnIssueNext = document.getElementById("btn-issue-next");
+
 // 列表與控制元素
 const statusBar = document.getElementById("status-bar");
 const passedListUI = document.getElementById("passed-list-ui");
@@ -68,7 +74,7 @@ const lineMsgArrivalInput = document.getElementById("line-msg-arrival");
 const btnSaveLineMsg = document.getElementById("btn-save-line-msg");
 const btnResetLineMsg = document.getElementById("btn-reset-line-msg");
 
-// 【關鍵】LINE 解鎖密碼 DOM (確保這裡正確選取)
+// LINE 解鎖密碼 DOM
 const unlockPwdGroup = document.getElementById("unlock-pwd-group");
 const lineUnlockPwdInput = document.getElementById("line-unlock-pwd");
 const btnSaveUnlockPwd = document.getElementById("btn-save-unlock-pwd");
@@ -97,12 +103,10 @@ function showLogin() {
 }
 
 async function showPanel() {
-    // 隱藏登入頁，顯示主面板
     loginContainer.style.display = "none";
     adminPanel.style.display = "block";
     document.title = `後台管理 - ${username}`;
 
-    // 針對超級管理員的顯示邏輯
     if (userRole === 'super') {
         const userManagementCard = document.getElementById("card-user-management");
         if (userManagementCard) userManagementCard.style.display = "block";
@@ -110,15 +114,10 @@ async function showPanel() {
         if (clearLogBtn) clearLogBtn.style.display = "block";
         if (btnExportCsv) btnExportCsv.style.display = "block";
         if (modeSwitcherGroup) modeSwitcherGroup.style.display = "block";
-        
-        // 【關鍵修復】強制顯示 LINE 解鎖密碼區塊
-        if (unlockPwdGroup) {
-            unlockPwdGroup.style.display = "block";
-        }
+        if (unlockPwdGroup) unlockPwdGroup.style.display = "block";
 
         await loadAdminUsers();
     } else {
-        // 一般管理員隱藏敏感區塊
         if (unlockPwdGroup) unlockPwdGroup.style.display = "none";
     }
     
@@ -328,7 +327,7 @@ function renderPassedListUI(numbers) {
         const li = document.createElement("li");
         li.innerHTML = `<span>${number}</span>`;
         const deleteBtn = document.createElement("button");
-        deleteBtn.type = "button"; deleteBtn.className = "delete-item-btn"; deleteBtn.innerHTML = "✕"; // 使用 HTML entity 更好看
+        deleteBtn.type = "button"; deleteBtn.className = "delete-item-btn"; deleteBtn.innerHTML = "✕"; 
         const actionCallback = async () => { deleteBtn.disabled = true; await apiRequest("/api/passed/remove", { number: number }); };
         setupConfirmationButton(deleteBtn, "✕", "⚠️", actionCallback);
         li.appendChild(deleteBtn);
@@ -379,14 +378,14 @@ function renderOnlineAdmins(admins) {
 }
 
 // --- 10. 控制台按鈕 ---
-const actionResetNumber = async () => { if (await apiRequest("/set-number", { number: 0 })) { document.getElementById("manualNumber").value = ""; showToast("✅ 號碼已重置為 0", "success"); } };
-const actionResetPassed = async () => { if (await apiRequest("/api/passed/clear", {})) showToast("✅ 過號列表已清空", "success"); };
-const actionResetFeatured = async () => { if (await apiRequest("/api/featured/clear", {})) showToast("✅ 精選連結已清空", "success"); };
-const actionResetAll = async () => { if (await apiRequest("/reset", {})) { document.getElementById("manualNumber").value = ""; showToast("💥 所有資料已重置", "success"); await loadStats(); } };
-async function changeNumber(direction) { await apiRequest("/change-number", { direction }); }
-async function setNumber() { const num = document.getElementById("manualNumber").value; if (num === "") return; if (await apiRequest("/set-number", { number: num })) { document.getElementById("manualNumber").value = ""; showToast("✅ 號碼已設定", "success"); } }
-const actionClearAdminLog = async () => { showToast("🧼 正在清除日誌...", "info"); await apiRequest("/api/logs/clear", {}); }
 
+// [修改] 變更目前叫號
+async function changeNumber(direction) { await apiRequest("/change-number", { direction }); }
+
+// [新增] 變更已發號碼
+async function changeIssuedNumber(direction) { await apiRequest("/change-issued-number", { direction }); }
+
+async function setNumber() { const num = document.getElementById("manualNumber").value; if (num === "") return; if (await apiRequest("/set-number", { number: num })) { document.getElementById("manualNumber").value = ""; showToast("✅ 號碼已設定", "success"); } }
 async function setIssuedNumber() {
     const num = manualIssuedInput.value;
     if (num === "") return;
@@ -396,9 +395,21 @@ async function setIssuedNumber() {
     }
 }
 
+const actionResetNumber = async () => { if (await apiRequest("/set-number", { number: 0 })) { document.getElementById("manualNumber").value = ""; showToast("✅ 號碼已重置為 0", "success"); } };
+const actionResetPassed = async () => { if (await apiRequest("/api/passed/clear", {})) showToast("✅ 過號列表已清空", "success"); };
+const actionResetFeatured = async () => { if (await apiRequest("/api/featured/clear", {})) showToast("✅ 精選連結已清空", "success"); };
+const actionResetAll = async () => { if (await apiRequest("/reset", {})) { document.getElementById("manualNumber").value = ""; showToast("💥 所有資料已重置", "success"); await loadStats(); } };
+const actionClearAdminLog = async () => { showToast("🧼 正在清除日誌...", "info"); await apiRequest("/api/logs/clear", {}); }
+
+
 // --- 11. 綁定事件 ---
-document.getElementById("next").onclick = () => changeNumber("next");
-document.getElementById("prev").onclick = () => changeNumber("prev");
+
+// [修改] 綁定新按鈕
+if(btnCallPrev) btnCallPrev.onclick = () => changeNumber("prev");
+if(btnCallNext) btnCallNext.onclick = () => changeNumber("next");
+if(btnIssuePrev) btnIssuePrev.onclick = () => changeIssuedNumber("prev");
+if(btnIssueNext) btnIssueNext.onclick = () => changeIssuedNumber("next");
+
 document.getElementById("setNumber").onclick = setNumber;
 if(setIssuedBtn) setIssuedBtn.onclick = setIssuedNumber;
 
@@ -556,15 +567,11 @@ if (btnExportCsv) { btnExportCsv.onclick = downloadCSV; }
 // LINE 訊息設定
 async function loadLineSettings() {
     if (!lineMsgApproachInput) return;
-    
-    // 載入基本文案
     const data = await apiRequest("/api/admin/line-settings/get", {}, true);
     if (data && data.success) {
         lineMsgApproachInput.value = data.approach;
         lineMsgArrivalInput.value = data.arrival;
     }
-
-    // 若是 Super Admin，載入解鎖密碼
     if (userRole === 'super') {
         const pwdData = await apiRequest("/api/admin/line-settings/get-unlock-pass", {}, true);
         if(pwdData && pwdData.success && lineUnlockPwdInput) {
@@ -575,7 +582,6 @@ async function loadLineSettings() {
 if (btnSaveLineMsg) { btnSaveLineMsg.onclick = async () => { const approach = lineMsgApproachInput.value.trim(); const arrival = lineMsgArrivalInput.value.trim(); if(!approach || !arrival) return alert("內容不可為空"); btnSaveLineMsg.disabled = true; if (await apiRequest("/api/admin/line-settings/save", { approach, arrival })) { showToast("✅ LINE 文案已更新", "success"); } btnSaveLineMsg.disabled = false; }; }
 if (btnResetLineMsg) { setupConfirmationButton(btnResetLineMsg, "恢復預設值", "⚠️ 確認恢復", async () => { const data = await apiRequest("/api/admin/line-settings/reset", {}, true); if (data && data.success) { lineMsgApproachInput.value = data.approach; lineMsgArrivalInput.value = data.arrival; showToast("↺ 已恢復預設文案", "success"); } }); }
 
-// 【新】設定解鎖密碼
 if (btnSaveUnlockPwd) {
     btnSaveUnlockPwd.onclick = async () => {
         const pwd = lineUnlockPwdInput.value.trim();
