@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v18.11 Full Line Customization
+ * 伺服器 (index.js) - v18.12 Admin Login Hint Customization
  * ==========================================
  */
 
@@ -81,22 +81,24 @@ const KEY_LINE_UNLOCK_PWD = 'callsys:line:unlock_pwd';
 const KEY_LINE_ADMIN_UNLOCK = 'callsys:line:admin_session:';
 
 // --- LINE 文案 Keys ---
-const KEY_LINE_MSG_APPROACH = 'callsys:line:msg:approach'; // 快到了
-const KEY_LINE_MSG_ARRIVAL  = 'callsys:line:msg:arrival';  // 到號了
-const KEY_LINE_MSG_STATUS   = 'callsys:line:msg:status';   // 查詢進度(通用)
-const KEY_LINE_MSG_PERSONAL = 'callsys:line:msg:personal'; // 查詢進度(個人追蹤中)
-const KEY_LINE_MSG_PASSED   = 'callsys:line:msg:passed';   // 過號名單
-const KEY_LINE_MSG_SET_OK   = 'callsys:line:msg:set_ok';   // 設定提醒成功
-const KEY_LINE_MSG_CANCEL   = 'callsys:line:msg:cancel';   // 取消提醒
+const KEY_LINE_MSG_APPROACH   = 'callsys:line:msg:approach';   // 快到了
+const KEY_LINE_MSG_ARRIVAL    = 'callsys:line:msg:arrival';    // 到號了
+const KEY_LINE_MSG_STATUS     = 'callsys:line:msg:status';     // 查詢進度(通用)
+const KEY_LINE_MSG_PERSONAL   = 'callsys:line:msg:personal';   // 查詢進度(個人追蹤中)
+const KEY_LINE_MSG_PASSED     = 'callsys:line:msg:passed';     // 過號名單
+const KEY_LINE_MSG_SET_OK     = 'callsys:line:msg:set_ok';     // 設定提醒成功
+const KEY_LINE_MSG_CANCEL     = 'callsys:line:msg:cancel';     // 取消提醒
+const KEY_LINE_MSG_LOGIN_HINT = 'callsys:line:msg:login_hint'; // [新增] 登入提示
 
 // --- 預設文案 (Defaults) ---
-const DEFAULT_MSG_APPROACH = "🔔 叫號提醒！\n\n目前已叫號至 {current} 號。\n您的 {target} 號即將輪到 (剩 {diff} 組)，請準備前往現場！";
-const DEFAULT_MSG_ARRIVAL  = "🎉 輪到您了！\n\n目前號碼：{current} 號\n請立即前往櫃台辦理。";
-const DEFAULT_MSG_STATUS   = "📊 現場狀況報告\n\n目前叫號：{current} 號\n已發號至：{issued} 號{personal}";
-const DEFAULT_MSG_PERSONAL = "\n\n📌 您正在追蹤：{target} 號\n⏳ 前方還有：{diff} 組";
-const DEFAULT_MSG_PASSED   = "📋 目前過號名單：\n\n{list}\n\n若您的號碼在名單中，請儘速洽詢櫃台。";
-const DEFAULT_MSG_SET_OK   = "✅ 提醒設定成功！\n\n目標號碼：{target} 號\n目前進度：{current} 號\n前方等待：{diff} 組";
-const DEFAULT_MSG_CANCEL   = "🗑️ 已取消對 {target} 號的提醒通知。";
+const DEFAULT_MSG_APPROACH   = "🔔 叫號提醒！\n\n目前已叫號至 {current} 號。\n您的 {target} 號即將輪到 (剩 {diff} 組)，請準備前往現場！";
+const DEFAULT_MSG_ARRIVAL    = "🎉 輪到您了！\n\n目前號碼：{current} 號\n請立即前往櫃台辦理。";
+const DEFAULT_MSG_STATUS     = "📊 現場狀況報告\n\n目前叫號：{current} 號\n已發號至：{issued} 號{personal}";
+const DEFAULT_MSG_PERSONAL   = "\n\n📌 您正在追蹤：{target} 號\n⏳ 前方還有：{diff} 組";
+const DEFAULT_MSG_PASSED     = "📋 目前過號名單：\n\n{list}\n\n若您的號碼在名單中，請儘速洽詢櫃台。";
+const DEFAULT_MSG_SET_OK     = "✅ 提醒設定成功！\n\n目標號碼：{target} 號\n目前進度：{current} 號\n前方等待：{diff} 組";
+const DEFAULT_MSG_CANCEL     = "🗑️ 已取消對 {target} 號的提醒通知。";
+const DEFAULT_MSG_LOGIN_HINT = "🔒 請輸入「解鎖密碼」以驗證身份。";
 
 const onlineAdmins = new Map();
 
@@ -333,18 +335,20 @@ async function handleLineEvent(event) {
     const userId = event.source.userId;
     const replyToken = event.replyToken;
 
-    // 1. 讀取所有設定文案
+    // 1. 讀取所有設定文案 (包含新增的 login_hint)
     const keys = [
         KEY_LINE_MSG_STATUS, KEY_LINE_MSG_PERSONAL, 
-        KEY_LINE_MSG_PASSED, KEY_LINE_MSG_SET_OK, KEY_LINE_MSG_CANCEL
+        KEY_LINE_MSG_PASSED, KEY_LINE_MSG_SET_OK, KEY_LINE_MSG_CANCEL,
+        KEY_LINE_MSG_LOGIN_HINT
     ];
-    const [tplStatus, tplPersonal, tplPassed, tplSetOk, tplCancel] = await redis.mget(keys);
+    const [tplStatus, tplPersonal, tplPassed, tplSetOk, tplCancel, tplLoginHint] = await redis.mget(keys);
     
     const MSG_STATUS = tplStatus || DEFAULT_MSG_STATUS;
     const MSG_PERSONAL = tplPersonal || DEFAULT_MSG_PERSONAL;
     const MSG_PASSED = tplPassed || DEFAULT_MSG_PASSED;
     const MSG_SET_OK = tplSetOk || DEFAULT_MSG_SET_OK;
     const MSG_CANCEL = tplCancel || DEFAULT_MSG_CANCEL;
+    const MSG_LOGIN_HINT = tplLoginHint || DEFAULT_MSG_LOGIN_HINT;
 
     // 2. 後台解鎖功能
     if (text === '後台登入') {
@@ -356,10 +360,7 @@ async function handleLineEvent(event) {
                 text: `🔗 後台傳送門已開啟：\n\n請點擊連結進入後台：\n${host}/admin.html\n\n(此連結包含敏感權限，請勿轉傳)`
             });
         } else {
-            return lineClient.replyMessage(replyToken, {
-                type: "text",
-                text: "🔒 按鈕已鎖定\n\n此功能僅限管理員使用。\n請輸入後台設定的「解鎖密碼」以驗證身份。"
-            });
+            return lineClient.replyMessage(replyToken, { type: "text", text: MSG_LOGIN_HINT });
         }
     }
 
@@ -503,25 +504,27 @@ app.post("/api/admin/line-settings/get", async (req, res) => {
         const keys = [
             KEY_LINE_MSG_APPROACH, KEY_LINE_MSG_ARRIVAL, 
             KEY_LINE_MSG_STATUS, KEY_LINE_MSG_PERSONAL, 
-            KEY_LINE_MSG_PASSED, KEY_LINE_MSG_SET_OK, KEY_LINE_MSG_CANCEL
+            KEY_LINE_MSG_PASSED, KEY_LINE_MSG_SET_OK, KEY_LINE_MSG_CANCEL,
+            KEY_LINE_MSG_LOGIN_HINT
         ];
         const results = await redis.mget(keys);
         res.json({ 
             success: true, 
-            approach: results[0] || DEFAULT_MSG_APPROACH,
-            arrival:  results[1] || DEFAULT_MSG_ARRIVAL,
-            status:   results[2] || DEFAULT_MSG_STATUS,
-            personal: results[3] || DEFAULT_MSG_PERSONAL,
-            passed:   results[4] || DEFAULT_MSG_PASSED,
-            set_ok:   results[5] || DEFAULT_MSG_SET_OK,
-            cancel:   results[6] || DEFAULT_MSG_CANCEL
+            approach:   results[0] || DEFAULT_MSG_APPROACH,
+            arrival:    results[1] || DEFAULT_MSG_ARRIVAL,
+            status:     results[2] || DEFAULT_MSG_STATUS,
+            personal:   results[3] || DEFAULT_MSG_PERSONAL,
+            passed:     results[4] || DEFAULT_MSG_PASSED,
+            set_ok:     results[5] || DEFAULT_MSG_SET_OK,
+            cancel:     results[6] || DEFAULT_MSG_CANCEL,
+            login_hint: results[7] || DEFAULT_MSG_LOGIN_HINT
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post("/api/admin/line-settings/save", async (req, res) => {
     try {
-        const { approach, arrival, status, personal, passed, set_ok, cancel } = req.body;
+        const { approach, arrival, status, personal, passed, set_ok, cancel, login_hint } = req.body;
         if (!approach || !arrival || !status) return res.status(400).json({ error: "主要文案不可為空" });
 
         const pipeline = redis.multi();
@@ -532,6 +535,7 @@ app.post("/api/admin/line-settings/save", async (req, res) => {
         pipeline.set(KEY_LINE_MSG_PASSED, sanitize(passed));
         pipeline.set(KEY_LINE_MSG_SET_OK, sanitize(set_ok));
         pipeline.set(KEY_LINE_MSG_CANCEL, sanitize(cancel));
+        pipeline.set(KEY_LINE_MSG_LOGIN_HINT, sanitize(login_hint));
         
         await pipeline.exec();
         addAdminLog(req.user.nickname, "📝 更新了 LINE 自動回覆文案");
@@ -544,19 +548,21 @@ app.post("/api/admin/line-settings/reset", async (req, res) => {
         const keys = [
             KEY_LINE_MSG_APPROACH, KEY_LINE_MSG_ARRIVAL, 
             KEY_LINE_MSG_STATUS, KEY_LINE_MSG_PERSONAL, 
-            KEY_LINE_MSG_PASSED, KEY_LINE_MSG_SET_OK, KEY_LINE_MSG_CANCEL
+            KEY_LINE_MSG_PASSED, KEY_LINE_MSG_SET_OK, KEY_LINE_MSG_CANCEL,
+            KEY_LINE_MSG_LOGIN_HINT
         ];
         await redis.del(keys);
         addAdminLog(req.user.nickname, "↺ 重置了 LINE 自動回覆文案");
         res.json({ 
             success: true, 
-            approach: DEFAULT_MSG_APPROACH,
-            arrival: DEFAULT_MSG_ARRIVAL,
-            status: DEFAULT_MSG_STATUS,
-            personal: DEFAULT_MSG_PERSONAL,
-            passed: DEFAULT_MSG_PASSED,
-            set_ok: DEFAULT_MSG_SET_OK,
-            cancel: DEFAULT_MSG_CANCEL
+            approach:   DEFAULT_MSG_APPROACH,
+            arrival:    DEFAULT_MSG_ARRIVAL,
+            status:     DEFAULT_MSG_STATUS,
+            personal:   DEFAULT_MSG_PERSONAL,
+            passed:     DEFAULT_MSG_PASSED,
+            set_ok:     DEFAULT_MSG_SET_OK,
+            cancel:     DEFAULT_MSG_CANCEL,
+            login_hint: DEFAULT_MSG_LOGIN_HINT
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -956,5 +962,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v18.11 (Full Line Customization) ready on port ${PORT}`);
+    console.log(`🚀 Server v18.12 (Admin Login Hint Customization) ready on port ${PORT}`);
 });
