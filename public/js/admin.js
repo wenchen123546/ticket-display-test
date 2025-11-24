@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台邏輯 (admin.js) - v18.14 Optimized (Configurable LINE Msgs)
+ * 後台邏輯 (admin.js) - v18.15 Simplified Line Input
  * ==========================================
  */
 
@@ -860,8 +860,7 @@ const domIds = {
     cancel:    "line-msg-cancel",
     loginHint: "line-msg-login-hint", 
     unlock:    "line-unlock-pwd",
-    // [新增] DOM ID 對應
-    errFormat: "line-msg-err-format",
+    // [修改] 移除 errFormat
     errPassed: "line-msg-err-passed",
     errNoSub:  "line-msg-err-no-sub"
 };
@@ -884,8 +883,7 @@ async function loadLineSettings() {
         document.getElementById(domIds.cancel).value    = data.cancel;
         document.getElementById(domIds.loginHint).value = data.login_hint;
         
-        // [新增] 載入錯誤訊息設定
-        if(document.getElementById(domIds.errFormat)) document.getElementById(domIds.errFormat).value = data.err_format;
+        // [修改] 載入錯誤訊息設定 (排除 err_format)
         if(document.getElementById(domIds.errPassed)) document.getElementById(domIds.errPassed).value = data.err_passed;
         if(document.getElementById(domIds.errNoSub))  document.getElementById(domIds.errNoSub).value  = data.err_no_sub;
     }
@@ -909,8 +907,7 @@ if (btnSaveLineMsg) btnSaveLineMsg.onclick = async () => {
         cancel:     document.getElementById(domIds.cancel).value.trim(),
         login_hint: document.getElementById(domIds.loginHint).value.trim(),
         
-        // [新增] 儲存 payload
-        err_format: document.getElementById(domIds.errFormat).value.trim(),
+        // [修改] 儲存 payload (排除 err_format)
         err_passed: document.getElementById(domIds.errPassed).value.trim(),
         err_no_sub: document.getElementById(domIds.errNoSub).value.trim()
     };
@@ -936,8 +933,7 @@ if (btnResetLineMsg) setupConfirmationButton(btnResetLineMsg, "恢復預設值",
         document.getElementById(domIds.cancel).value    = data.cancel;
         document.getElementById(domIds.loginHint).value = data.login_hint; 
         
-        // [新增] 重置後更新 UI
-        document.getElementById(domIds.errFormat).value = data.err_format;
+        // [修改] 重置後更新 UI (排除 err_format)
         document.getElementById(domIds.errPassed).value = data.err_passed;
         document.getElementById(domIds.errNoSub).value  = data.err_no_sub;
 
