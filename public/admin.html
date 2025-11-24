@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/admin.css?v=75"> 
+<link rel="stylesheet" href="/css/admin.css?v=76"> 
 </head>
 <body>
 
@@ -340,17 +340,35 @@
                                 <textarea id="line-msg-set-ok" style="height:80px;"></textarea>
                             </div>
 
-                            <details>
-                                <summary style="cursor:pointer; padding:10px; color:var(--primary); font-weight:bold;">更多回覆設定 (過號、取消)...</summary>
+                            <details open>
+                                <summary style="cursor:pointer; padding:10px; color:var(--primary); font-weight:bold;">進階設定：操作提示與錯誤訊息</summary>
                                 
                                 <div class="control-group form-group-boxed" style="margin-top:15px;">
+                                    <label>設定失敗：格式錯誤 (教學)</label>
+                                    <p class="var-hint">當使用者只輸入「設定提醒」未加號碼時顯示</p>
+                                    <textarea id="line-msg-err-format" style="height:80px;"></textarea>
+                                </div>
+                            
+                                <div class="control-group form-group-boxed">
+                                    <label>設定失敗：號碼已過</label>
+                                    <p class="var-hint">變數: {target} {current}</p>
+                                    <textarea id="line-msg-err-passed" style="height:60px;"></textarea>
+                                </div>
+                            
+                                <div class="control-group form-group-boxed">
+                                    <label>取消失敗：無追蹤資料</label>
+                                    <p class="var-hint">當使用者想取消但其實沒設定時顯示</p>
+                                    <textarea id="line-msg-err-no-sub" style="height:60px;"></textarea>
+                                </div>
+                            
+                                <div class="control-group form-group-boxed">
                                     <label>關鍵字：「過號」、「passed」</label>
                                     <p class="var-hint">變數: {list}</p>
                                     <textarea id="line-msg-passed" style="height:80px;"></textarea>
                                 </div>
-
+                            
                                 <div class="control-group form-group-boxed">
-                                    <label>關鍵字：「取消提醒」</label>
+                                    <label>關鍵字：「取消提醒」 (成功時)</label>
                                     <p class="var-hint">變數: {target}</p>
                                     <textarea id="line-msg-cancel" style="height:60px;"></textarea>
                                 </div>
@@ -384,6 +402,6 @@
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=75"></script> 
+<script src="/js/admin.js?v=76"></script> 
 </body>
 </html>
