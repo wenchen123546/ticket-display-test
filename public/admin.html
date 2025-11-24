@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/admin.css?v=40"> 
+<link rel="stylesheet" href="/css/admin.css?v=50"> 
 </head>
 <body>
 
@@ -60,59 +60,68 @@
 
     <div class="card-container">
         
-        <div class="card-wrapper" id="card-control">
+        <div class="card-wrapper" id="card-calling">
+            <div class="admin-card accent-blue">
+                <h3><span class="card-icon">📢</span> 叫號控制 (Current)</h3>
+                
+                <div class="control-group">
+                    <label for="manualNumber">手動插隊 / 跳號</label>
+                    <div class="input-group">
+                        <input type="number" id="manualNumber" placeholder="輸入號碼" />
+                        <button id="setNumber" type="button" class="btn-primary">設定</button>
+                    </div>
+                    <p class="section-hint">直接設定「目前叫號」螢幕顯示的數字</p>
+                </div>
+                
+                <div class="control-divider"></div>
+
+                <div class="control-group">
+                    <button id="resetNumber" type="button" class="btn-reset-single">↺ 重置叫號歸零</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-wrapper" id="card-ticketing">
+            <div class="admin-card accent-green">
+                <h3><span class="card-icon">🎟️</span> 發號機設定 (Issued)</h3>
+                
+                <div class="control-group">
+                    <label for="manualIssuedNumber">修正已發放號碼</label>
+                    <div class="input-group">
+                        <input type="number" id="manualIssuedNumber" placeholder="輸入號碼" />
+                        <button id="setIssuedNumber" type="button" class="btn-success">修正</button>
+                    </div>
+                    <p class="section-hint">僅於發號機故障或需手動發號時使用</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-wrapper" id="card-broadcast">
             <div class="admin-card">
-                <h3><span class="card-icon">🎛️</span> 現場控台</h3>
+                <h3><span class="card-icon">🔊</span> 廣播與音效</h3>
                 
-                <div class="control-section section-blue">
-                    <div class="section-badge">Active</div>
-                    <div class="section-header">
-                        <span class="text">目前叫號控制</span>
-                    </div>
-                    <div class="control-group">
-                        <label for="manualNumber">手動插隊 / 跳號</label>
-                        <div class="input-group">
-                            <input type="number" id="manualNumber" placeholder="輸入號碼" />
-                            <button id="setNumber" type="button" class="btn-primary">設定</button>
-                        </div>
-                        <button id="resetNumber" type="button" class="btn-reset-single">↺ 重置號碼歸零</button>
-                    </div>
-                </div>
-
-                <div class="control-section section-green">
-                    <div class="section-badge">Queue</div>
-                    <div class="section-header">
-                        <span class="text">發號機設定 (末號)</span>
-                    </div>
-                    <div class="control-group">
-                        <label for="manualIssuedNumber">修正已發放號碼</label>
-                        <div class="input-group">
-                            <input type="number" id="manualIssuedNumber" placeholder="輸入號碼" />
-                            <button id="setIssuedNumber" type="button" class="btn-success">修正</button>
-                        </div>
-                        <p class="section-hint">* 僅於發號機故障或需重設排隊時使用</p>
-                    </div>
-                </div>
-
-                <div class="control-section section-gray">
-                    <div class="control-group sound-toggle-group">
-                        <label for="sound-toggle">🔊 啟用前台音效</label>
-                        <div class="toggle-wrapper">
-                            <input type="checkbox" id="sound-toggle">
-                        </div>
-                    </div>
-                    
-                    <div class="control-group">
-                        <label>🗣️ 語音廣播 (TTS)</label>
-                        <div class="input-group">
-                            <input type="text" id="broadcast-msg" placeholder="輸入廣播內容...">
-                            <button id="btn-broadcast" type="button" class="btn-secondary">發送</button>
-                        </div>
+                <div class="control-group sound-toggle-group">
+                    <label for="sound-toggle">啟用前台提示音</label>
+                    <div class="toggle-wrapper">
+                        <input type="checkbox" id="sound-toggle">
                     </div>
                 </div>
                 
+                <div class="control-group">
+                    <label>語音廣播 (TTS)</label>
+                    <div class="input-group">
+                        <input type="text" id="broadcast-msg" placeholder="輸入內容...">
+                        <button id="btn-broadcast" type="button" class="btn-secondary">發送</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-wrapper" id="card-editor">
+            <div class="admin-card">
+                <h3><span class="card-icon">📝</span> 過號與公告</h3>
                 <div class="control-group list-editor">
-                    <label>📝 手動編輯過號</label>
+                    <label>手動編輯過號</label>
                     <ul id="passed-list-ui"></ul>
                     <div class="input-group">
                         <label for="new-passed-number" class="sr-only">過號號碼</label>
@@ -190,7 +199,7 @@
             </div>
         </div>
 
-        <div class="card-wrapper" id="card-editor">
+        <div class="card-wrapper" id="card-links">
             <div class="admin-card">
                 <h3><span class="card-icon">🔗</span> 精選連結</h3>
                 <div class="control-group list-editor">
@@ -298,6 +307,6 @@
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=40"></script> 
+<script src="/js/admin.js?v=50"></script> 
 </body>
 </html>
