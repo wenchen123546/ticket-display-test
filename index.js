@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v18.0 Separate Issued Control & Mobile Fix
+ * 伺服器 (index.js) - v18.1 Fixed CSP for Google Fonts
  * ==========================================
  */
 
@@ -84,13 +84,16 @@ const DEFAULT_LINE_MSG_ARRIVAL = "🎉 輪到您了！\n\n目前號碼：{curren
 
 const onlineAdmins = new Map();
 
-// 安全設定
+// 安全設定 - [已修正 CSP 設定以支援 Google Fonts]
 app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-        "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'"],
+        // 👇 修改：加入 Google Fonts 樣式來源
+        "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        // 👇 新增：加入 Google Fonts 字體檔來源
+        "font-src": ["'self'", "https://fonts.gstatic.com"],
         "connect-src": ["'self'", "https://cdn.jsdelivr.net", "wss:", "ws:"]
       },
     },
@@ -841,5 +844,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v18.0 (Mobile Fix) ready on port ${PORT}`);
+    console.log(`🚀 Server v18.1 (CSP Fixed) ready on port ${PORT}`);
 });
