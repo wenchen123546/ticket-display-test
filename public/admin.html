@@ -2,13 +2,13 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>後台管理 - 叫號控制</title>
 <script src="/socket.io/socket.io.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/admin.css?v=80"> 
+<link rel="stylesheet" href="/css/admin.css?v=70"> 
 </head>
 <body>
 
@@ -62,6 +62,7 @@
         <main class="content-area">
             
             <div id="section-live" class="section-group active">
+                
                 <div class="dashboard-header">
                     <div class="dashboard-item">
                         <span class="label" data-i18n="admin_label_current">目前叫號</span>
@@ -83,25 +84,32 @@
                     <div class="card-wrapper full-width-card" id="card-calling">
                         <div class="admin-card accent-blue">
                             <h3><span class="card-icon">📢</span> <span data-i18n="card_title_calling">叫號控制</span></h3>
+                            
                             <div class="big-action-row">
                                 <button id="btn-call-prev" type="button" class="btn-glass btn-big">
                                     <span class="icon">◀</span> <span data-i18n="btn_prev">上一號</span>
                                 </button>
+                                
                                 <button id="btn-mark-passed" type="button" class="btn-warn btn-big">
                                     <span class="icon">⏭️</span> <span data-i18n="btn_pass">過號</span>
                                 </button>
+
                                 <button id="btn-call-next" type="button" class="btn-primary btn-big btn-large-shadow">
                                     <span data-i18n="btn_next">下一號</span> <span class="icon">▶</span>
                                 </button>
                             </div>
+                            
                             <div class="control-divider"></div>
+
                             <div class="control-group">
                                 <label for="manualNumber">指定跳號 / 插隊</label>
                                 <div class="input-group">
                                     <input type="number" id="manualNumber" placeholder="輸入號碼" />
                                     <button id="setNumber" type="button" class="btn-secondary" data-i18n="btn_set">設定</button>
                                 </div>
+                                <p class="section-hint" data-i18n="hint_manual_set">直接設定「目前叫號」螢幕顯示的數字</p>
                             </div>
+                            
                             <div class="control-group">
                                 <button id="resetNumber" type="button" class="btn-reset-single" data-i18n="btn_reset_call">↺ 重置叫號歸零</button>
                             </div>
@@ -144,7 +152,7 @@
                             <h3><span class="card-icon">📊</span> <span data-i18n="card_title_stats">數據分析</span></h3>
                             <div class="control-group">
                                 <div class="stats-header">
-                                    <p>今日累計叫號 (點擊長條圖修改)</p>
+                                    <p>今日累計叫號</p>
                                     <span id="stats-today-count">0</span>
                                 </div>
                                 <div id="hourly-chart" class="chart-container" title="點擊長條圖可手動增減數值">
@@ -175,23 +183,7 @@
 
             <div id="section-settings" class="section-group">
                 <div class="card-container">
-                    <div class="card-wrapper" id="card-links">
-                        <div class="admin-card">
-                            <h3><span class="card-icon">🔗</span> <span data-i18n="card_title_links">精選連結</span></h3>
-                            <div class="control-group list-editor">
-                                <ul id="featured-list-ui"></ul>
-                                <div class="input-group vertical">
-                                    <input type="text" id="new-link-text" placeholder="顯示文字">
-                                    <div class="input-row">
-                                        <input type="text" id="new-link-url" placeholder="網址">
-                                        <button id="add-featured-btn" type="button" class="btn-add">+</button>
-                                    </div>
-                                </div>
-                                <button id="resetFeaturedContents" type="button" class="btn-reset-single">清空連結</button>
-                            </div>
-                        </div>
-                    </div>
-
+                    
                     <div class="card-wrapper" id="card-ticketing">
                         <div class="admin-card accent-green">
                             <h3><span class="card-icon">🎟️</span> <span data-i18n="card_title_ticketing">發號機設定</span></h3>
@@ -227,6 +219,23 @@
                                     <input type="text" id="broadcast-msg" placeholder="輸入內容...">
                                     <button id="btn-broadcast" type="button" class="btn-secondary" data-i18n="btn_broadcast">發送</button>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-wrapper" id="card-links">
+                        <div class="admin-card">
+                            <h3><span class="card-icon">🔗</span> <span data-i18n="card_title_links">精選連結</span></h3>
+                            <div class="control-group list-editor">
+                                <ul id="featured-list-ui"></ul>
+                                <div class="input-group vertical">
+                                    <input type="text" id="new-link-text" placeholder="顯示文字">
+                                    <div class="input-row">
+                                        <input type="text" id="new-link-url" placeholder="網址">
+                                        <button id="add-featured-btn" type="button" class="btn-add">+</button>
+                                    </div>
+                                </div>
+                                <button id="resetFeaturedContents" type="button" class="btn-reset-single">清空連結</button>
                             </div>
                         </div>
                     </div>
@@ -285,6 +294,7 @@
                             
                             <div class="control-group form-group-boxed highlight-orange" id="unlock-pwd-group" style="display:none;">
                                 <label>🔑 LINE 後台解鎖密碼</label>
+                                <p>使用者在 LINE 輸入此密碼後，可獲得後台連結 (效期10分鐘)。</p>
                                 <div class="input-group">
                                     <input type="text" id="line-unlock-pwd" placeholder="設定密碼">
                                     <button id="btn-save-unlock-pwd" type="button" class="btn-warn">儲存</button>
@@ -331,6 +341,6 @@
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=80"></script> 
+<script src="/js/admin.js?v=70"></script> 
 </body>
 </html>
