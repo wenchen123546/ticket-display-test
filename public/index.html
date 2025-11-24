@@ -7,9 +7,11 @@
 
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#2563eb">
+    
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -20,23 +22,29 @@
     </div>
 
     <div id="status-bar">連線中斷，正在嘗試重新連線...</div>
+    
     <audio id="notify-sound" src="/ding.mp3" preload="auto"></audio>
 
-    <div class="top-header">
-        <h1>💉熱血不宜攔！🩸</h1>
-        <p id="last-updated">正在連線...</p>
+    <div class="top-header" style="position: relative;">
+        <select id="language-selector" style="position: absolute; right: 10px; top: 0; padding: 5px 8px; border-radius: 15px; border: 1px solid #ddd; background: #fff; font-size: 0.9rem; cursor: pointer;">
+            <option value="zh-TW">🇹🇼 中文</option>
+            <option value="en">🇺🇸 EN</option>
+        </select>
+        
+        <h1 data-i18n="app_title">💉熱血不宜攔！🩸</h1>
+        <p id="last-updated">Connecting...</p>
     </div>
     
     <div class="content-wrapper">
         
         <div class="card" id="status-board">
             <div class="status-item main-item">
-                <h2>目前叫號</h2>
+                <h2 data-i18n="current_number">目前叫號</h2>
                 <p id="number">0</p>
             </div>
             <div class="status-divider"></div>
             <div class="status-item sub-item">
-                <h2>已發號碼</h2>
+                <h2 data-i18n="issued_number">已發號碼</h2>
                 <p id="issued-number-main">0</p>
             </div>
         </div>
@@ -45,12 +53,12 @@
             
             <div id="ticketing-mode-container">
                 <div id="take-ticket-view" style="padding: 25px;">
-                    <h3 style="margin-top:0; color:#555;">線上取號</h3>
-                    <p style="color:#666; font-size: 0.9rem; margin-bottom: 20px;">
+                    <h3 data-i18n="online_ticket_title" style="margin-top:0; color:#555;">線上取號</h3>
+                    <p data-i18n="online_ticket_desc" style="color:#666; font-size: 0.9rem; margin-bottom: 20px;">
                         免排隊、免等待！線上領取號碼牌，<br>到號自動通知您。
                     </p>
                     <div style="display:flex; justify-content:center; align-items:center; gap:15px; flex-direction:column;">
-                        <button id="btn-take-ticket" class="btn-primary-action">
+                        <button id="btn-take-ticket" class="btn-primary-action" data-i18n="take_ticket">
                             🎫 立即取號
                         </button>
                     </div>
@@ -59,13 +67,13 @@
 
             <div id="input-mode-container" style="display: none;">
                 <div id="input-mode-view" style="padding: 25px;">
-                    <h3 style="margin-top:0; color:#555;">手動輸入追蹤</h3>
-                    <p style="color:#666; font-size: 0.9rem; margin-bottom: 20px;">
+                    <h3 data-i18n="manual_track_title" style="margin-top:0; color:#555;">手動輸入追蹤</h3>
+                    <p data-i18n="manual_track_desc" style="color:#666; font-size: 0.9rem; margin-bottom: 20px;">
                         請輸入您手上的號碼牌號碼，<br>我們將在到號時通知您。
                     </p>
                     <div style="display:flex; justify-content:center; align-items:center; gap:15px; flex-direction:column;">
                         <input type="number" id="manual-ticket-input" placeholder="輸入號碼" style="font-size: 1.5rem; padding: 10px; width: 120px; text-align: center; border: 2px solid #ccc; border-radius: 8px;">
-                        <button id="btn-track-ticket" class="btn-primary-action" style="background-color: #0ea5e9;">
+                        <button id="btn-track-ticket" class="btn-primary-action" style="background-color: #0ea5e9;" data-i18n="set_reminder">
                             🔔 設定提醒
                         </button>
                     </div>
@@ -74,58 +82,60 @@
 
             <div id="my-ticket-view" style="display: none; background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white; padding: 25px; position: relative;">
                 <div id="btn-cancel-ticket" style="position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; transition: background 0.2s;">
-                    🗑️ 放棄
+                    <span data-i18n="btn_give_up">🗑️ 放棄</span>
                 </div>
-                <h3 style="margin:0; font-size:1rem; opacity:0.9; border:none; padding:0;">您的號碼</h3>
+                
+                <h3 data-i18n="my_number" style="margin:0; font-size:1rem; opacity:0.9; border:none; padding:0;">您的號碼</h3>
                 <div style="font-size: 5rem; font-weight: bold; line-height: 1; margin: 10px 0;">
                     <span id="my-ticket-num">?</span>
                 </div>
                 
                 <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 15px; margin-top: 10px; display: flex; justify-content: space-around; align-items: center;">
                     <div style="text-align: center;">
-                        <span style="display:block; font-size:0.8rem; opacity:0.8;">目前叫號</span>
+                        <span data-i18n="ticket_current_label" style="display:block; font-size:0.8rem; opacity:0.8;">目前叫號</span>
                         <span id="ticket-current-display" style="font-size:1.5rem; font-weight:bold;">0</span>
                     </div>
                     <div style="width:1px; height: 30px; background:rgba(255,255,255,0.3);"></div>
                     <div style="text-align: center;">
-                        <span style="display:block; font-size:0.8rem; opacity:0.8;">前方等待</span>
-                        <span id="ticket-waiting-count" style="font-size:1.5rem; font-weight:bold;">0</span> <span style="font-size:0.8rem;">組</span>
+                        <span data-i18n="wait_count" style="display:block; font-size:0.8rem; opacity:0.8;">前方等待</span>
+                        <span id="ticket-waiting-count" style="font-size:1.5rem; font-weight:bold;">0</span> 
+                        <span data-i18n="unit_group" style="font-size:0.8rem;">組</span>
                     </div>
                 </div>
 
                 <p id="ticket-status-text" style="margin: 15px 0 0 0; font-weight: bold; font-size: 1.1rem;">
-                    ⏳ 等待中...
+                    ⏳ ...
                 </p>
                 <p id="ticket-wait-time" style="margin: 5px 0 0 0; font-size: 0.9rem; opacity: 0.8; display:none;">
-                    預估時間：計算中
+                    Calculating...
                 </p>
             </div>
         </div>
 
         <div class="card" id="passed-container">
-            <h3>已過號</h3>
+            <h3 data-i18n="passed_list_title">已過號</h3>
             <ul id="passedList"></ul>
-            <p id="passed-empty-msg" class="empty-state-message">目前尚無過號</p>
+            <p id="passed-empty-msg" class="empty-state-message" data-i18n="passed_empty">目前尚無過號</p>
         </div>
 
     </div>
     
     <div class="utility-buttons">
         <div id="copy-link-prompt">
-            <span class="emoji">🔗</span> 複製連結
+            <span class="emoji">🔗</span> <span data-i18n="copy_link">複製連結</span>
         </div>
         <div id="sound-prompt">
-            <span class="emoji">🔊</span> 啟用音效
+            <span class="emoji">🔊</span> <span data-i18n="sound_enable">啟用音效</span>
         </div>
     </div>
 
     <div id="featured-container">
-        <p id="featured-empty-msg" class="empty-state-message">暫無精選連結</p>
+        <p id="featured-empty-msg" class="empty-state-message" data-i18n="featured_empty">暫無精選連結</p>
     </div>
 
     <div id="qr-code-container">
         <div id="qr-code-placeholder"></div>
-        <p>掃描查看進度</p>
+        <p data-i18n="scan_qr">掃描查看進度</p>
     </div>
 
     <script src="/js/main.js"></script>
