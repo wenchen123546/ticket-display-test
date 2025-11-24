@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v18.1 Fixed CSP for Google Fonts
+ * 伺服器 (index.js) - v18.2 Optimized (Security & Performance)
  * ==========================================
  */
 
@@ -84,15 +84,13 @@ const DEFAULT_LINE_MSG_ARRIVAL = "🎉 輪到您了！\n\n目前號碼：{curren
 
 const onlineAdmins = new Map();
 
-// 安全設定 - [已修正 CSP 設定以支援 Google Fonts]
+// 安全設定 - 支援 Google Fonts
 app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
         "script-src": ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-        // 👇 修改：加入 Google Fonts 樣式來源
         "style-src": ["'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        // 👇 新增：加入 Google Fonts 字體檔來源
         "font-src": ["'self'", "https://fonts.gstatic.com"],
         "connect-src": ["'self'", "https://cdn.jsdelivr.net", "wss:", "ws:"]
       },
@@ -155,7 +153,8 @@ cron.schedule('0 4 * * *', async () => {
         io.emit("update", 0);
         io.emit("updateQueue", { current: 0, issued: 0 });
         io.emit("updatePassed", []);
-        io.emit("adminBroadcast", "系統已執行每日自動歸零");
+        // 廣播給 admin 房間
+        io.to("admin").emit("newAdminLog", "[系統] ⏰ 執行每日自動歸零"); 
         addAdminLog("系統", "⏰ 執行每日自動歸零");
     } catch (e) { console.error("❌ 自動重置失敗:", e); }
 }, { timezone: "Asia/Taipei" });
@@ -219,13 +218,15 @@ async function broadcastQueueStatus() {
     io.emit("updateQueue", { current: currentNum, issued: issuedNum });
 }
 
+// [Performance & Security] 只發送給 'admin' 房間
 async function addAdminLog(nickname, message) {
     try {
         const timeString = new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
         const log = `[${timeString}] [${nickname}] ${message}`;
         await redis.lpush(KEY_ADMIN_LOG, log);
         await redis.ltrim(KEY_ADMIN_LOG, 0, 99); 
-        io.emit("newAdminLog", log);
+        // 只傳給管理員，不廣播給全網
+        io.to("admin").emit("newAdminLog", log); 
     } catch (e) { console.error("Log error:", e); }
 }
 
@@ -268,8 +269,9 @@ async function logHistory(number, operator, delta = 1) {
     } catch (e) { console.error("Log history error:", e); }
 }
 
+// [Performance & Security] 只發送給 'admin' 房間
 function broadcastOnlineAdmins() {
-    io.emit("updateOnlineAdmins", Array.from(onlineAdmins.values()));
+    io.to("admin").emit("updateOnlineAdmins", Array.from(onlineAdmins.values()));
 }
 
 async function checkAndNotifyLineUsers(currentNum) {
@@ -305,32 +307,19 @@ async function checkAndNotifyLineUsers(currentNum) {
 async function handleLineEvent(event) {
     if (event.type !== 'message' || event.message.type !== 'text') return Promise.resolve(null);
     
-    // 移除前後空白，確保比對準確
     const text = event.message.text.trim();
     const userId = event.source.userId;
     const replyToken = event.replyToken;
 
-    /* * [重要] 後台按鈕邏輯
-     * 1. 使用者按鈕需傳送文字「後台登入」
-     * 2. 伺服器檢查 Redis 是否有該 userId 的解鎖記錄
-     * 3. 若無 -> 回傳鎖定訊息
-     * 4. 若有 -> 回傳連結
-     */
-    
-    // (A) 使用者點擊「後台登入」 (LINE圖文選單需設定為傳送文字)
     if (text === '後台登入') {
         const isUnlocked = await redis.get(`${KEY_LINE_ADMIN_UNLOCK}${userId}`);
-
         if (isUnlocked) {
-            // 已解鎖：動態抓取 Render/Heroku 的網址 (若無環境變數則需手動更改)
             const host = process.env.RENDER_EXTERNAL_URL || "https://您的網域"; 
-            
             return lineClient.replyMessage(replyToken, {
                 type: "text",
                 text: `🔗 後台傳送門已開啟：\n\n請點擊連結進入後台：\n${host}/admin.html\n\n(此連結包含敏感權限，請勿轉傳)`
             });
         } else {
-            // 未解鎖
             return lineClient.replyMessage(replyToken, {
                 type: "text",
                 text: "🔒 按鈕已鎖定\n\n此功能僅限管理員使用。\n請輸入後台設定的「解鎖密碼」以驗證身份。"
@@ -338,25 +327,17 @@ async function handleLineEvent(event) {
         }
     }
 
-    // (B) 使用者輸入密碼解鎖
-    // 優先讀取後台設定的密碼，若無則預設為 "unlock" + ADMIN_TOKEN
     let currentUnlockPass = await redis.get(KEY_LINE_UNLOCK_PWD);
     if (!currentUnlockPass) currentUnlockPass = `unlock${ADMIN_TOKEN}`;
 
-    // 比對密碼 (區分大小寫)
     if (text === currentUnlockPass) {
-        // 密碼正確 -> 在 Redis 記錄已解鎖，有效期限 600 秒 (10分鐘)
         await redis.set(`${KEY_LINE_ADMIN_UNLOCK}${userId}`, "1", "EX", 600);
-        
         return lineClient.replyMessage(replyToken, {
             type: "text",
             text: "🔓 管理員權限已驗證\n\n您現在可以點擊「後台登入」按鈕取得連結。\n(權限將在 10 分鐘後自動上鎖)"
         });
     }
 
-    // --- 一般使用者功能 ---
-
-    // 1. 查詢進度
     if (['查詢進度', '查詢', '進度', 'status', '？', '?'].includes(text)) {
         const [current, issued] = await redis.mget(KEY_CURRENT_NUMBER, KEY_LAST_ISSUED);
         const currentNum = parseInt(current) || 0;
@@ -382,7 +363,6 @@ async function handleLineEvent(event) {
         });
     }
 
-    // 2. 過號名單
     if (['過號名單', '過號', 'passed'].includes(text)) {
         const passedList = await redis.zrange(KEY_PASSED_NUMBERS, 0, -1);
         let msgText = "";
@@ -394,7 +374,6 @@ async function handleLineEvent(event) {
         return lineClient.replyMessage(replyToken, { type: "text", text: msgText });
     }
 
-    // 3. 設定提醒
     if (text.startsWith('設定提醒')) {
         const inputNumStr = text.replace('設定提醒', '').trim();
         const targetNum = parseInt(inputNumStr);
@@ -408,11 +387,9 @@ async function handleLineEvent(event) {
             return lineClient.replyMessage(replyToken, { type: "text", text: `⚠️ 設定失敗\n${targetNum} 號已經過號或正在叫號 (目前 ${currentNum} 號)。` });
         }
 
-        // 清除舊訂閱
         const oldTarget = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
         if (oldTarget) await redis.srem(`${KEY_LINE_SUB_PREFIX}${oldTarget}`, userId);
 
-        // 寫入新訂閱
         const pipeline = redis.multi();
         pipeline.set(`${KEY_LINE_USER_STATUS}${userId}`, targetNum); 
         pipeline.sadd(`${KEY_LINE_SUB_PREFIX}${targetNum}`, userId); 
@@ -427,7 +404,6 @@ async function handleLineEvent(event) {
         });
     }
 
-    // 4. 取消提醒
     if (['取消提醒', '取消', 'cancel'].includes(text)) {
         const trackingNum = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
         if (!trackingNum) {
@@ -501,7 +477,6 @@ app.post("/api/admin/line-settings/reset", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- 新增：超級管理員設定 LINE 解鎖密碼 API ---
 app.post("/api/admin/line-settings/set-unlock-pass", superAdminAuthMiddleware, async (req, res) => {
     try {
         const { password } = req.body;
@@ -593,7 +568,6 @@ app.post("/change-number", async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// [新增] 調整已發號碼 (上一號/下一號)
 app.post("/change-issued-number", async (req, res) => {
     try {
         const { direction } = req.body;
@@ -669,10 +643,8 @@ app.post("/api/admin/broadcast", async (req, res) => {
     const { message } = req.body;
     if (!message) return res.status(400).json({ error: "訊息內容為空" });
     const cleanMsg = sanitize(message).substring(0, 50); 
+    // 廣播給全網 (public + admin)
     io.emit("adminBroadcast", cleanMsg);
-    if (lineClient) {
-        // (LINE broadcast logic simplified)
-    }
     addAdminLog(req.user.nickname, `📢 發送廣播: "${cleanMsg}"`);
     res.json({ success: true });
 });
@@ -749,13 +721,18 @@ app.post("/reset", async (req, res) => {
     io.emit("updateFeaturedContents", []);
     io.emit("updateSoundSetting", false);
     io.emit("updatePublicStatus", true);
-    io.emit("initAdminLogs", []);
+    // 日誌清空只通知 admin
+    io.to("admin").emit("initAdminLogs", []);
     io.emit("updateWaitTime", 0); 
     await updateTimestamp();
     res.json({ success: true });
 });
 
-app.post("/api/logs/clear", async (req, res) => { await redis.del(KEY_ADMIN_LOG); io.emit("initAdminLogs", []); res.json({ success: true }); });
+app.post("/api/logs/clear", async (req, res) => { 
+    await redis.del(KEY_ADMIN_LOG); 
+    io.to("admin").emit("initAdminLogs", []); 
+    res.json({ success: true }); 
+});
 
 app.use(["/api/admin/users", "/api/admin/add-user", "/api/admin/del-user", "/api/admin/set-nickname"], authMiddleware, superAdminAuthMiddleware);
 
@@ -790,22 +767,44 @@ app.post("/api/admin/set-nickname", async (req, res) => {
     res.json({ success: true });
 });
 
+// [Security & Performance] Socket 連線處理與房間分流
 io.on("connection", async (socket) => {
     const token = socket.handshake.auth.token;
+    
+    // 1. 管理員驗證與房間加入
     if (token) {
         const session = await redis.get(`${SESSION_PREFIX}${token}`);
         if (session) {
             const user = JSON.parse(session);
+            // 驗證成功，加入 admin 房間
+            socket.join("admin");
+            
             onlineAdmins.set(socket.id, user);
             broadcastOnlineAdmins();
+            
+            // 只傳送給新連線的管理員 (Unicast)
             const logs = await redis.lrange(KEY_ADMIN_LOG, 0, 99);
             socket.emit("initAdminLogs", logs);
+
             socket.on("disconnect", () => {
                 onlineAdmins.delete(socket.id);
                 broadcastOnlineAdmins();
             });
         }
     }
+
+    // 2. 允許前端切換房間 (預留給未來功能，如 'joinRoom')
+    socket.on('joinRoom', (roomName) => {
+        // 允許加入 public，但 admin 只能透過上方 token 加入
+        if (roomName === 'public') {
+            socket.join('public');
+        }
+    });
+    
+    // 預設加入 public 房間 (讓所有連線都能收到基本叫號更新)
+    socket.join('public');
+
+    // 3. 初始化資料傳送 (Unicast to new client)
     try {
         const pipeline = redis.multi();
         pipeline.get(KEY_CURRENT_NUMBER);
@@ -844,5 +843,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v18.1 (CSP Fixed) ready on port ${PORT}`);
+    console.log(`🚀 Server v18.2 (Optimized) ready on port ${PORT}`);
 });
