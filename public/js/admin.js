@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台邏輯 (admin.js) - v18.16 Optimized + Consistent User Deletion
+ * 後台邏輯 (admin.js) - v18.17 Optimized (Login Fix)
  * ==========================================
  */
 
@@ -236,8 +236,6 @@ async function showPanel() {
         if(el) el.style.display = isSuper ? "block" : "none";
     });
     
-    // clear-log-btn 預設就顯示 (admin.html 內沒有這個 id，這裡忽略)
-
     if (isSuper) await loadAdminUsers();
     
     initTabs();
@@ -246,8 +244,17 @@ async function showPanel() {
     socket.connect();
 }
 
+// [修改] 優化後的登入函式：防止按鈕重複點擊
 async function attemptLogin(loginName, loginPass) {
-    loginError.textContent = at["login_verifying"];
+    // 1. 防止重複點擊
+    if (loginButton.disabled) return;
+
+    // 2. 鎖定按鈕並顯示載入中
+    loginButton.disabled = true;
+    const originalBtnText = loginButton.textContent;
+    loginButton.textContent = at["login_verifying"] || "驗證中...";
+    loginError.textContent = "";
+
     try {
         const res = await fetch("/login", {
             method: "POST",
@@ -255,20 +262,37 @@ async function attemptLogin(loginName, loginPass) {
             body: JSON.stringify({ username: loginName, password: loginPass }),
         });
         const data = await res.json();
+        
         if (!res.ok) {
-            loginError.textContent = data.error || at["login_fail"];
-            showLogin();
+            // 顯示錯誤訊息
+            loginError.textContent = data.error || (data.message && data.message.error) || at["login_fail"];
+            
+            // 登入失敗，解鎖按鈕
+            showLogin(); 
+            loginButton.disabled = false;
+            loginButton.textContent = originalBtnText;
         } else {
+            // 登入成功
             token = data.token;
             userRole = data.role;
             username = data.nickname;
             uniqueUsername = data.username;
             socket.auth.token = token;
+            
+            // 成功後不需要解鎖按鈕，因為畫面會切換
             await showPanel();
+            
+            // 恢復按鈕狀態 (以防登出後回來)
+            loginButton.disabled = false;
+            loginButton.textContent = originalBtnText;
         }
     } catch (err) {
         console.error("attemptLogin 失敗:", err);
         loginError.textContent = at["login_error_server"];
+        
+        // 發生錯誤，解鎖按鈕
+        loginButton.disabled = false;
+        loginButton.textContent = originalBtnText;
         return false;
     }
 }
@@ -607,9 +631,6 @@ if(setIssuedBtn) setIssuedBtn.onclick = async () => {
         showToast(at["toast_issued_updated"], "success");
     }
 };
-
-// 由於 admin.html 沒有 clear-log-btn，這裡註釋掉
-// setupConfirmationButton(document.getElementById("clear-log-btn"), "btn_clear_log", "btn_confirm_clear", async () => { showToast(at["toast_log_clearing"], "info"); await apiRequest("/api/logs/clear", {}); });
 
 setupConfirmationButton(document.getElementById("resetNumber"), "btn_reset_call", "btn_confirm_reset", async () => { if (await apiRequest("/api/control/set-call", { number: 0 })) { document.getElementById("manualNumber").value = ""; showToast(at["toast_reset_zero"], "success"); } });
 setupConfirmationButton(document.getElementById("resetPassed"), "btn_reset_passed", "btn_confirm_reset", async () => { if (await apiRequest("/api/passed/clear", {})) showToast(at["toast_passed_cleared"], "success"); });
@@ -969,26 +990,6 @@ if (btnSaveUnlockPwd) btnSaveUnlockPwd.onclick = async () => {
     btnSaveUnlockPwd.disabled = false;
 };
 
-// admin.html 中沒有 set-nickname 相關 UI，這裡註釋掉
-/*
-const btnSetNickname = document.getElementById("set-nickname-btn");
-if (btnSetNickname) {
-    btnSetNickname.onclick = async () => {
-        const targetUsername = document.getElementById("set-nick-username").value.trim();
-        const nickname = document.getElementById("set-nick-nickname").value.trim();
-        if (!targetUsername || !nickname) return showToast(at["alert_nick_required"], "error");
-        btnSetNickname.disabled = true;
-        if (await apiRequest("/api/admin/set-nickname", { targetUsername, nickname })) {
-            showToast(`✅ 暱稱已更新`, "success");
-            document.getElementById("set-nick-username").value = "";
-            document.getElementById("set-nick-nickname").value = "";
-            await loadAdminUsers();
-        }
-        btnSetNickname.disabled = false;
-    };
-}
-*/
-
 const btnRefreshStats = document.getElementById("btn-refresh-stats");
 if (btnRefreshStats) {
     btnRefreshStats.onclick = async () => {
@@ -1022,7 +1023,6 @@ if (btnExportCsv) {
 
 const btnClearStats = document.getElementById("btn-clear-stats");
 if (btnClearStats) {
-    // 修正 originalTextKey 的錯誤
     setupConfirmationButton(btnClearStats, at["zh-TW"] ? "⚠ 清空統計資料" : "⚠ Clear Stats", "btn_confirm_clear", async () => {
         if (await apiRequest("/api/admin/stats/clear", {})) {
             showToast(at["toast_stats_cleared"], "success");
