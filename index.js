@@ -157,7 +157,14 @@ app.use(express.static("public"));
 app.use(express.json()); 
 
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 1000 });
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
+
+// [修改] 放寬登入限制，從 max: 20 改為 max: 100，並加入錯誤訊息
+const loginLimiter = rateLimit({ 
+    windowMs: 15 * 60 * 1000, 
+    max: 100, 
+    message: { error: "登入嘗試次數過多，請稍後再試" }
+});
+
 const ticketLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, message: "操作過於頻繁" });
 
 const authMiddleware = async (req, res, next) => {
