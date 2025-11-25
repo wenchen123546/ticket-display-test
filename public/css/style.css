@@ -1,7 +1,7 @@
 /*
  * ==========================================
- * Compact Max Theme - v26.0
- * 特性：零浪費空間、大字體、高對比、超緊湊
+ * Compact Max Theme - v26.1 (Footer Fix)
+ * 特性：零浪費空間、大字體、超連結自動換行
  * ==========================================
  */
 
@@ -196,27 +196,56 @@ body {
 .wait-count { font-size: 1.5rem; font-weight: 700; color: #fbbf24; }
 .ticket-footer { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.75rem; display: flex; justify-content: space-between; color: #cbd5e1; }
 
-/* Footer Tools (單行排列) */
+/* --- Footer Tools (修正版：自動換行，確保所有連結可見) --- */
 .footer-tools {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-top: 8px; padding-top: 8px;
-    border-top: 1px solid #e2e8f0; height: 32px;
+    display: flex; 
+    flex-direction: column; /* 改為直向 */
+    gap: 10px;
+    margin-top: 8px; 
+    padding-top: 8px;
+    border-top: 1px solid #e2e8f0; 
+    height: auto; /* 移除固定高度，讓內容撐開 */
+    min-height: 32px;
 }
+
 #featured-container {
-    display: flex; gap: 6px; overflow-x: auto; flex: 1;
-    scrollbar-width: none; margin-right: 10px;
+    display: flex; 
+    gap: 8px; 
+    flex-wrap: wrap; /* [關鍵] 自動換行 */
+    justify-content: center; /* 內容置中 */
+    overflow-x: visible; 
+    width: 100%;
 }
+
 .link-chip {
-    flex: 0 0 auto; padding: 4px 10px; font-size: 0.75rem; font-weight: 600; 
-    color: var(--text-main); text-decoration: none; background: white;
-    border: 1px solid #e2e8f0; border-radius: 20px;
+    flex: 0 0 auto; 
+    padding: 6px 12px; 
+    font-size: 0.8rem; 
+    font-weight: 600; 
+    color: var(--text-main); 
+    text-decoration: none; 
+    background: white;
+    border: 1px solid #cbd5e1; 
+    border-radius: 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    transition: all 0.2s;
 }
-.util-btns { display: flex; gap: 8px; }
+.link-chip:hover { background: #f1f5f9; transform: translateY(-1px); }
+.link-chip:active { transform: translateY(0); background: #e2e8f0; }
+
+.util-btns { 
+    display: flex; 
+    justify-content: center; 
+    gap: 12px; 
+    margin-top: 4px;
+}
 .btn-icon-text {
     background: transparent; border: none; color: var(--text-sub);
     font-size: 0.75rem; font-weight: 700; padding: 4px 8px;
     cursor: pointer; display: flex; align-items: center; gap: 4px;
+    opacity: 0.8;
 }
+.btn-icon-text:hover { opacity: 1; color: var(--primary); }
 
 /* Toasts */
 #status-bar { z-index: 9999; position: fixed; top: 0; width: 100%; text-align: center; background: #ef4444; color: white; padding: 4px; font-size: 0.8rem; transform: translateY(-100%); transition: transform 0.3s; }
@@ -291,4 +320,13 @@ body {
     
     .my-ticket-card { padding: 30px; }
     .my-number-big { font-size: 5rem; }
+
+    /* Footer Tools 靠左對齊 */
+    .footer-tools {
+        margin-top: auto;
+        padding-top: 16px;
+    }
+    #featured-container {
+        justify-content: flex-start;
+    }
 }
