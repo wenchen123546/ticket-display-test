@@ -173,7 +173,7 @@
                             </div>
                             
                             <label style="margin-top:20px;">最近 100 筆紀錄</label>
-                            <ul id="stats-list-ui" style="height: 300px;"><li>(載入中...)</li></ul>
+                            <ul id="stats-list-ui"><li>(載入中...)</li></ul>
                             
                             <button id="btn-clear-stats" type="button" class="btn-reset-single" style="border-color:#ef4444; color:#ef4444;">⚠ 清空統計資料</button>
                         </div>
@@ -185,7 +185,7 @@
                             <div class="control-group admin-log-container">
                                 <ul id="admin-log-ui"><li>等待連線...</li></ul>
                             </div>
-                        </div>
+                            </div>
                     </div>
                 </div>
             </div>
@@ -214,7 +214,7 @@
                         <div class="admin-card">
                             <h3><span class="card-icon">⚙️</span> <span data-i18n="card_title_system">系統開關</span></h3>
                             <div class="control-group system-toggle-group">
-                                <label for="public-toggle" style="margin:0; cursor:pointer;">🌐 對外開放前台頁面</label>
+                                <label for="public-toggle" style="margin:0; cursor:pointer;" data-i18n="label_public_toggle">🌐 對外開放前台頁面</label>
                                 <input type="checkbox" id="public-toggle" checked>
                             </div>
                             
@@ -289,13 +289,13 @@
                                 
                                 <div class="control-group form-group-boxed">
                                     <label>快到了 (前5號)</label>
-                                    <span class="var-hint">{current} {target} {diff}</span>
+                                    <span class="var-hint"><code>{current}</code> <code>{target}</code> <code>{diff}</code></span>
                                     <textarea id="line-msg-approach"></textarea>
                                 </div>
 
                                 <div class="control-group form-group-boxed">
                                     <label>正式到號</label>
-                                    <span class="var-hint">{current} {target}</span>
+                                    <span class="var-hint"><code>{current}</code> <code>{target}</code></span>
                                     <textarea id="line-msg-arrival"></textarea>
                                 </div>
                             </details>
@@ -305,19 +305,25 @@
                                 
                                 <div class="control-group form-group-boxed">
                                     <label>關鍵字：「查詢」、「status」</label>
-                                    <span class="var-hint">{current} {issued} {personal}</span>
+                                    <span class="var-hint"><code>{current}</code> <code>{issued}</code> <code>{personal}</code></span>
                                     <textarea id="line-msg-status" style="height:80px;"></textarea>
                                     
                                     <div style="margin-top:10px; border-top:1px dashed #ccc; padding-top:10px;">
                                         <label style="font-size:0.85rem;">↳ 追蹤中附帶文字 ({personal})</label>
-                                        <span class="var-hint">{target} {diff}</span>
+                                        <span class="var-hint"><code>{target}</code> <code>{diff}</code></span>
                                         <textarea id="line-msg-personal" style="height:60px;"></textarea>
                                     </div>
                                 </div>
                                 
                                 <div class="control-group form-group-boxed">
+                                    <label>設定提醒觸發 (關鍵字：「設定」)</label>
+                                    <span class="var-hint">無變數</span>
+                                    <textarea id="line-msg-set_hint" style="height:60px;" placeholder="您好，請輸入您手上的號碼牌號碼..."></textarea>
+                                </div>
+                                
+                                <div class="control-group form-group-boxed">
                                     <label>設定成功 (輸入號碼後)</label>
-                                    <span class="var-hint">{target} {current} {diff}</span>
+                                    <span class="var-hint"><code>{target}</code> <code>{current}</code> <code>{diff}</code></span>
                                     <textarea id="line-msg-set_ok"></textarea>
                                 </div>
 
@@ -328,8 +334,26 @@
 
                                 <div class="control-group form-group-boxed">
                                     <label>錯誤：號碼已過</label>
+                                    <span class="var-hint"><code>{target}</code> <code>{current}</code></span>
                                     <textarea id="line-msg-err-passed" style="height:60px;"></textarea>
                                 </div>
+                                
+                                <div class="control-group form-group-boxed">
+                                    <label>錯誤：無追蹤 (關鍵字：「取消」)</label>
+                                    <span class="var-hint">無變數</span>
+                                    <textarea id="line-msg-err-no-sub" style="height:60px;" placeholder="您目前沒有設定任何叫號提醒。"></textarea>
+                                </div>
+                                <div class="control-group form-group-boxed">
+                                    <label>取消提醒成功 (關鍵字：「取消」)</label>
+                                    <span class="var-hint"><code>{target}</code></span>
+                                    <textarea id="line-msg-cancel" style="height:60px;"></textarea>
+                                </div>
+                                <div class="control-group form-group-boxed">
+                                    <label>過號名單 (關鍵字：「過號」)</label>
+                                    <span class="var-hint"><code>{list}</code></span>
+                                    <textarea id="line-msg-passed" style="height:60px;"></textarea>
+                                </div>
+                                
                             </details>
 
                             <div class="control-group" style="margin-top:20px; display:flex; gap:10px;">
