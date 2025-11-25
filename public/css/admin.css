@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台樣式 (admin.css) - v5.7 Final Column Split
+ * 後台樣式 (admin.css) - v5.8 Reset Buttons Unified
  * ==========================================
  */
 
@@ -124,7 +124,6 @@ body {
 /* --- 4. 卡片系統 --- */
 .card-container { 
     display: grid; 
-    /* ★ 預設恢復為自動適應 (大螢幕會變成 3 欄) */
     grid-template-columns: repeat(auto-fit, minmax(340px, minmax(0, 1fr))); 
     gap: 24px; 
     align-items: stretch; 
@@ -163,8 +162,44 @@ button:active { transform: scale(0.97); }
 .btn-success { background: var(--success-gradient); color: white; }
 .btn-secondary { background: #e0e7ff; color: var(--primary); font-weight: 600; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 0.9rem; white-space: nowrap; }
 .btn-add { width: 46px; height: 46px; border-radius: var(--radius-md); flex-shrink: 0; background: var(--success); color: white; font-size: 1.6rem; display: flex; align-items: center; justify-content: center; line-height: 1; padding-bottom: 3px; }
-.btn-reset-single { width: 100%; padding: 12px; border-radius: var(--radius-md); background: transparent; border: 1px dashed var(--border-color); color: var(--text-light); font-size: 0.85rem; margin-top: auto; }
-.btn-reset-single:hover { border-color: var(--danger); color: var(--danger); background: #fef2f2; }
+
+/* ★ 重置按鈕統一樣式 ★ */
+.btn-reset-single { 
+    width: 100%; 
+    padding: 12px; 
+    border-radius: var(--radius-md); 
+    background: transparent; 
+    border: 1px dashed var(--border-color); 
+    color: var(--text-sub); 
+    font-size: 0.9rem; 
+    font-weight: 500; 
+    margin-top: auto; /* 關鍵：強制沉底 */
+    transition: all 0.2s; 
+    cursor: pointer;
+}
+.btn-reset-single:hover { 
+    border-color: var(--text-light);
+    color: var(--text-main);
+    background: #f9fafb; 
+}
+
+/* ★ 危險重置按鈕 (覆寫 HTML inline styles) ★ */
+#resetAll,
+#btn-clear-stats,
+#btn-clear-logs {
+    border: 1px dashed #fca5a5 !important;
+    color: var(--danger) !important;
+    background: transparent !important;
+    margin-top: auto !important;
+    width: 100%;
+}
+#resetAll:hover,
+#btn-clear-stats:hover,
+#btn-clear-logs:hover {
+    background: #fef2f2 !important;
+    border-color: var(--danger) !important;
+    color: #b91c1c !important;
+}
 
 .control-group { margin-bottom: 20px; width: 100%; flex-shrink: 0; }
 .control-group label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-main); }
@@ -294,25 +329,16 @@ li span, .list-editor span, #admin-log-ui li {
     #card-calling .big-action-row { margin-bottom: 15px; }
     #btn-call-next { flex: 1.5; }
 
-    /* ★ 讓管理員帳號 & 精選連結卡片變回單格 (50%) 並排顯示 */
     #card-user-management.full-width-card,
-    #card-links.full-width-card {
-        grid-column: auto;
-    }
+    #card-links.full-width-card { grid-column: auto; }
 
-    /* ★ 核心修復：管理員帳號改回「垂直排列」以適應並排後的窄空間 */
     #card-user-management .list-editor {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
+        display: flex; flex-direction: column; gap: 20px;
     }
     #card-user-management .list-editor ul {
-        flex: 1;
-        min-height: 250px;
-        margin-bottom: 0;
+        flex: 1; min-height: 250px; margin-bottom: 0;
     }
 
-    /* LINE 設定雙欄 */
     #card-line-settings .admin-card { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-content: start; }
     #card-line-settings .admin-card h3,
     #card-line-settings .admin-card #unlock-pwd-group,
@@ -323,22 +349,13 @@ li span, .list-editor span, #admin-log-ui li {
 }
 
 @media (min-width: 1440px) {
-    /* ★ 1. 現場控台、系統設定：回歸 3 欄 */
     .card-container { grid-template-columns: repeat(3, 1fr); }
 
-    /* ★ 2. 數據報表：強制 2 欄 (50/50 佈局) */
-    #section-stats .card-container { 
-        grid-template-columns: repeat(2, 1fr); 
-    }
-    
-    /* 讓數據分析 & 操作日誌適應 2 欄格線 (變回 auto，佔據 1 格) */
-    #section-stats .full-width-card { 
-        grid-column: auto; 
-    }
+    /* 數據報表：強制 2 欄 (50/50 佈局) */
+    #section-stats .card-container { grid-template-columns: repeat(2, 1fr); }
+    #section-stats .full-width-card { grid-column: auto; }
 
-    /* ★ 3. 系統設定：精選連結 & 管理員帳號 保持各佔 1 格 (在 3 欄模式下並排) */
+    /* 系統設定：保持各佔 1 格 */
     #card-links.full-width-card,
-    #card-user-management.full-width-card { 
-        grid-column: auto; 
-    }
+    #card-user-management.full-width-card { grid-column: auto; }
 }
