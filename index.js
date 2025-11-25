@@ -1,7 +1,8 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v18.31 Optimized with File Logging
+ * 伺服器 (index.js) - v19.0 Optimized (Editable Links & Persist Fix)
  * 包含：Redis效能優化、XSS防護、自動修復邏輯、使用者檔案日誌(append)
+ * 修改重點：防止重置時清除連結、新增編輯連結 API
  * ==========================================
  */
 
@@ -377,7 +378,10 @@ async function performReset(operatorName) {
     multi.set(KEY_CURRENT_NUMBER, 0);
     multi.set(KEY_LAST_ISSUED, 0);
     multi.del(KEY_PASSED_NUMBERS);
-    multi.del(KEY_FEATURED_CONTENTS); // 根據需求決定是否重置連結
+    
+    // ▼ [修改] 註解掉此行，防止重置時刪除連結 ▼
+    // multi.del(KEY_FEATURED_CONTENTS); 
+    // ▲ [修改] ▲
     
     // 清除 LINE 訂閱 (優化版：只清除有紀錄的 Keys)
     const activeSubKeys = await redis.smembers(KEY_ACTIVE_LINE_SUBS);
@@ -397,7 +401,12 @@ async function performReset(operatorName) {
     
     await broadcastQueueStatus(); 
     io.emit("updatePassed", []);
-    io.emit("updateFeaturedContents", []);
+    
+    // 若連結未被清除，則不需要推送空陣列，而是推送目前狀態（雖然剛啟動或重置時前端通常會重連）
+    // 為了保險起見，我們重新廣播一次目前的連結內容
+    const currentLinks = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1);
+    io.emit("updateFeaturedContents", currentLinks.map(JSON.parse));
+    
     io.emit("updateWaitTime", 0); 
     await updateTimestamp();
     
@@ -747,7 +756,8 @@ const protectedAPIs = [
     "/api/passed/add", 
     "/api/passed/remove", 
     "/api/passed/clear",
-    "/api/featured/add", 
+    "/api/featured/add",
+    "/api/featured/edit", // [新增]
     "/api/featured/remove", 
     "/api/featured/clear", 
     "/set-sound-enabled", 
@@ -1088,6 +1098,24 @@ app.post("/api/featured/add", async (req, res) => {
     logToUserFile(req.user.username, `新增連結 ${req.body.linkText}`);
     res.json({ success: true }); 
 });
+
+// [新增] 編輯連結 API
+app.post("/api/featured/edit", async (req, res) => {
+    try {
+        const { oldLinkText, oldLinkUrl, newLinkText, newLinkUrl } = req.body;
+        const list = await redis.lrange(KEY_FEATURED_CONTENTS, 0, -1);
+        const targetStr = JSON.stringify({ linkText: oldLinkText, linkUrl: oldLinkUrl });
+        const index = list.indexOf(targetStr);
+        if (index === -1) return res.status(404).json({ error: "找不到該連結，可能已被刪除" });
+
+        const newObj = { linkText: newLinkText, linkUrl: newLinkUrl };
+        await redis.lset(KEY_FEATURED_CONTENTS, index, JSON.stringify(newObj));
+        broadcastList(KEY_FEATURED_CONTENTS, "updateFeaturedContents", true);
+        logToUserFile(req.user.username, `修改連結 ${oldLinkText} -> ${newLinkText}`);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post("/api/featured/remove", async (req, res) => { 
     await redis.lrem(KEY_FEATURED_CONTENTS, 1, JSON.stringify(req.body)); 
     broadcastList(KEY_FEATURED_CONTENTS, "updateFeaturedContents", true); 
@@ -1233,5 +1261,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server v18.31 (File Logging Enabled) ready on port ${PORT}`);
+    console.log(`🚀 Server v19.0 (Editable & Persist) ready on port ${PORT}`);
 });
