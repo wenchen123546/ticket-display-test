@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 前端邏輯 (main.js) - v18.40 Layout Logic
+ * 前端邏輯 (main.js) - v18.41
  * ==========================================
  */
 
@@ -14,7 +14,7 @@ const i18nData = {
         "take_ticket": "取號",
         "taking_ticket": "...",
         "manual_track_title": "手動追蹤",
-        "manual_input_placeholder": "輸入號碼", // [修改] 更簡短
+        "manual_input_placeholder": "輸入號碼", 
         "set_reminder": "設定",
         "btn_give_up": "🗑️",
         "my_number": "您的號碼",
@@ -95,7 +95,6 @@ const langSelector = document.getElementById('language-selector');
 let currentLang = localStorage.getItem('callsys_lang') || ((navigator.language || navigator.userLanguage).startsWith('zh') ? 'zh-TW' : 'en');
 let T = i18nData[currentLang];
 
-// --- 1. DOM ---
 const DOM = {
     number: document.getElementById("number"),
     issuedNumberMain: document.getElementById("issued-number-main"),
@@ -123,7 +122,6 @@ const DOM = {
     ticketWaitTime: document.getElementById("ticket-wait-time"),
 };
 
-// --- 2. State ---
 let isSoundEnabled = false; 
 let isLocallyMuted = false; 
 let lastUpdateTime = null;
@@ -133,39 +131,25 @@ let audioPermissionGranted = false;
 let ttsEnabled = false;
 let wakeLock = null;
 let myTicket = localStorage.getItem('callsys_ticket') ? parseInt(localStorage.getItem('callsys_ticket')) : null;
-
 let audioContext = null;
 
 function unlockAudioContext() {
-    if (!audioContext) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
+    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
     if (audioContext.state === 'suspended') {
         audioContext.resume().then(() => {
             const buffer = audioContext.createBuffer(1, 1, 22050);
             const source = audioContext.createBufferSource();
-            source.buffer = buffer;
-            source.connect(audioContext.destination);
-            source.start(0);
-            audioPermissionGranted = true;
-            ttsEnabled = true;
-            updateMuteUI(false);
+            source.buffer = buffer; source.connect(audioContext.destination); source.start(0);
+            audioPermissionGranted = true; ttsEnabled = true; updateMuteUI(false);
         });
     }
 }
 
 function showToast(msg, type = 'info') {
     let container = document.getElementById('toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toast-container';
-        document.body.appendChild(container);
-    }
-    const el = document.createElement('div');
-    el.className = `toast-message ${type}`;
-    el.textContent = msg;
-    container.appendChild(el);
-    requestAnimationFrame(() => el.classList.add('show'));
+    if (!container) { container = document.createElement('div'); container.id = 'toast-container'; document.body.appendChild(container); }
+    const el = document.createElement('div'); el.className = `toast-message ${type}`; el.textContent = msg;
+    container.appendChild(el); requestAnimationFrame(() => el.classList.add('show'));
     if (navigator.vibrate) navigator.vibrate(50); 
     setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3000);
 }
@@ -176,22 +160,16 @@ function speakText(text, rate) {
     if (!ttsEnabled || !('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel(); 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'zh-TW'; 
-    utterance.rate = rate || 0.9;
+    utterance.lang = 'zh-TW'; utterance.rate = rate || 0.9;
     window.speechSynthesis.speak(utterance);
 }
 
 async function requestWakeLock() {
     if ('wakeLock' in navigator) {
-        try {
-            wakeLock = await navigator.wakeLock.request('screen');
-            wakeLock.addEventListener('release', () => {});
-        } catch (err) { console.error(err); }
+        try { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => {}); } catch (err) { console.error(err); }
     }
 }
-document.addEventListener('visibilitychange', async () => {
-    if (wakeLock !== null && document.visibilityState === 'visible') { await requestWakeLock(); }
-});
+document.addEventListener('visibilitychange', async () => { if (wakeLock !== null && document.visibilityState === 'visible') await requestWakeLock(); });
 
 function playNotificationSound() {
     if (!DOM.notifySound) return;
@@ -199,23 +177,15 @@ function playNotificationSound() {
     const playPromise = DOM.notifySound.play();
     if (playPromise !== undefined) {
         playPromise.then(() => {
-            audioPermissionGranted = true;
-            updateMuteUI(false);
-            if (!isSoundEnabled || isLocallyMuted) {
-                DOM.notifySound.pause(); DOM.notifySound.currentTime = 0;
-            }
-        }).catch(() => {
-            console.warn("Autoplay blocked");
-            audioPermissionGranted = false;
-            updateMuteUI(true, true); 
-        });
+            audioPermissionGranted = true; updateMuteUI(false);
+            if (!isSoundEnabled || isLocallyMuted) { DOM.notifySound.pause(); DOM.notifySound.currentTime = 0; }
+        }).catch(() => { console.warn("Autoplay blocked"); audioPermissionGranted = false; updateMuteUI(true, true); });
     }
 }
 
 function triggerConfetti() {
     if (typeof confetti === 'undefined') return;
-    const duration = 3000;
-    const end = Date.now() + duration;
+    const duration = 3000; const end = Date.now() + duration;
     (function frame() {
         confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 } });
         confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 } });
@@ -223,12 +193,8 @@ function triggerConfetti() {
     })();
 }
 
-// --- 3. I18n ---
 function applyI18n() {
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        if(T[key]) el.textContent = T[key];
-    });
+    document.querySelectorAll('[data-i18n]').forEach(el => { const key = el.getAttribute('data-i18n'); if(T[key]) el.textContent = T[key]; });
     if(DOM.manualTicketInput) DOM.manualTicketInput.placeholder = T["manual_input_placeholder"];
     if(DOM.btnTakeTicket && !DOM.btnTakeTicket.disabled) { DOM.btnTakeTicket.textContent = T["take_ticket"]; }
 }
@@ -243,53 +209,17 @@ setInterval(updateTimeText, 10000);
 if(langSelector) {
     langSelector.value = currentLang;
     langSelector.addEventListener('change', (e) => {
-        currentLang = e.target.value;
-        localStorage.setItem('callsys_lang', currentLang);
-        T = i18nData[currentLang];
-        applyI18n();
-        updateTicketUI(parseInt(DOM.number.textContent) || 0);
-        updateMuteUI(isLocallyMuted);
-        updateTimeText();
+        currentLang = e.target.value; localStorage.setItem('callsys_lang', currentLang); T = i18nData[currentLang];
+        applyI18n(); updateTicketUI(parseInt(DOM.number.textContent) || 0); updateMuteUI(isLocallyMuted); updateTimeText();
     });
 }
 
-// --- 4. Socket ---
-const socket = io({ 
-    autoConnect: false,
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
-    randomizationFactor: 0.5
-});
-
-socket.on("connect", () => {
-    socket.emit('joinRoom', 'public');
-    DOM.statusBar.textContent = T["status_connected"] || "Connected";
-    DOM.statusBar.style.backgroundColor = "#10b981"; 
-    setTimeout(() => { if (socket.connected) DOM.statusBar.classList.remove("visible"); }, 1500);
-    requestWakeLock(); 
-});
-socket.on("disconnect", () => {
-    DOM.statusBar.classList.add("visible");
-    DOM.statusBar.textContent = T["error_network"];
-    DOM.statusBar.style.backgroundColor = "#dc2626";
-});
-socket.io.on("reconnect_attempt", (attempt) => {
-    DOM.statusBar.classList.add("visible");
-    DOM.statusBar.style.backgroundColor = "#d97706"; 
-    const msg = (T["status_reconnecting"] || "Reconnecting (%s)...").replace("%s", attempt);
-    DOM.statusBar.textContent = msg;
-});
-socket.on("updateQueue", (data) => {
-    const current = data.current;
-    if(DOM.issuedNumberMain) DOM.issuedNumberMain.textContent = data.issued;
-    handleNewNumber(current);
-    updateTicketUI(current);
-});
-socket.on("adminBroadcast", (msg) => {
-    if (!isLocallyMuted) { speakText(msg, 1.0); showToast(`${T["public_announcement"]}${msg}`, "info"); }
-});
+const socket = io({ autoConnect: false, reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000, reconnectionDelayMax: 5000, randomizationFactor: 0.5 });
+socket.on("connect", () => { socket.emit('joinRoom', 'public'); DOM.statusBar.textContent = T["status_connected"]; DOM.statusBar.style.backgroundColor = "#10b981"; setTimeout(() => { if (socket.connected) DOM.statusBar.classList.remove("visible"); }, 1500); requestWakeLock(); });
+socket.on("disconnect", () => { DOM.statusBar.classList.add("visible"); DOM.statusBar.textContent = T["error_network"]; DOM.statusBar.style.backgroundColor = "#dc2626"; });
+socket.io.on("reconnect_attempt", (attempt) => { DOM.statusBar.classList.add("visible"); DOM.statusBar.style.backgroundColor = "#d97706"; DOM.statusBar.textContent = (T["status_reconnecting"]).replace("%s", attempt); });
+socket.on("updateQueue", (data) => { if(DOM.issuedNumberMain) DOM.issuedNumberMain.textContent = data.issued; handleNewNumber(data.current); updateTicketUI(data.current); });
+socket.on("adminBroadcast", (msg) => { if (!isLocallyMuted) { speakText(msg, 1.0); showToast(`${T["public_announcement"]}${msg}`, "info"); } });
 socket.on("updateWaitTime", (time) => { avgServiceTime = time; updateTicketUI(parseInt(DOM.number.textContent) || 0); });
 socket.on("updateSoundSetting", (isEnabled) => { isSoundEnabled = isEnabled; });
 socket.on("updatePublicStatus", (status) => { document.body.classList.toggle("is-closed", !status); if (status) socket.connect(); else socket.disconnect(); });
@@ -298,7 +228,6 @@ socket.on("updatePassed", (numbers) => renderPassed(numbers));
 socket.on("updateFeaturedContents", (contents) => renderFeatured(contents));
 socket.on("updateTimestamp", (ts) => { lastUpdateTime = new Date(ts); updateTimeText(); });
 
-// --- 5. Logic ---
 function switchSystemModeUI(mode) {
     const isTicketing = mode === 'ticketing';
     DOM.ticketingModeContainer.style.display = isTicketing ? "block" : "none";
@@ -309,176 +238,57 @@ function switchSystemModeUI(mode) {
 function handleNewNumber(num) {
     if (DOM.number.textContent !== String(num)) {
         playNotificationSound();
-        setTimeout(() => {
-            if (DOM.number.textContent !== String(num) && isSoundEnabled && !isLocallyMuted) { speakText(`現在號碼，${num}號`, 0.9); }
-        }, 800);
-        DOM.number.textContent = num;
-        document.title = `${num} - ${T["app_title"]}`;
-        DOM.number.classList.add("updated");
-        setTimeout(() => DOM.number.classList.remove("updated"), 500);
+        setTimeout(() => { if (DOM.number.textContent !== String(num) && isSoundEnabled && !isLocallyMuted) speakText(`現在號碼，${num}號`, 0.9); }, 800);
+        DOM.number.textContent = num; document.title = `${num} - ${T["app_title"]}`;
+        DOM.number.classList.add("updated"); setTimeout(() => DOM.number.classList.remove("updated"), 500);
     }
 }
 
 function updateTicketUI(currentNum) {
     if (!myTicket) return;
-    DOM.ticketCurrentDisplay.textContent = currentNum;
-    const diff = myTicket - currentNum;
-    let background = "linear-gradient(135deg, #2563eb 0%, #1e40af 100%)";
-    let statusText = T["status_wait"].replace("%s", diff);
-    let waitTimeDisplay = "none";
-    
+    DOM.ticketCurrentDisplay.textContent = currentNum; const diff = myTicket - currentNum;
+    let background = "linear-gradient(135deg, #2563eb 0%, #1e40af 100%)"; let statusText = T["status_wait"].replace("%s", diff); let waitTimeDisplay = "none";
     if (diff > 0) {
         DOM.ticketWaitingCount.textContent = diff;
-        if (avgServiceTime > 0) {
-            const min = Math.ceil(diff * avgServiceTime);
-            DOM.ticketWaitTime.textContent = T["estimated_wait"].replace("%s", min);
-            waitTimeDisplay = "block";
-        }
-        if (diff <= 3) {
-             vibratePattern([100]); 
-             if (document.hidden && Notification.permission === "granted") { new Notification(T["app_title"], { body: T["queue_notification"].replace("%s", diff), tag: 'approach' }); }
-        }
+        if (avgServiceTime > 0) { const min = Math.ceil(diff * avgServiceTime); DOM.ticketWaitTime.textContent = T["estimated_wait"].replace("%s", min); waitTimeDisplay = "block"; }
+        if (diff <= 3) { vibratePattern([100]); if (document.hidden && Notification.permission === "granted") new Notification(T["app_title"], { body: T["queue_notification"].replace("%s", diff), tag: 'approach' }); }
     } else if (diff === 0) {
-        DOM.ticketWaitingCount.textContent = "0";
-        statusText = T["status_arrival"];
-        background = "linear-gradient(135deg, #059669 0%, #10b981 100%)";
-        triggerConfetti();
-        vibratePattern([200, 100, 200, 100, 200]); 
-        if (isSoundEnabled && !isLocallyMuted) speakText("恭喜，輪到您了，請前往櫃台", 1.0);
-        if (Notification.permission === "granted") { new Notification(T["app_title"], { body: T["arrival_notification"], requireInteraction: true, tag: 'arrival' }); }
-    } else {
-        DOM.ticketWaitingCount.textContent = "-";
-        statusText = T["status_passed"];
-        background = "linear-gradient(135deg, #d97706 0%, #b45309 100%)";
-    }
-    DOM.ticketStatusText.textContent = statusText;
-    DOM.myTicketView.style.background = background; 
-    DOM.ticketWaitTime.style.display = waitTimeDisplay;
+        DOM.ticketWaitingCount.textContent = "0"; statusText = T["status_arrival"]; background = "linear-gradient(135deg, #059669 0%, #10b981 100%)";
+        triggerConfetti(); vibratePattern([200, 100, 200, 100, 200]); if (isSoundEnabled && !isLocallyMuted) speakText("恭喜，輪到您了，請前往櫃台", 1.0);
+    } else { DOM.ticketWaitingCount.textContent = "-"; statusText = T["status_passed"]; background = "linear-gradient(135deg, #d97706 0%, #b45309 100%)"; }
+    DOM.ticketStatusText.textContent = statusText; DOM.myTicketView.style.background = background; DOM.ticketWaitTime.style.display = waitTimeDisplay;
 }
 
-function showMyTicketMode() {
-    DOM.takeTicketView.style.display = "none";
-    DOM.inputModeView.style.display = "none";
-    DOM.myTicketView.style.display = "block";
-    DOM.myTicketNum.textContent = myTicket;
-    if ("Notification" in window && Notification.permission === "default") { Notification.requestPermission(); }
-}
-
-function showTakeTicketMode() {
-    DOM.myTicketView.style.display = "none";
-    DOM.takeTicketView.style.display = (currentSystemMode === 'ticketing') ? "block" : "none";
-    DOM.inputModeView.style.display = (currentSystemMode === 'input') ? "block" : "none";
-}
+function showMyTicketMode() { DOM.takeTicketView.style.display = "none"; DOM.inputModeView.style.display = "none"; DOM.myTicketView.style.display = "block"; DOM.myTicketNum.textContent = myTicket; if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); }
+function showTakeTicketMode() { DOM.myTicketView.style.display = "none"; DOM.takeTicketView.style.display = (currentSystemMode === 'ticketing') ? "block" : "none"; DOM.inputModeView.style.display = (currentSystemMode === 'input') ? "block" : "none"; }
 
 function renderPassed(numbers) {
-    DOM.passedList.innerHTML = "";
-    const isEmpty = !numbers || numbers.length === 0;
-    DOM.passedContainer.classList.toggle("is-empty", isEmpty);
-    if (!isEmpty) {
-        const frag = document.createDocumentFragment();
-        numbers.forEach(n => {
-            const li = document.createElement("li"); li.textContent = n; frag.appendChild(li);
-        });
-        DOM.passedList.appendChild(frag);
-    }
+    DOM.passedList.innerHTML = ""; const isEmpty = !numbers || numbers.length === 0; DOM.passedContainer.classList.toggle("is-empty", isEmpty);
+    if (!isEmpty) { const frag = document.createDocumentFragment(); numbers.forEach(n => { const li = document.createElement("li"); li.textContent = n; frag.appendChild(li); }); DOM.passedList.appendChild(frag); }
 }
 
 function renderFeatured(contents) {
-    DOM.featuredContainer.innerHTML = "";
-    if (!contents || contents.length === 0) {
-        DOM.featuredContainer.innerHTML = `<p class="empty-state-message" data-i18n="featured_empty">${T["featured_empty"]}</p>`;
-        DOM.featuredContainer.classList.add("is-empty");
-        return;
-    }
-    DOM.featuredContainer.classList.remove("is-empty");
-    const frag = document.createDocumentFragment();
-    contents.forEach(c => {
-        const a = document.createElement("a");
-        a.className = "featured-link";
-        a.href = c.linkUrl; a.target = "_blank"; a.textContent = c.linkText;
-        frag.appendChild(a);
-    });
-    DOM.featuredContainer.appendChild(frag);
+    DOM.featuredContainer.innerHTML = ""; if (!contents || contents.length === 0) { DOM.featuredContainer.innerHTML = `<p class="empty-state-message" data-i18n="featured_empty">${T["featured_empty"]}</p>`; DOM.featuredContainer.classList.add("is-empty"); return; }
+    DOM.featuredContainer.classList.remove("is-empty"); const frag = document.createDocumentFragment();
+    contents.forEach(c => { const a = document.createElement("a"); a.className = "featured-link"; a.href = c.linkUrl; a.target = "_blank"; a.textContent = c.linkText; frag.appendChild(a); }); DOM.featuredContainer.appendChild(frag);
 }
 
-// --- 6. Events ---
 function handleUserInteraction(callback) { unlockAudioContext(); callback(); }
-
 if(DOM.btnTakeTicket) DOM.btnTakeTicket.addEventListener("click", () => handleUserInteraction(async () => {
-    if ("Notification" in window && Notification.permission !== "granted") {
-        const p = await Notification.requestPermission();
-        if (p !== "granted" && !confirm("Without notifications, you must keep this tab open. Continue?")) return;
-    }
-    DOM.btnTakeTicket.disabled = true;
-    DOM.btnTakeTicket.textContent = T["taking_ticket"];
-    try {
-        const res = await fetch("/api/ticket/take", { method: "POST" });
-        const data = await res.json();
-        if (data.success) {
-            myTicket = data.ticket;
-            localStorage.setItem('callsys_ticket', myTicket);
-            showMyTicketMode();
-            updateTicketUI(parseInt(DOM.number.textContent) || 0);
-            showToast(T["take_success"], "success");
-        } else { showToast(data.error || T["take_fail"], "error"); }
-    } catch (e) { showToast(T["error_network"], "error"); } 
-    finally { DOM.btnTakeTicket.disabled = false; DOM.btnTakeTicket.textContent = T["take_ticket"]; }
+    if ("Notification" in window && Notification.permission !== "granted") { const p = await Notification.requestPermission(); if (p !== "granted" && !confirm("Continue?")) return; }
+    DOM.btnTakeTicket.disabled = true; DOM.btnTakeTicket.textContent = T["taking_ticket"];
+    try { const res = await fetch("/api/ticket/take", { method: "POST" }); const data = await res.json(); if (data.success) { myTicket = data.ticket; localStorage.setItem('callsys_ticket', myTicket); showMyTicketMode(); updateTicketUI(parseInt(DOM.number.textContent) || 0); showToast(T["take_success"], "success"); } else showToast(data.error || T["take_fail"], "error"); } catch (e) { showToast(T["error_network"], "error"); } finally { DOM.btnTakeTicket.disabled = false; DOM.btnTakeTicket.textContent = T["take_ticket"]; }
 }));
-
 if(DOM.btnTrackTicket) DOM.btnTrackTicket.addEventListener("click", () => handleUserInteraction(async () => {
-    const val = DOM.manualTicketInput.value;
-    if (!val) return showToast(T["input_empty"], "error");
-    if ("Notification" in window && Notification.permission !== "granted") {
-        const p = await Notification.requestPermission();
-        if (p !== "granted" && !confirm("Continue without notifications?")) return;
-    }
-    myTicket = parseInt(val);
-    localStorage.setItem('callsys_ticket', myTicket);
-    DOM.manualTicketInput.value = "";
-    showMyTicketMode();
-    updateTicketUI(parseInt(DOM.number.textContent) || 0);
-    showToast(T["take_success"], "success");
+    const val = DOM.manualTicketInput.value; if (!val) return showToast(T["input_empty"], "error");
+    if ("Notification" in window && Notification.permission !== "granted") { const p = await Notification.requestPermission(); if (p !== "granted" && !confirm("Continue?")) return; }
+    myTicket = parseInt(val); localStorage.setItem('callsys_ticket', myTicket); DOM.manualTicketInput.value = ""; showMyTicketMode(); updateTicketUI(parseInt(DOM.number.textContent) || 0); showToast(T["take_success"], "success");
 }));
+if(DOM.btnCancelTicket) DOM.btnCancelTicket.addEventListener("click", () => { if(confirm(T["cancel_confirm"])) { localStorage.removeItem('callsys_ticket'); myTicket = null; showTakeTicketMode(); } });
 
-if(DOM.btnCancelTicket) DOM.btnCancelTicket.addEventListener("click", () => {
-    if(confirm(T["cancel_confirm"])) {
-        localStorage.removeItem('callsys_ticket');
-        myTicket = null;
-        showTakeTicketMode();
-    }
-});
+function updateMuteUI(isMuted, needsPermission = false) { isLocallyMuted = isMuted; if (!DOM.soundPrompt) return; const text = needsPermission || isMuted ? T["sound_mute"] : T["sound_on"]; DOM.soundPrompt.innerHTML = `<span class="emoji">${needsPermission || isMuted ? '🔇' : '🔊'}</span> ${text}`; DOM.soundPrompt.classList.toggle("is-active", !needsPermission && !isMuted); }
+if (DOM.soundPrompt) DOM.soundPrompt.addEventListener("click", () => handleUserInteraction(() => { if (!audioPermissionGranted) playNotificationSound(); else updateMuteUI(!isLocallyMuted); }));
+if (DOM.copyLinkPrompt) DOM.copyLinkPrompt.addEventListener("click", () => { if (!navigator.clipboard) return alert("Use HTTPS"); navigator.clipboard.writeText(window.location.href).then(() => { DOM.copyLinkPrompt.innerHTML = T["copy_success"]; DOM.copyLinkPrompt.classList.add("is-copied"); setTimeout(() => { DOM.copyLinkPrompt.innerHTML = `<span class="emoji">🔗</span> ${T["copy_link"]}`; DOM.copyLinkPrompt.classList.remove("is-copied"); }, 2000); }); });
+try { const qrEl = document.getElementById("qr-code-placeholder"); if (qrEl) new QRCode(qrEl, { text: window.location.href, width: 120, height: 120 }); } catch (e) {}
 
-function updateMuteUI(isMuted, needsPermission = false) {
-    isLocallyMuted = isMuted;
-    if (!DOM.soundPrompt) return;
-    const text = needsPermission || isMuted ? T["sound_mute"] : T["sound_on"];
-    DOM.soundPrompt.innerHTML = `<span class="emoji">${needsPermission || isMuted ? '🔇' : '🔊'}</span> ${text}`;
-    DOM.soundPrompt.classList.toggle("is-active", !needsPermission && !isMuted);
-}
-
-if (DOM.soundPrompt) DOM.soundPrompt.addEventListener("click", () => handleUserInteraction(() => {
-    if (!audioPermissionGranted) { playNotificationSound(); } else { updateMuteUI(!isLocallyMuted); }
-}));
-
-if (DOM.copyLinkPrompt) DOM.copyLinkPrompt.addEventListener("click", () => {
-    if (!navigator.clipboard) return alert("Use HTTPS to copy");
-    navigator.clipboard.writeText(window.location.href).then(() => {
-        const original = DOM.copyLinkPrompt.innerHTML;
-        DOM.copyLinkPrompt.innerHTML = T["copy_success"];
-        DOM.copyLinkPrompt.classList.add("is-copied");
-        setTimeout(() => { DOM.copyLinkPrompt.innerHTML = `<span class="emoji">🔗</span> ${T["copy_link"]}`; DOM.copyLinkPrompt.classList.remove("is-copied"); }, 2000);
-    });
-});
-
-try {
-    const qrEl = document.getElementById("qr-code-placeholder");
-    if (qrEl) { new QRCode(qrEl, { text: window.location.href, width: 120, height: 120 }); }
-} catch (e) {}
-
-// --- Init ---
-document.addEventListener("DOMContentLoaded", () => {
-    applyI18n();
-    if (myTicket) showMyTicketMode(); else showTakeTicketMode();
-    socket.connect();
-    document.body.addEventListener('click', unlockAudioContext, { once: true });
-});
+document.addEventListener("DOMContentLoaded", () => { applyI18n(); if (myTicket) showMyTicketMode(); else showTakeTicketMode(); socket.connect(); document.body.addEventListener('click', unlockAudioContext, { once: true }); });
