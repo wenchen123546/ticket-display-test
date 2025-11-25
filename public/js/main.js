@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 前端邏輯 (main.js) - v18.35 Optimized (Native Reconnect & Audio Unlock)
+ * 前端邏輯 (main.js) - v18.39 Optimized
  * ==========================================
  */
 
@@ -15,7 +15,8 @@ const i18nData = {
         "take_ticket": "🎫 立即取號",
         "taking_ticket": "取號中...",
         "manual_track_title": "手動輸入追蹤",
-        "manual_track_desc": "請輸入您手上的號碼牌號碼，我們將在到號時通知您。",
+        "manual_track_desc": "", // 已停用，保留以防萬一
+        "manual_input_placeholder": "請輸入您手上的號碼牌號碼", // [修改] 提示文字更新
         "set_reminder": "🔔 設定提醒",
         "btn_give_up": "🗑️ 放棄",
         "my_number": "您的號碼",
@@ -34,7 +35,7 @@ const i18nData = {
         "featured_empty": "暫無精選連結",
         "scan_qr": "掃描查看進度",
         "error_network": "連線中斷",
-        "manual_input_placeholder": "輸入號碼",
+        "manual_input_placeholder_short": "輸入號碼",
         "take_success": "取號成功！",
         "take_fail": "取號失敗",
         "input_empty": "請輸入號碼",
@@ -58,7 +59,8 @@ const i18nData = {
         "take_ticket": "🎫 Get Ticket",
         "taking_ticket": "Processing...",
         "manual_track_title": "Track My Ticket",
-        "manual_track_desc": "Enter your physical ticket number to get notified.",
+        "manual_track_desc": "",
+        "manual_input_placeholder": "Enter your ticket number", // [修改] EN
         "set_reminder": "🔔 Set Reminder",
         "btn_give_up": "🗑️ Cancel",
         "my_number": "Your Number",
@@ -77,7 +79,7 @@ const i18nData = {
         "featured_empty": "No featured links",
         "scan_qr": "Scan to track",
         "error_network": "Connection Lost",
-        "manual_input_placeholder": "Enter Number",
+        "manual_input_placeholder_short": "Enter Number",
         "take_success": "Success!",
         "take_fail": "Failed",
         "input_empty": "Please enter a number",
@@ -137,7 +139,7 @@ let ttsEnabled = false;
 let wakeLock = null;
 let myTicket = localStorage.getItem('callsys_ticket') ? parseInt(localStorage.getItem('callsys_ticket')) : null;
 
-// [優化] AudioContext 狀態管理 (解決 iOS 靜音問題)
+// AudioContext 狀態管理
 let audioContext = null;
 
 function unlockAudioContext() {
@@ -146,7 +148,6 @@ function unlockAudioContext() {
     }
     if (audioContext.state === 'suspended') {
         audioContext.resume().then(() => {
-            // 播放極短靜音以完全解鎖
             const buffer = audioContext.createBuffer(1, 1, 22050);
             const source = audioContext.createBufferSource();
             source.buffer = buffer;
@@ -172,7 +173,6 @@ function showToast(msg, type = 'info') {
     container.appendChild(el);
     
     requestAnimationFrame(() => el.classList.add('show'));
-    
     if (navigator.vibrate) navigator.vibrate(50); 
 
     setTimeout(() => {
@@ -208,11 +208,9 @@ document.addEventListener('visibilitychange', async () => {
 
 function playNotificationSound() {
     if (!DOM.notifySound) return;
-    // 嘗試使用 AudioContext 解鎖後的權限
     if (audioContext && audioContext.state === 'suspended') {
         audioContext.resume();
     }
-    
     const playPromise = DOM.notifySound.play();
     if (playPromise !== undefined) {
         playPromise.then(() => {
@@ -246,6 +244,7 @@ function applyI18n() {
         const key = el.getAttribute('data-i18n');
         if(T[key]) el.textContent = T[key];
     });
+    // [修改] 套用新的 placeholder 設定
     if(DOM.manualTicketInput) DOM.manualTicketInput.placeholder = T["manual_input_placeholder"];
     if(DOM.btnTakeTicket && !DOM.btnTakeTicket.disabled) { DOM.btnTakeTicket.textContent = T["take_ticket"]; }
 }
@@ -277,8 +276,7 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-// --- 4. Socket.io 初始化與事件處理 (Native Reconnection) ---
-// [優化] 啟用 reconnection (預設 true), 設定嘗試次數
+// --- 4. Socket.io ---
 const socket = io({ 
     autoConnect: false,
     reconnection: true,
@@ -303,19 +301,12 @@ socket.on("disconnect", (reason) => {
     DOM.lastUpdated.textContent = T["error_network"];
 });
 
-// [優化] 監聽 Socket 原生重連事件
 socket.io.on("reconnect_attempt", (attempt) => {
     DOM.statusBar.classList.add("visible");
-    DOM.statusBar.style.backgroundColor = "#d97706"; // Warning Color
+    DOM.statusBar.style.backgroundColor = "#d97706"; 
     const msg = (T["status_reconnecting"] || "Reconnecting (%s)...").replace("%s", attempt);
     DOM.statusBar.textContent = msg;
 });
-
-socket.io.on("reconnect", () => {
-    // 連線成功會觸發 "connect"，此處可留空
-    console.log("Reconnected");
-});
-
 
 socket.on("updateQueue", (data) => {
     const current = data.current;
@@ -450,9 +441,8 @@ function renderFeatured(contents) {
 
 // --- 6. Interaction Events ---
 
-// [優化] 通用解鎖包裝函式
 function handleUserInteraction(callback) {
-    unlockAudioContext(); // 確保音效解鎖
+    unlockAudioContext(); 
     callback();
 }
 
@@ -541,6 +531,5 @@ document.addEventListener("DOMContentLoaded", () => {
     applyI18n();
     if (myTicket) showMyTicketMode(); else showTakeTicketMode();
     socket.connect();
-    // 嘗試在第一次互動時註冊事件以解鎖音效
     document.body.addEventListener('click', unlockAudioContext, { once: true });
 });
