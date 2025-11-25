@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>即時叫號系統</title>
-
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#f8fafc">
     
@@ -18,23 +17,15 @@
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    
+
     <div class="bg-decoration">
         <div class="orb orb-1"></div>
         <div class="orb orb-2"></div>
     </div>
 
-    <div id="status-bar">連線中斷，正在嘗試重新連線...</div>
+    <div id="status-bar">連線中斷...</div>
     <div id="toast-container"></div>
     <audio id="notify-sound" src="/ding.mp3" preload="auto"></audio>
-
-    <div id="maintenance-overlay">
-        <div class="maintenance-card">
-            <div style="font-size: 3rem; margin-bottom: 10px;">🚧</div>
-            <h2 style="margin: 0; color: #0f172a;">系統維護中</h2>
-            <p style="color: #64748b; margin-top: 5px;">服務暫停，請稍後再試</p>
-        </div>
-    </div>
 
     <main class="app-container">
         
@@ -42,7 +33,7 @@
             <div class="brand">
                 <div class="status-indicator">
                     <span class="dot"></span>
-                    <span id="last-updated">Updating...</span>
+                    <span id="last-updated">Connecting...</span>
                 </div>
             </div>
             <select id="language-selector" class="lang-switch">
@@ -52,17 +43,19 @@
         </header>
 
         <section class="hero-section glass">
-            <span class="hero-label" data-i18n="current_number">目前叫號</span>
-            <div class="hero-number-wrap">
-                <div class="hero-glow"></div>
-                <div id="number">0</div>
+            <div class="hero-content">
+                <div class="hero-label" data-i18n="current_number">目前叫號</div>
+                <div class="hero-number-wrap">
+                    <div class="hero-glow"></div>
+                    <div id="number">0</div>
+                </div>
             </div>
             <div class="hero-footer">
                 <div class="stat-box">
-                    <span class="stat-label" data-i18n="issued_number">已發號碼</span>
-                    <span class="stat-value" id="issued-number-main">0</span>
+                    <span class="label" data-i18n="issued_number">已發號至</span>
+                    <span class="value" id="issued-number-main">0</span>
                 </div>
-                </div>
+            </div>
         </section>
 
         <section class="list-section glass" id="passed-container">
@@ -73,8 +66,7 @@
             <div class="scroll-view">
                 <ul id="passedList" class="tag-list"></ul>
                 <div id="passed-empty-msg" class="empty-state">
-                    <span style="font-size: 1.5rem;">🍃</span> 
-                    <span data-i18n="passed_empty">目前無過號</span>
+                    <span>🍃</span> <span data-i18n="passed_empty">目前無過號</span>
                 </div>
             </div>
         </section>
@@ -88,51 +80,44 @@
                         <p data-i18n="online_ticket_desc">免排隊，到號通知</p>
                     </div>
                     <button id="btn-take-ticket" class="btn-main">
-                        <span data-i18n="take_ticket">立即取號</span>
-                        <span>➔</span>
+                        <span data-i18n="take_ticket">取號</span> ➔
                     </button>
                 </div>
             </div>
 
             <div id="input-mode-container" style="display: none;">
                 <div id="input-mode-view" class="input-wrapper">
-                    <input type="number" id="manual-ticket-input" class="fancy-input" placeholder="輸入您的號碼" inputmode="numeric">
-                    <button id="btn-track-ticket" class="btn-track" data-i18n="set_reminder">
-                        追蹤
-                    </button>
+                    <input type="number" id="manual-ticket-input" class="fancy-input" placeholder="號碼" inputmode="numeric">
+                    <button id="btn-track-ticket" class="btn-track" data-i18n="set_reminder">追蹤</button>
                 </div>
             </div>
 
             <div id="my-ticket-view" class="my-ticket-card" style="display: none;">
                 <div class="ticket-header">
                     <span class="ticket-label">MY TICKET</span>
-                    <button id="btn-cancel-ticket" class="btn-close-ticket" aria-label="Cancel">✕</button>
+                    <button id="btn-cancel-ticket" class="btn-close-ticket">✕</button>
                 </div>
                 <div class="ticket-body">
-                    <div class="ticket-info-left">
-                        <div style="font-size: 0.8rem; opacity: 0.7; margin-bottom: 5px;" data-i18n="my_number">您的號碼</div>
+                    <div>
+                        <div class="ticket-label" data-i18n="my_number">您的號碼</div>
                         <div class="my-number-big" id="my-ticket-num">?</div>
                     </div>
-                    <div class="ticket-info-right">
-                        <div style="font-size: 0.8rem; opacity: 0.7; margin-bottom: 5px;" data-i18n="wait_count">前方等待</div>
+                    <div style="text-align:right;">
+                        <div class="ticket-label" data-i18n="wait_count">前方等待</div>
                         <div class="wait-count"><span id="ticket-waiting-count">0</span> 組</div>
                     </div>
                 </div>
                 <div class="ticket-footer">
                     <span id="ticket-status-text">計算中...</span>
-                    <span id="ticket-wait-time" style="margin-left: auto; display:none; background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:4px;">...</span>
+                    <span id="ticket-wait-time" style="display:none;">...</span>
                 </div>
             </div>
 
             <div class="footer-tools">
-                <div id="featured-container" class="featured-links"></div>
+                <div id="featured-container" style="display:flex; gap:5px; overflow-x:auto; padding-right:10px;"></div>
                 <div class="util-btns">
-                    <button id="copy-link-prompt" class="btn-icon-text">
-                        <span>🔗</span> <span data-i18n="copy_link">複製連結</span>
-                    </button>
-                    <button id="sound-prompt" class="btn-icon-text">
-                        <span>🔊</span> <span data-i18n="sound_enable">啟用音效</span>
-                    </button>
+                    <button id="copy-link-prompt" class="btn-icon-text">🔗 <span data-i18n="copy_link">複製</span></button>
+                    <button id="sound-prompt" class="btn-icon-text">🔊 <span data-i18n="sound_enable">音效</span></button>
                 </div>
             </div>
 
@@ -140,10 +125,11 @@
 
     </main>
 
-    <div id="qr-code-container">
+    <div id="qr-code-container" style="display:none;">
         <div id="qr-code-placeholder"></div>
         <p data-i18n="scan_qr">掃描追蹤</p>
     </div>
+    <style>@media(min-width:1024px){#qr-code-container{display:block!important;position:fixed;bottom:20px;right:20px;background:white;padding:15px;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,0.1);text-align:center;}}</style>
 
     <script src="/js/main.js"></script>
 </body>
