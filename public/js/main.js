@@ -1,7 +1,6 @@
 /*
  * ==========================================
- * 前端邏輯 (main.js) - v27.0
- * 包含：精簡的中文文案以配合極限排版
+ * 前端邏輯 (main.js) - v28.0 (Correct Text & Labels)
  * ==========================================
  */
 
@@ -12,7 +11,7 @@ const i18nData = {
         "online_ticket_title": "線上取號",
         "help_take_ticket": "手機領號，即時通知",
         "manual_input_title": "手動追蹤",
-        "help_track_ticket": "輸入手上的號碼牌",
+        "help_track_ticket": "輸入您的號碼即可開啟到號提醒。", // 修正文案
         "take_ticket": "立即取號",
         "manual_input_placeholder": "號碼",
         "set_reminder": "追蹤",
@@ -23,6 +22,7 @@ const i18nData = {
         "status_passed": "⚠️ 已過號",
         "passed_list_title": "過號",
         "passed_empty": "無",
+        "links_title": "精選連結", // 新增標題
         "copy_link": "複製",
         "sound_enable": "音效",
         "sound_on": "開啟",
@@ -48,7 +48,7 @@ const i18nData = {
         "online_ticket_title": "Get Ticket",
         "help_take_ticket": "Digital ticket & notify",
         "manual_input_title": "Track #",
-        "help_track_ticket": "Enter paper ticket #",
+        "help_track_ticket": "Enter your number to track.", // 修正文案
         "take_ticket": "Get Ticket",
         "manual_input_placeholder": "#",
         "set_reminder": "Track",
@@ -59,6 +59,7 @@ const i18nData = {
         "status_passed": "⚠️ Passed",
         "passed_list_title": "Passed",
         "passed_empty": "None",
+        "links_title": "Links", // 新增標題
         "copy_link": "Copy",
         "sound_enable": "Sound",
         "sound_on": "On",
@@ -251,7 +252,6 @@ function switchSystemModeUI(mode) {
     const isTicketing = mode === 'ticketing';
     DOM.ticketingModeContainer.style.display = isTicketing ? "block" : "none";
     DOM.inputModeContainer.style.display = isTicketing ? "none" : "block";
-    // 如果有票，強制顯示票
     if (myTicket) showMyTicketMode();
 }
 
@@ -326,8 +326,6 @@ if(DOM.btnCancelTicket) DOM.btnCancelTicket.addEventListener("click", () => {
 function updateMuteUI(isMuted, needsPermission = false) { 
     isLocallyMuted = isMuted; 
     if (!DOM.soundPrompt) return; 
-    // const text = needsPermission || isMuted ? T["sound_mute"] : T["sound_on"]; 
-    // 緊湊版僅顯示 icon
     DOM.soundPrompt.innerHTML = needsPermission || isMuted ? '🔇' : '🔊'; 
 }
 
