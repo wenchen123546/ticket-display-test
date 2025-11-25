@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台樣式 (admin.css) - v3.1 Optimized Final
+ * 後台樣式 (admin.css) - v3.2 Optimized Final
  * ==========================================
  */
 
@@ -139,20 +139,20 @@ body {
 
 .dashboard-item .label { 
     font-size: 0.85rem; color: var(--text-sub); font-weight: 600; 
-    margin-bottom: 8px; /* 增加間距 */
+    margin-bottom: 8px; 
 }
 .dashboard-item .value { font-weight: 800; line-height: 1.1; color: var(--text-main); font-variant-numeric: tabular-nums; }
 
-/* 調整數字大小，避免過大/過小 */
+/* 調整數字大小 */
 .big-number { 
-    font-size: 3.5rem; /* 稍微放大 */
+    font-size: 3.5rem; 
     letter-spacing: -1px; 
     background: var(--primary-gradient); 
     -webkit-background-clip: text; 
     -webkit-text-fill-color: transparent;
 }
 .sub-number { 
-    font-size: 2.5rem; /* 稍微放大 */
+    font-size: 2.5rem; 
     color: var(--text-main); 
 }
 
@@ -210,7 +210,7 @@ button:active { transform: scale(0.97); }
     font-weight: 700; font-size: 0.95rem;
     box-shadow: var(--shadow-sm);
     min-height: 90px;
-    min-width: 100px; /* 增加最小寬度，防止排版過窄 */
+    min-width: 100px;
 }
 .btn-big .icon { font-size: 1.4rem; }
 
@@ -258,7 +258,7 @@ button:active { transform: scale(0.97); }
 .control-group label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.9rem; color: var(--text-main); }
 .section-hint { font-size: 0.85rem; color: var(--text-sub); margin-top: 6px; line-height: 1.4; }
 
-/* LINE 變數提示樣式增強 */
+/* LINE 變數提示樣式 */
 .var-hint { 
     font-family: monospace; font-size: 0.8rem; color: #4b5563; 
     background: #e5e7eb; padding: 2px 6px; border-radius: 4px; 
@@ -266,7 +266,7 @@ button:active { transform: scale(0.97); }
 }
 .var-hint code {
     font-family: monospace;
-    background: #d1d5db; /* 讓變數更突出 */
+    background: #d1d5db; 
     padding: 1px 4px;
     border-radius: 3px;
 }
@@ -310,7 +310,7 @@ ul { list-style: none; padding: 0; margin: 0; }
     background: #f9fafb; border-radius: var(--radius-md);
     border: 1px solid #f3f4f6; 
     max-height: 220px; 
-    min-height: 100px; /* 增加最小高度，確保排版一致 */
+    min-height: 100px;
     overflow-y: auto;
     margin-bottom: 12px;
 }
@@ -330,7 +330,7 @@ li:last-child { border-bottom: none; }
 }
 #admin-log-ui { 
     flex: 1; 
-    min-height: 150px; /* 確保日誌列表有足夠的最小高度 */
+    min-height: 150px; 
     background: #1f2937; border: none; font-family: monospace; 
 }
 #admin-log-ui li { color: #d1d5db; border-bottom: 1px solid #374151; font-size: 0.85rem; }
@@ -384,7 +384,7 @@ li:last-child { border-bottom: none; }
     .dashboard-item { padding: 16px; }
     .dashboard-item:last-child { grid-column: 1 / -1; } 
     .big-number { font-size: 2.5rem; }
-    .sub-number { font-size: 2rem; } /* 保持 sub-number 視覺一致 */
+    .sub-number { font-size: 2rem; }
     
     /* 按鈕 RWD */
     .big-action-row { flex-wrap: wrap; }
@@ -440,3 +440,84 @@ li:last-child { border-bottom: none; }
 .btn-circle { width: 44px; height: 44px; border-radius: 50%; font-size: 1.2rem; font-weight: bold; border:none; color:white; cursor:pointer;}
 .btn-circle.btn-warn { background: var(--warning); color: white; }
 .btn-circle.btn-success { background: var(--success); }
+
+/*
+ * ==========================================
+ * [新增] 大螢幕版面優化 (Desktop Optimization)
+ * 針對 1024px 以上螢幕重新排版，避免元件過大
+ * ==========================================
+ */
+
+@media (min-width: 1024px) {
+
+    /* --- 1. 叫號控制 & 發號機 (Section Live) --- */
+    /* 讓「叫號控制」不再佔滿整行，改為自動適應，使其能與「發號機」並排 */
+    #card-calling.full-width-card {
+        grid-column: auto; 
+    }
+    
+    /* 調整叫號控制台內的按鈕比例 */
+    #card-calling .big-action-row {
+        margin-bottom: 15px;
+    }
+    #btn-call-next {
+        flex: 1.5;
+    }
+
+    /* --- 2. 用戶管理 (User Management) --- */
+    /* 將列表與新增表單改為左右分欄 */
+    #card-user-management .list-editor {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 24px;
+        align-items: start;
+        max-height: none;
+        overflow: visible;
+    }
+    
+    #card-user-management .list-editor ul {
+        margin-bottom: 0;
+        max-height: 400px;
+    }
+
+    #card-user-management .input-group.vertical {
+        background: #f9fafb;
+        padding: 20px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-color);
+    }
+
+    /* --- 3. LINE 通知設定 (LINE Settings) --- */
+    /* 讓設定區塊變成網格排列 */
+    #card-line-settings details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        width: 100%;
+    }
+
+    #card-line-settings summary {
+        grid-column: 1 / -1;
+        margin-bottom: 10px;
+        border-bottom: 2px solid #f3f4f6;
+    }
+
+    /* 強制某些大型區塊橫跨兩欄 */
+    #card-line-settings .control-group.form-group-boxed:nth-of-type(1), 
+    #card-line-settings .control-group.form-group-boxed:nth-of-type(2) 
+    {
+        grid-column: span 1;
+    }
+
+    #card-line-settings details:nth-of-type(2) .control-group.form-group-boxed {
+        margin-bottom: 0;
+        height: 100%;
+    }
+}
+
+/* 針對超寬螢幕 (1440px+) 的額外修正 */
+@media (min-width: 1440px) {
+    .card-container {
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    }
+}
