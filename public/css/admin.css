@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台樣式 (admin.css) - v5.5 Side-by-Side Layout Fix
+ * 後台樣式 (admin.css) - v5.6 Split 50/50 & Layout Fix
  * ==========================================
  */
 
@@ -124,6 +124,7 @@ body {
 /* --- 4. 卡片系統 --- */
 .card-container { 
     display: grid; 
+    /* ★ 預設 PC 為 2 欄，確保並排時一定是 50/50 */
     grid-template-columns: repeat(auto-fit, minmax(340px, minmax(0, 1fr))); 
     gap: 24px; 
     align-items: stretch; 
@@ -181,9 +182,10 @@ textarea { width: 100%; border: 1px solid var(--border-color); border-radius: va
 .sound-toggle-group, .system-toggle-group { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-radius: var(--radius-md); background: #f9fafb; border: 1px solid var(--border-color); margin-bottom: 15px; cursor: pointer; }
 input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
 
-/* --- 6. 列表與日誌 --- */
+/* --- 6. 列表與日誌 (★ Flex 自動高度 ★) --- */
 ul { list-style: none; padding: 0; margin: 0; }
 
+/* 定義容器為 Flex Column，讓內容自動填滿 */
 .list-editor, .admin-log-container { 
     flex: 1; 
     display: flex; 
@@ -193,17 +195,17 @@ ul { list-style: none; padding: 0; margin: 0; }
     overflow: hidden; 
 }
 
-/* 列表容器 */
+/* 列表本體：自動填滿空間，並出現捲軸 */
 .list-editor ul, #admin-log-ui, #stats-list-ui, #online-users-list, #user-list-ui, #passed-list-ui, #featured-list-ui {
-    flex: 1; 
+    flex: 1; /* 自動佔據剩餘空間 */
     background: #f9fafb; 
     border-radius: var(--radius-md); 
     border: 1px solid #f3f4f6;
     overflow-y: auto; 
     margin-bottom: 12px;
     height: 100%; 
-    min-height: 120px; 
-    max-height: none !important; 
+    min-height: 150px; 
+    max-height: none !important; /* 解除高度限制 */
 }
 
 li { 
@@ -214,7 +216,6 @@ li {
 }
 li:last-child { border-bottom: none; }
 
-/* 允許單字太長時斷行，但不強制壓縮 */
 li span, .list-editor span, #admin-log-ui li {
     word-break: break-word;     
     overflow-wrap: anywhere;    
@@ -222,16 +223,10 @@ li span, .list-editor span, #admin-log-ui li {
     min-width: 0;               
 }
 
-/* ★ 精選連結特例：只有這裡的網址需要強制壓縮並佔滿空間 */
-#featured-list-ui li span {
-    flex: 1;
-    width: 0; 
-}
-
-/* ★ 過號名單特例：讓左側號碼區塊佔滿空間 */
-#passed-list-ui li > div {
-    flex: 1;
-}
+/* ★ 精選連結特例：網址強制換行 */
+#featured-list-ui li span { flex: 1; width: 0; }
+/* ★ 過號名單特例 */
+#passed-list-ui li > div { flex: 1; }
 
 #admin-log-ui { background: #1f2937; border: none; font-family: monospace; }
 #admin-log-ui li { color: #d1d5db; border-bottom: 1px solid #374151; font-size: 0.85rem; display: block; padding: 8px 12px; }
@@ -302,52 +297,24 @@ li span, .list-editor span, #admin-log-ui li {
     #card-calling .big-action-row { margin-bottom: 15px; }
     #btn-call-next { flex: 1.5; }
 
-    /* ★ 核心修改：讓連結與管理員帳號在大螢幕並排 (解除滿版) */
-    #card-links.full-width-card,
-    #card-user-management.full-width-card {
-        grid-column: auto; /* 從滿版(span -1)變回自動，即可並排 */
+    /* ★ 讓管理員帳號 & 精選連結卡片變回單格 (50%) */
+    #card-user-management.full-width-card,
+    #card-links.full-width-card {
+        grid-column: auto;
     }
 
-    /* ★ 管理員帳號佈局：左列表，右輸入 */
+    /* ★ 核心修復：管理員帳號內改為「上列表、下輸入」垂直結構 */
+    /* 這樣在卡片寬度變窄時 (50%)，輸入框不會被擠壞 */
     #card-user-management .list-editor {
-        display: grid;
-        /* 左側彈性，右側固定寬度 (minmax 避免過窄) */
-        grid-template-columns: 1fr minmax(220px, 280px);
-        grid-template-rows: auto 1fr;
+        display: flex; /* 改回 Flex，移除 Grid */
+        flex-direction: column;
         gap: 20px;
-        align-items: start;
-        max-height: none;
-        overflow: visible;
-        flex: none; 
     }
-    
-    /* 列表佔據左側全部高度 */
+    /* 讓列表自適應高度 */
     #card-user-management .list-editor ul {
-        grid-column: 1;
-        grid-row: 1 / -1;
+        flex: 1;
+        min-height: 250px;
         margin-bottom: 0;
-        height: 100%;       
-        min-height: 250px;  
-        max-height: 450px !important; 
-    }
-
-    /* 標題：右側第一列 */
-    #card-user-management .list-editor > label {
-        grid-column: 2;
-        grid-row: 1;
-        margin-bottom: 0;
-    }
-    
-    /* 輸入框：右側第二列 */
-    #card-user-management .list-editor > .input-group.vertical {
-        grid-column: 2;
-        grid-row: 2;
-        background: #f9fafb;
-        padding: 20px;
-        border-radius: var(--radius-md);
-        border: 1px solid var(--border-color);
-        height: auto;
-        align-self: start; 
     }
 
     /* LINE 設定雙欄 */
@@ -361,9 +328,12 @@ li span, .list-editor span, #admin-log-ui li {
 }
 
 @media (min-width: 1440px) {
-    .card-container { grid-template-columns: repeat(3, 1fr); }
+    /* ★ 關鍵修改：強制大螢幕使用 2 欄，實現完美的 50/50 佈局 */
+    /* 數據分析 (1格) + 操作日誌 (1格) = 完美並排 */
+    .card-container { grid-template-columns: repeat(2, 1fr); }
+    
     #card-stats.full-width-card, 
     #card-logs.full-width-card { 
-        grid-column: span 2; 
+        grid-column: auto; /* 取消跨欄，讓它們各佔 1 格 (即 50%) */
     }
 }
