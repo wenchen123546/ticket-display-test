@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台樣式 (admin.css) - v5.3 Perfect Layout Fix
+ * 後台樣式 (admin.css) - v5.4 Final Layout & Text Fix
  * ==========================================
  */
 
@@ -181,30 +181,29 @@ textarea { width: 100%; border: 1px solid var(--border-color); border-radius: va
 .sound-toggle-group, .system-toggle-group { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-radius: var(--radius-md); background: #f9fafb; border: 1px solid var(--border-color); margin-bottom: 15px; cursor: pointer; }
 input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
 
-/* --- 6. 列表與日誌 (★ Flex 自動高度核心修復 ★) --- */
+/* --- 6. 列表與日誌 (★ 核心修復：文字排版) --- */
 ul { list-style: none; padding: 0; margin: 0; }
 
-/* 定義容器為 Flex Column，且不限制高度，讓它自動填滿卡片 */
 .list-editor, .admin-log-container { 
     flex: 1; 
     display: flex; 
     flex-direction: column; 
     min-width: 0; 
-    min-height: 0; /* ★ 讓子元素可以縮小到 0 */
-    overflow: hidden; /* 防止撐開卡片 */
+    min-height: 0; 
+    overflow: hidden; 
 }
 
-/* 列表本體：自動填滿空間，並出現捲軸 */
+/* 列表容器：自動填滿空間，並出現捲軸 */
 .list-editor ul, #admin-log-ui, #stats-list-ui, #online-users-list, #user-list-ui, #passed-list-ui, #featured-list-ui {
-    flex: 1; /* ★ 關鍵：佔據所有剩餘空間 */
+    flex: 1; 
     background: #f9fafb; 
     border-radius: var(--radius-md); 
     border: 1px solid #f3f4f6;
-    overflow-y: auto; /* ★ 內容多時出現捲軸 */
+    overflow-y: auto; 
     margin-bottom: 12px;
-    height: 100%; /* 確保撐開 */
-    min-height: 120px; /* 給一個最小高度，避免太扁 */
-    max-height: none !important; /* ★ 移除任何最大高度限制，完全由 Flex 控制 */
+    height: 100%; 
+    min-height: 120px; 
+    max-height: none !important; 
 }
 
 li { 
@@ -215,13 +214,24 @@ li {
 }
 li:last-child { border-bottom: none; }
 
+/* ★ 全域修復：只允許必要的斷行，但不強制壓縮 (解決直排文字問題) */
 li span, .list-editor span, #admin-log-ui li {
-    word-break: break-all;      
+    word-break: break-word;     /* 允許單字太長時斷行 */
     overflow-wrap: anywhere;    
     white-space: normal;        
     min-width: 0;               
-    flex: 1;       
-    width: 0;
+    /* 移除 width: 0 和 flex: 1，讓文字自然排列 */
+}
+
+/* ★ 精選連結特例：只有這裡的網址需要強制壓縮並佔滿空間 */
+#featured-list-ui li span {
+    flex: 1;
+    width: 0; /* 強制 Flex 子元素收縮，配合 break-word 實現網址換行 */
+}
+
+/* ★ 過號名單特例：讓左側號碼區塊佔滿空間，推擠刪除按鈕 */
+#passed-list-ui li > div {
+    flex: 1;
 }
 
 #admin-log-ui { background: #1f2937; border: none; font-family: monospace; }
@@ -297,7 +307,7 @@ li span, .list-editor span, #admin-log-ui li {
     /* 讓左側列表和右側輸入框各佔一區，列表高度自動對齊輸入區 */
     #card-user-management .list-editor {
         display: grid;
-        grid-template-columns: 1fr 280px; /* ★ 左列表彈性寬，右輸入固定寬 280px */
+        grid-template-columns: 1fr 280px; /* 左列表彈性寬，右輸入固定寬 280px */
         grid-template-rows: auto 1fr;
         gap: 20px;
         align-items: start;
@@ -311,9 +321,9 @@ li span, .list-editor span, #admin-log-ui li {
         grid-column: 1;
         grid-row: 1 / -1;
         margin-bottom: 0;
-        height: 100%;       /* 撐滿高度 */
-        min-height: 250px;  /* 最小高度 */
-        max-height: 450px !important; /* ★ 限制最大高度，避免列表無限長導致輸入框很難找 */
+        height: 100%;       
+        min-height: 250px;  
+        max-height: 450px !important; 
     }
 
     /* 標題：右側第一列 */
@@ -332,7 +342,7 @@ li span, .list-editor span, #admin-log-ui li {
         border-radius: var(--radius-md);
         border: 1px solid var(--border-color);
         height: auto;
-        align-self: start; /* 靠上對齊 */
+        align-self: start; 
     }
 
     /* LINE 設定雙欄 */
