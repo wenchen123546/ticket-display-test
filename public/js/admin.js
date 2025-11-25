@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台邏輯 (admin.js) - v19.0 (Editable Links)
+ * 後台邏輯 (admin.js) - v19.0 (Editable Links Fix)
  * ==========================================
  */
 
@@ -191,7 +191,7 @@ let uniqueUsername = "";
 let toastTimer = null;
 let publicToggleConfirmTimer = null;
 let editingHour = null;
-let editingLinkItem = null; // 用於追蹤正在編輯的連結
+let editingLinkItem = null; // 用於追蹤正在編輯的連結，包含 linkText, linkUrl
 
 // --- Socket ---
 const socket = io({ autoConnect: false, auth: { token: "" } });
@@ -536,7 +536,7 @@ function renderFeaturedListUI(contents) {
         viewDiv.style.flexDirection = "column";
 
         const span = document.createElement("span");
-        span.style.wordBreak = "break-all"; 
+        span.style.wordBreak = "break-all";
         span.style.whiteSpace = "normal";
         span.style.fontWeight = "600";
         span.textContent = item.linkText;
@@ -558,6 +558,7 @@ function renderFeaturedListUI(contents) {
         const editBtn = document.createElement("button");
         editBtn.className = "btn-secondary";
         editBtn.textContent = "✎";
+        editBtn.title = "編輯連結";
         editBtn.style.padding = "2px 8px";
         editBtn.onclick = () => {
             startEditingLink(item);
@@ -588,7 +589,8 @@ function renderFeaturedListUI(contents) {
 
 // 進入編輯模式
 function startEditingLink(item) {
-    editingLinkItem = item;
+    // 儲存原始數據，用於 LREM 或 LSET 查找
+    editingLinkItem = { linkText: item.linkText, linkUrl: item.linkUrl };
     
     const textInput = document.getElementById("new-link-text");
     const urlInput = document.getElementById("new-link-url");
@@ -603,6 +605,14 @@ function startEditingLink(item) {
     btn.textContent = at["btn_save_edit"] || "✓";
     btn.classList.remove("btn-add");
     btn.classList.add("btn-success");
+
+    // [新增]: 增加一個取消按鈕的提示/功能
+    const cancelHint = document.createElement('span');
+    cancelHint.id = 'cancel-edit-hint';
+    cancelHint.innerHTML = ` (Esc 取消編輯)`;
+    cancelHint.style.fontSize = '0.85rem';
+    cancelHint.style.color = 'var(--warning-text)';
+    btn.parentElement.appendChild(cancelHint); // 放在按鈕旁邊
     
     textInput.focus();
 }
@@ -614,10 +624,13 @@ function cancelEditingLink() {
     const textInput = document.getElementById("new-link-text");
     const urlInput = document.getElementById("new-link-url");
     const btn = document.getElementById("add-featured-btn");
+    const cancelHint = document.getElementById('cancel-edit-hint');
     
     textInput.value = "";
     urlInput.value = "";
     
+    if (cancelHint) cancelHint.remove();
+
     // UI 還原
     textInput.style.backgroundColor = "";
     urlInput.style.backgroundColor = "";
@@ -773,12 +786,13 @@ const addFeaturedBtn = document.getElementById("add-featured-btn");
 if(addFeaturedBtn) addFeaturedBtn.onclick = async () => {
     const text = newLinkTextInput.value.trim();
     const url = newLinkUrlInput.value.trim();
+    
     if (!text || !url) return showToast(at["alert_link_required"], "error");
     if (!url.startsWith('http://') && !url.startsWith('https://')) return showToast(at["alert_url_invalid"], "error");
     
     addFeaturedBtn.disabled = true;
-    
-    // 判斷是新增還是編輯
+    let success = false;
+
     if(editingLinkItem) {
         // 編輯模式
         const payload = {
@@ -787,35 +801,38 @@ if(addFeaturedBtn) addFeaturedBtn.onclick = async () => {
             newLinkText: text,
             newLinkUrl: url
         };
-        const success = await apiRequest("/api/featured/edit", payload);
+        success = await apiRequest("/api/featured/edit", payload); 
         if (success) {
             showToast(at["toast_link_updated"], "success");
             cancelEditingLink(); // 成功後退出編輯模式
         }
     } else {
         // 新增模式
-        const success = await apiRequest("/api/featured/add", { linkText: text, linkUrl: url });
+        success = await apiRequest("/api/featured/add", { linkText: text, linkUrl: url });
         if (success) {
             newLinkTextInput.value = ""; 
             newLinkUrlInput.value = ""; 
         }
     }
     
+    if(success) {
+        // 成功後強制刷新列表 (依賴 socket 廣播，但此處再次 call API 確保 client 狀態一致)
+        await apiRequest("/api/featured/get", {}, true); 
+    }
+
     addFeaturedBtn.disabled = false;
 };
 
 // 鍵盤監聽取消編輯
 document.addEventListener("keydown", (e) => {
+    // 檢查是否有正在編輯
     if(e.key === "Escape" && editingLinkItem) {
         cancelEditingLink();
+        e.preventDefault(); // 阻止 ESC 的默認行為
     }
 });
 if(newLinkTextInput) newLinkTextInput.addEventListener("keyup", (e) => { 
     if (e.key === "Enter") newLinkUrlInput.focus();
-    // 如果清空，也視為想取消編輯(僅限編輯模式)
-    if (editingLinkItem && newLinkTextInput.value === "" && newLinkUrlInput.value === "") {
-        // cancelEditingLink(); // 可選：自動取消
-    }
 });
 if(newLinkUrlInput) newLinkUrlInput.addEventListener("keyup", (event) => { if (event.key === "Enter") addFeaturedBtn.click(); });
 
@@ -1185,7 +1202,7 @@ if(btnStatsMinus) btnStatsMinus.onclick = () => adjustStat(-1);
 if(btnStatsPlus) btnStatsPlus.onclick = () => adjustStat(1);
 if(modalOverlay) modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeEditModal(); }
 
-// --- LINE 設定邏輯 ---
+// --- LINE 設定邏輯 (保持不變) ---
 const domKeys = [
     "approach", "arrival", "status", "personal", "passed", 
     "set_ok", "cancel", "login_hint", "err_passed", "err_no_sub", "set_hint" 
