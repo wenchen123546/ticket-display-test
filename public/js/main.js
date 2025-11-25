@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 前端邏輯 (main.js) - v18.15 Optimized (Reconnection UX)
+ * 前端邏輯 (main.js) - v18.35 Optimized (Native Reconnect & Audio Unlock)
  * ==========================================
  */
 
@@ -46,7 +46,8 @@ const i18nData = {
         "estimated_wait": "預估等待：約 %s 分鐘",
         "time_just_now": "剛剛更新",
         "time_min_ago": "最後更新於 %s 分鐘前",
-        "status_connected": "✅ 已連線"
+        "status_connected": "✅ 已連線",
+        "status_reconnecting": "連線中斷，嘗試重連 (%s)..."
     },
     "en": {
         "app_title": "Waiting Queue",
@@ -88,7 +89,8 @@ const i18nData = {
         "estimated_wait": "Est. wait: %s mins",
         "time_just_now": "Updated just now",
         "time_min_ago": "Updated %s min ago",
-        "status_connected": "✅ Connected"
+        "status_connected": "✅ Connected",
+        "status_reconnecting": "Reconnecting (%s)..."
     }
 };
 
@@ -130,11 +132,32 @@ let isLocallyMuted = false;
 let lastUpdateTime = null;
 let currentSystemMode = 'ticketing'; 
 let avgServiceTime = 0;
-let reconnectTimer = null; 
 let audioPermissionGranted = false;
 let ttsEnabled = false;
 let wakeLock = null;
 let myTicket = localStorage.getItem('callsys_ticket') ? parseInt(localStorage.getItem('callsys_ticket')) : null;
+
+// [優化] AudioContext 狀態管理 (解決 iOS 靜音問題)
+let audioContext = null;
+
+function unlockAudioContext() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+            // 播放極短靜音以完全解鎖
+            const buffer = audioContext.createBuffer(1, 1, 22050);
+            const source = audioContext.createBufferSource();
+            source.buffer = buffer;
+            source.connect(audioContext.destination);
+            source.start(0);
+            audioPermissionGranted = true;
+            ttsEnabled = true;
+            updateMuteUI(false);
+        });
+    }
+}
 
 function showToast(msg, type = 'info') {
     let container = document.getElementById('toast-container');
@@ -185,18 +208,25 @@ document.addEventListener('visibilitychange', async () => {
 
 function playNotificationSound() {
     if (!DOM.notifySound) return;
-    DOM.notifySound.play().then(() => {
-        audioPermissionGranted = true;
-        ttsEnabled = true; 
-        updateMuteUI(false);
-        if (!isSoundEnabled || isLocallyMuted) {
-            DOM.notifySound.pause(); DOM.notifySound.currentTime = 0;
-        }
-    }).catch(() => {
-        console.warn("Autoplay blocked");
-        audioPermissionGranted = false;
-        updateMuteUI(true, true); 
-    });
+    // 嘗試使用 AudioContext 解鎖後的權限
+    if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+    
+    const playPromise = DOM.notifySound.play();
+    if (playPromise !== undefined) {
+        playPromise.then(() => {
+            audioPermissionGranted = true;
+            updateMuteUI(false);
+            if (!isSoundEnabled || isLocallyMuted) {
+                DOM.notifySound.pause(); DOM.notifySound.currentTime = 0;
+            }
+        }).catch(() => {
+            console.warn("Autoplay blocked");
+            audioPermissionGranted = false;
+            updateMuteUI(true, true); 
+        });
+    }
 }
 
 function triggerConfetti() {
@@ -247,12 +277,19 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-// --- 4. Socket.io 初始化與事件處理 ---
-const socket = io({ autoConnect: false });
+// --- 4. Socket.io 初始化與事件處理 (Native Reconnection) ---
+// [優化] 啟用 reconnection (預設 true), 設定嘗試次數
+const socket = io({ 
+    autoConnect: false,
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    randomizationFactor: 0.5
+});
 
 socket.on("connect", () => {
     socket.emit('joinRoom', 'public');
-    if (reconnectTimer) clearInterval(reconnectTimer);
     DOM.statusBar.textContent = T["status_connected"] || "Connected";
     DOM.statusBar.style.backgroundColor = "#10b981"; 
     setTimeout(() => { if (socket.connected) DOM.statusBar.classList.remove("visible"); }, 1500);
@@ -261,19 +298,24 @@ socket.on("connect", () => {
 
 socket.on("disconnect", (reason) => {
     DOM.statusBar.classList.add("visible");
-    if (reconnectTimer) clearInterval(reconnectTimer);
-    let countdownVal = 3;
-    const errorText = T["error_network"] || "Connection Lost";
-    DOM.statusBar.textContent = `${errorText} (${countdownVal}s)`;
+    DOM.statusBar.textContent = T["error_network"];
     DOM.statusBar.style.backgroundColor = "#dc2626";
-
-    reconnectTimer = setInterval(() => {
-        countdownVal--;
-        if (countdownVal > 0) DOM.statusBar.textContent = `${errorText} (${countdownVal}s)`;
-        else { DOM.statusBar.textContent = "Connecting..."; DOM.statusBar.style.backgroundColor = "#d97706"; clearInterval(reconnectTimer); }
-    }, 1000);
-    DOM.lastUpdated.textContent = errorText;
+    DOM.lastUpdated.textContent = T["error_network"];
 });
+
+// [優化] 監聽 Socket 原生重連事件
+socket.io.on("reconnect_attempt", (attempt) => {
+    DOM.statusBar.classList.add("visible");
+    DOM.statusBar.style.backgroundColor = "#d97706"; // Warning Color
+    const msg = (T["status_reconnecting"] || "Reconnecting (%s)...").replace("%s", attempt);
+    DOM.statusBar.textContent = msg;
+});
+
+socket.io.on("reconnect", () => {
+    // 連線成功會觸發 "connect"，此處可留空
+    console.log("Reconnected");
+});
+
 
 socket.on("updateQueue", (data) => {
     const current = data.current;
@@ -408,7 +450,13 @@ function renderFeatured(contents) {
 
 // --- 6. Interaction Events ---
 
-if(DOM.btnTakeTicket) DOM.btnTakeTicket.addEventListener("click", async () => {
+// [優化] 通用解鎖包裝函式
+function handleUserInteraction(callback) {
+    unlockAudioContext(); // 確保音效解鎖
+    callback();
+}
+
+if(DOM.btnTakeTicket) DOM.btnTakeTicket.addEventListener("click", () => handleUserInteraction(async () => {
     if ("Notification" in window && Notification.permission !== "granted") {
         const p = await Notification.requestPermission();
         if (p !== "granted" && !confirm("Without notifications, you must keep this tab open. Continue?")) return;
@@ -430,9 +478,9 @@ if(DOM.btnTakeTicket) DOM.btnTakeTicket.addEventListener("click", async () => {
         } else { showToast(data.error || T["take_fail"], "error"); }
     } catch (e) { showToast(T["error_network"], "error"); } 
     finally { DOM.btnTakeTicket.disabled = false; DOM.btnTakeTicket.textContent = T["take_ticket"]; }
-});
+}));
 
-if(DOM.btnTrackTicket) DOM.btnTrackTicket.addEventListener("click", async () => {
+if(DOM.btnTrackTicket) DOM.btnTrackTicket.addEventListener("click", () => handleUserInteraction(async () => {
     const val = DOM.manualTicketInput.value;
     if (!val) return showToast(T["input_empty"], "error");
     
@@ -448,7 +496,7 @@ if(DOM.btnTrackTicket) DOM.btnTrackTicket.addEventListener("click", async () => 
     showMyTicketMode();
     updateTicketUI(parseInt(DOM.number.textContent) || 0);
     showToast(T["take_success"], "success");
-});
+}));
 
 if(DOM.btnCancelTicket) DOM.btnCancelTicket.addEventListener("click", () => {
     if(confirm(T["cancel_confirm"])) {
@@ -466,9 +514,9 @@ function updateMuteUI(isMuted, needsPermission = false) {
     DOM.soundPrompt.classList.toggle("is-active", !needsPermission && !isMuted);
 }
 
-if (DOM.soundPrompt) DOM.soundPrompt.addEventListener("click", () => {
+if (DOM.soundPrompt) DOM.soundPrompt.addEventListener("click", () => handleUserInteraction(() => {
     if (!audioPermissionGranted) { playNotificationSound(); } else { updateMuteUI(!isLocallyMuted); }
-});
+}));
 
 if (DOM.copyLinkPrompt) DOM.copyLinkPrompt.addEventListener("click", () => {
     if (!navigator.clipboard) return alert("Use HTTPS to copy");
@@ -493,4 +541,6 @@ document.addEventListener("DOMContentLoaded", () => {
     applyI18n();
     if (myTicket) showMyTicketMode(); else showTakeTicketMode();
     socket.connect();
+    // 嘗試在第一次互動時註冊事件以解鎖音效
+    document.body.addEventListener('click', unlockAudioContext, { once: true });
 });
