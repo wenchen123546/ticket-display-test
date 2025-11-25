@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/admin.css?v=76"> 
+<link rel="stylesheet" href="/css/admin.css"> 
 </head>
 <body>
 
@@ -68,15 +68,13 @@
                         <span class="label" data-i18n="admin_label_current">目前叫號</span>
                         <span class="value big-number" id="number">0</span>
                     </div>
-                    <div class="dashboard-divider"></div>
                     <div class="dashboard-item">
                         <span class="label" data-i18n="admin_label_issued">已發號至</span>
                         <span class="value sub-number" id="issued-number">0</span>
                     </div>
-                    <div class="dashboard-divider"></div>
                     <div class="dashboard-item">
                         <span class="label" data-i18n="admin_label_waiting">等待組數</span>
-                        <span class="value sub-number" id="waiting-count" style="color: #f59e0b;">0</span>
+                        <span class="value sub-number" id="waiting-count" style="color: var(--warning);">0</span>
                     </div>
                 </div>
 
@@ -94,7 +92,7 @@
                                     <span class="icon">⏭️</span> <span data-i18n="btn_pass">過號</span>
                                 </button>
 
-                                <button id="btn-call-next" type="button" class="btn-primary btn-big btn-large-shadow">
+                                <button id="btn-call-next" type="button" class="btn-big">
                                     <span data-i18n="btn_next">下一號</span> <span class="icon">▶</span>
                                 </button>
                             </div>
@@ -175,7 +173,7 @@
                             <div class="control-group">
                                 <div class="stats-header">
                                     <p>今日累計叫號</p>
-                                    <span id="stats-today-count">0</span>
+                                    <span id="stats-today-count" style="font-size: 2rem; font-weight: bold;">0</span>
                                 </div>
                                 <div id="hourly-chart" class="chart-container" title="點擊長條圖可手動增減數值">
                                     <p class="loading-text">載入圖表...</p>
@@ -185,7 +183,7 @@
                                     <button id="btn-export-csv" type="button" class="btn-success" style="display:none;">下載 CSV</button> 
                                     <button id="btn-clear-stats" type="button" class="btn-danger-ghost">清空</button>
                                 </div>
-                                <label class="sub-header">最近紀錄</label>
+                                <label style="margin-top:20px; display:block;">最近紀錄</label>
                                 <ul id="stats-list-ui"><li>(載入中...)</li></ul>
                             </div>
                         </div>
@@ -196,7 +194,7 @@
                             <h3><span class="card-icon">📋</span> <span data-i18n="card_title_logs">操作日誌</span></h3>
                             <div class="control-group admin-log-container">
                                 <ul id="admin-log-ui"><li>等待連線...</li></ul>
-                                <button id="clear-log-btn" type="button" class="btn-ghost" style="display: none;">清除紀錄</button>
+                                <button id="clear-log-btn" type="button" class="btn-reset-single" style="display: none;">清除紀錄</button>
                             </div>
                         </div>
                     </div>
@@ -254,7 +252,7 @@
                                     <label class="radio-option"><input type="radio" name="systemMode" value="input"> 手動輸入</label>
                                 </div>
                             </div>
-                            <div class="reset-zone">
+                            <div class="reset-zone" style="margin-top:auto;">
                                 <button id="resetAll" type="button" class="btn-danger-outline" data-i18n="btn_reset_all">💥 全域重置系統</button>
                             </div>
                         </div>
@@ -266,7 +264,7 @@
                             <div class="control-group list-editor">
                                 <label>管理員列表</label>
                                 <ul id="user-list-ui"></ul>
-                                <label class="sub-header">新增/修改</label>
+                                <label style="margin-top:15px; display:block;">新增/修改</label>
                                 <div class="input-group vertical">
                                     <input type="text" id="new-user-username" placeholder="帳號">
                                     <input type="text" id="new-user-nickname" placeholder="綽號">
@@ -294,7 +292,7 @@
                             
                             <div class="control-group form-group-boxed highlight-orange" id="unlock-pwd-group" style="display:none;">
                                 <label>🔑 LINE 後台解鎖密碼</label>
-                                <p>使用者在 LINE 輸入此密碼後，可獲得後台連結 (效期10分鐘)。</p>
+                                <p class="section-hint">使用者在 LINE 輸入此密碼後，可獲得後台連結 (效期10分鐘)。</p>
                                 <div class="input-group">
                                     <input type="text" id="line-unlock-pwd" placeholder="設定密碼">
                                     <button id="btn-save-unlock-pwd" type="button" class="btn-warn">儲存</button>
@@ -307,7 +305,7 @@
                                 <textarea id="line-msg-login-hint" placeholder="例如：請輸入「解鎖密碼」..."></textarea>
                             </div>
 
-                            <label class="sub-header">🔔 主動推播通知</label>
+                            <label style="font-size:1.1rem; font-weight:bold; margin: 20px 0 10px 0; display:block;">🔔 主動推播通知</label>
                             <div class="control-group form-group-boxed">
                                 <label>快到了 (前5號)</label>
                                 <p class="var-hint">變數: {current} {target} {diff}</p>
@@ -320,7 +318,7 @@
                                 <textarea id="line-msg-arrival" placeholder="例如：輪到您了！..."></textarea>
                             </div>
 
-                            <label class="sub-header">🤖 關鍵字自動回覆</label>
+                            <label style="font-size:1.1rem; font-weight:bold; margin: 20px 0 10px 0; display:block;">🤖 關鍵字自動回覆</label>
                             
                             <div class="control-group form-group-boxed">
                                 <label>關鍵字：「查詢」、「status」</label>
@@ -340,8 +338,8 @@
                                 <textarea id="line-msg-set_hint" style="height:60px;"></textarea>
                             </div>
                             <div class="control-group form-group-boxed">
-                                <label>關鍵字：「設定提醒」或「直接輸入號碼」 (成功時)</label>
-                                <p class="var-hint">使用者直接輸入數字（如 "100"）即可設定。變數: {target} {current} {diff}</p>
+                                <label>輸入號碼 (成功時)</label>
+                                <p class="var-hint">使用者輸入數字（如 "100"）成功設定提醒。變數: {target} {current} {diff}</p>
                                 <textarea id="line-msg-set_ok" style="height:80px;"></textarea>
                             </div>
 
@@ -401,6 +399,6 @@
 
 <div id="toast-notification"></div>
 
-<script src="/js/admin.js?v=76"></script> 
+<script src="/js/admin.js"></script> 
 </body>
 </html>
