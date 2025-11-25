@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v18.20 Optimized + Security Fixes
+ * 伺服器 (index.js) - v18.21 Fixed (Issue Reset Logic)
  * ==========================================
  */
 
@@ -573,6 +573,21 @@ async function handleNumberControl(type, req) {
             case 'set_issue':
                 newNum = parseInt(number);
                 if (isNaN(newNum) || newNum < 0) return { success: false, error: "無效號碼" };
+                
+                // [修正] 特殊邏輯：如果設定為 0 (重置)，則強制將目前叫號也歸零，避免邏輯衝突
+                if (newNum === 0) {
+                    pipeline.set(KEY_LAST_ISSUED, 0);
+                    pipeline.set(KEY_CURRENT_NUMBER, 0);
+                    await pipeline.exec();
+                    
+                    logMessage = `♻️ 發號機與叫號強制歸零`;
+                    await logHistory(0, req.user.nickname, 0);
+                    checkAndNotifyLineUsers(0);
+                    await broadcastQueueStatus();
+                    return { success: true };
+                }
+
+                // 一般情況仍需檢查不可小於目前叫號
                 if (newNum < currentNum) return { success: false, error: `發號數 (${newNum}) 不可小於目前叫號 (${currentNum})` };
 
                 await redis.set(KEY_LAST_ISSUED, newNum);
