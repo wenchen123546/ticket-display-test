@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 伺服器 (index.js) - v18.15 Optimized + LINE Set Hint
+ * 伺服器 (index.js) - v18.16 Optimized + Context Flow
  * ==========================================
  */
 
@@ -99,6 +99,7 @@ const KEY_LINE_SUB_PREFIX = 'callsys:line:notify:';
 const KEY_LINE_USER_STATUS = 'callsys:line:user:';
 const KEY_LINE_UNLOCK_PWD = 'callsys:line:unlock_pwd';
 const KEY_LINE_ADMIN_UNLOCK = 'callsys:line:admin_session:';
+const KEY_LINE_CONTEXT = 'callsys:line:context:'; // [新增] 對話狀態 Context
 
 // --- LINE 文案 Keys ---
 const KEY_LINE_MSG_APPROACH   = 'callsys:line:msg:approach';
@@ -111,7 +112,7 @@ const KEY_LINE_MSG_CANCEL     = 'callsys:line:msg:cancel';
 const KEY_LINE_MSG_LOGIN_HINT = 'callsys:line:msg:login_hint';
 const KEY_LINE_MSG_ERR_PASSED = 'callsys:line:msg:err_passed'; 
 const KEY_LINE_MSG_ERR_NO_SUB = 'callsys:line:msg:err_no_sub'; 
-const KEY_LINE_MSG_SET_HINT   = 'callsys:line:msg:set_hint'; // [新增] 設定提醒關鍵字回覆
+const KEY_LINE_MSG_SET_HINT   = 'callsys:line:msg:set_hint';
 
 // --- 預設文案 (Defaults) ---
 const DEFAULT_MSG_APPROACH   = "🔔 叫號提醒！\n\n目前已叫號至 {current} 號。\n您的 {target} 號即將輪到 (剩 {diff} 組)，請準備前往現場！";
@@ -124,7 +125,7 @@ const DEFAULT_MSG_CANCEL     = "🗑️ 已取消對 {target} 號的提醒通知
 const DEFAULT_MSG_LOGIN_HINT = "🔒 請輸入「解鎖密碼」以驗證身份。";
 const DEFAULT_MSG_ERR_PASSED = "⚠️ 設定失敗\n{target} 號已經過號或正在叫號 (目前 {current} 號)。";
 const DEFAULT_MSG_ERR_NO_SUB = "ℹ️ 您目前沒有設定任何叫號提醒。";
-const DEFAULT_MSG_SET_HINT   = "您好，如需設定叫號提醒，請直接輸入您手上的號碼牌號碼 (例如：105)。"; // [新增] 預設設定提示
+const DEFAULT_MSG_SET_HINT   = "您好，請輸入您手上的號碼牌號碼 (例如：105)，我們將為您設定提醒。"; 
 
 const onlineAdmins = new Map();
 
@@ -284,12 +285,6 @@ function broadcastOnlineAdmins() {
     io.to("admin").emit("updateOnlineAdmins", Array.from(onlineAdmins.values()));
 }
 
-/**
- * 廣播列表數據 (過號/精選連結) 給前端並更新時間戳
- * @param {string} key - Redis Key (KEY_PASSED_NUMBERS or KEY_FEATURED_CONTENTS)
- * @param {string} eventName - Socket.io Event Name
- * @param {boolean} isJSON - 是否為 JSON 陣列 (lrange)
- */
 async function broadcastList(key, eventName, isJSON = false) {
     try {
         const raw = isJSON ? await redis.lrange(key, 0, -1) : await redis.zrange(key, 0, -1);
@@ -299,9 +294,6 @@ async function broadcastList(key, eventName, isJSON = false) {
     } catch (e) { console.error(`Broadcast ${eventName} error:`, e); }
 }
 
-/**
- * 廣播叫號狀態 (Current/Issued)
- */
 async function broadcastQueueStatus() {
     const [current, issued] = await redis.mget(KEY_CURRENT_NUMBER, KEY_LAST_ISSUED);
     const currentNum = parseInt(current) || 0;
@@ -360,7 +352,7 @@ async function checkAndNotifyLineUsers(currentNum) {
     } catch (e) { console.error("Line Notify Error:", e); }
 }
 
-// --- LINE Event Handler ---
+// --- LINE Event Handler (Modified for Context Flow) ---
 async function handleLineEvent(event) {
     if (event.type !== 'message' || event.message.type !== 'text') return Promise.resolve(null);
     
@@ -368,13 +360,13 @@ async function handleLineEvent(event) {
     const userId = event.source.userId;
     const replyToken = event.replyToken;
 
-    // 1. 讀取設定
+    // 1. 讀取設定與 Context
     const keys = [
         KEY_LINE_MSG_STATUS, KEY_LINE_MSG_PERSONAL, 
         KEY_LINE_MSG_PASSED, KEY_LINE_MSG_SET_OK, KEY_LINE_MSG_CANCEL,
         KEY_LINE_MSG_LOGIN_HINT,
         KEY_LINE_MSG_ERR_PASSED, KEY_LINE_MSG_ERR_NO_SUB,
-        KEY_LINE_MSG_SET_HINT // [新增]
+        KEY_LINE_MSG_SET_HINT
     ];
     const results = await redis.mget(keys);
     
@@ -387,10 +379,19 @@ async function handleLineEvent(event) {
     
     const MSG_ERR_PASSED = results[6] || DEFAULT_MSG_ERR_PASSED;
     const MSG_ERR_NO_SUB = results[7] || DEFAULT_MSG_ERR_NO_SUB;
-    const MSG_SET_HINT   = results[8] || DEFAULT_MSG_SET_HINT; // [新增]
+    const MSG_SET_HINT   = results[8] || DEFAULT_MSG_SET_HINT;
 
-    // 2. 後台解鎖功能
+    // 取得使用者當前狀態 (Context)
+    const contextKey = `${KEY_LINE_CONTEXT}${userId}`;
+    const userContext = await redis.get(contextKey);
+
+    // ==========================================
+    // 2. 後台解鎖功能 (Two-Step Flow)
+    // ==========================================
+    
+    // 步驟 A: 觸發登入
     if (text === '後台登入') {
+        // 檢查是否已經有 Session
         const isUnlocked = await redis.get(`${KEY_LINE_ADMIN_UNLOCK}${userId}`);
         if (isUnlocked) {
             const host = process.env.RENDER_EXTERNAL_URL || "https://您的網域"; 
@@ -399,22 +400,30 @@ async function handleLineEvent(event) {
                 text: `🔗 後台傳送門已開啟：\n\n請點擊連結進入後台：\n${host}/admin.html\n\n(此連結包含敏感權限，請勿轉傳)`
             });
         } else {
+            // 設定 Context 為等待密碼，過期時間 2 分鐘
+            await redis.set(contextKey, 'WAITING_PASS', 'EX', 120);
             return lineClient.replyMessage(replyToken, { type: "text", text: MSG_LOGIN_HINT });
         }
     }
 
+    // 步驟 B: 輸入密碼 (僅在 Context 符合時觸發)
     let currentUnlockPass = await redis.get(KEY_LINE_UNLOCK_PWD);
     if (!currentUnlockPass) currentUnlockPass = `unlock${ADMIN_TOKEN}`;
 
-    if (text === currentUnlockPass) {
+    if (text === currentUnlockPass && userContext === 'WAITING_PASS') {
         await redis.set(`${KEY_LINE_ADMIN_UNLOCK}${userId}`, "1", "EX", 600);
+        await redis.del(contextKey); // 清除 Context
         return lineClient.replyMessage(replyToken, {
             type: "text",
             text: "🔓 管理員權限已驗證\n\n您現在可以點擊「後台登入」按鈕取得連結。\n(權限將在 10 分鐘後自動上鎖)"
         });
     }
 
-    // 3. 查詢進度
+    // ==========================================
+    // 3. 一般查詢功能 (Stateless)
+    // ==========================================
+
+    // 查詢進度
     if (['查詢進度', '查詢', '進度', 'status', '？', '?'].includes(text)) {
         const [current, issued] = await redis.mget(KEY_CURRENT_NUMBER, KEY_LAST_ISSUED);
         const currentNum = parseInt(current) || 0;
@@ -441,7 +450,7 @@ async function handleLineEvent(event) {
         return lineClient.replyMessage(replyToken, { type: "text", text: finalMsg });
     }
 
-    // 4. 過號名單
+    // 過號名單
     if (['過號名單', '過號', 'passed'].includes(text)) {
         const passedList = await redis.zrange(KEY_PASSED_NUMBERS, 0, -1);
         let listStr = (passedList && passedList.length > 0) ? passedList.join(', ') : "(無)";
@@ -450,13 +459,34 @@ async function handleLineEvent(event) {
         return lineClient.replyMessage(replyToken, { type: "text", text: finalMsg });
     }
 
-    // [新增 5. 設定提醒關鍵字]
+    // 取消提醒
+    if (['取消提醒', '取消', 'cancel'].includes(text)) {
+        const trackingNum = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
+        if (!trackingNum) {
+            return lineClient.replyMessage(replyToken, { type: "text", text: MSG_ERR_NO_SUB });
+        }
+        const pipeline = redis.multi();
+        pipeline.del(`${KEY_LINE_USER_STATUS}${userId}`); 
+        pipeline.srem(`${KEY_LINE_SUB_PREFIX}${trackingNum}`, userId); 
+        await pipeline.exec();
+        
+        const finalMsg = MSG_CANCEL.replace(/{target}/g, trackingNum);
+        return lineClient.replyMessage(replyToken, { type: "text", text: finalMsg });
+    }
+
+    // ==========================================
+    // 4. 設定提醒 (Two-Step Flow)
+    // ==========================================
+
+    // 步驟 A: 觸發設定
     if (['設定提醒', '設定', 'set'].includes(text)) {
+        // 設定 Context 為等待數字，過期時間 2 分鐘
+        await redis.set(contextKey, 'WAITING_NUM', 'EX', 120);
         return lineClient.replyMessage(replyToken, { type: "text", text: MSG_SET_HINT });
     }
 
-    // 6. 設定提醒：直接判斷輸入是否為「純數字」
-    if (/^\d+$/.test(text)) {
+    // 步驟 B: 輸入號碼 (僅在 Context 符合時觸發)
+    if (/^\d+$/.test(text) && userContext === 'WAITING_NUM') {
         const targetNum = parseInt(text);
 
         if (isNaN(targetNum)) return Promise.resolve(null);
@@ -465,6 +495,9 @@ async function handleLineEvent(event) {
         
         // 檢查是否已過號
         if (targetNum <= currentNum) {
+            // 注意：設定失敗我們也清除 Context，讓使用者需要重新輸入「設定提醒」
+            // 這樣避免使用者在錯誤狀態下一直輸入數字困惑
+            await redis.del(contextKey); 
             const errorMsg = MSG_ERR_PASSED
                 .replace(/{target}/g, targetNum)
                 .replace(/{current}/g, currentNum);
@@ -482,6 +515,9 @@ async function handleLineEvent(event) {
         pipeline.expire(`${KEY_LINE_SUB_PREFIX}${targetNum}`, 43200);
         await pipeline.exec();
 
+        // 成功，清除 Context
+        await redis.del(contextKey);
+
         const diff = targetNum - currentNum;
         const finalMsg = MSG_SET_OK
             .replace(/{target}/g, targetNum)
@@ -491,21 +527,7 @@ async function handleLineEvent(event) {
         return lineClient.replyMessage(replyToken, { type: "text", text: finalMsg });
     }
 
-    // 7. 取消提醒
-    if (['取消提醒', '取消', 'cancel'].includes(text)) {
-        const trackingNum = await redis.get(`${KEY_LINE_USER_STATUS}${userId}`);
-        if (!trackingNum) {
-            return lineClient.replyMessage(replyToken, { type: "text", text: MSG_ERR_NO_SUB });
-        }
-        const pipeline = redis.multi();
-        pipeline.del(`${KEY_LINE_USER_STATUS}${userId}`); 
-        pipeline.srem(`${KEY_LINE_SUB_PREFIX}${trackingNum}`, userId); 
-        await pipeline.exec();
-        
-        const finalMsg = MSG_CANCEL.replace(/{target}/g, trackingNum);
-        return lineClient.replyMessage(replyToken, { type: "text", text: finalMsg });
-    }
-    
+    // 若輸入了數字或密碼，但沒有對應的 Context，則不回應 (Promise resolve null)
     return Promise.resolve(null);
 }
 
@@ -668,7 +690,7 @@ app.post("/api/admin/line-settings/get", async (req, res) => {
             KEY_LINE_MSG_PASSED, KEY_LINE_MSG_SET_OK, KEY_LINE_MSG_CANCEL,
             KEY_LINE_MSG_LOGIN_HINT,
             KEY_LINE_MSG_ERR_PASSED, KEY_LINE_MSG_ERR_NO_SUB,
-            KEY_LINE_MSG_SET_HINT // [新增]
+            KEY_LINE_MSG_SET_HINT
         ];
         const results = await redis.mget(keys);
         res.json({ 
@@ -683,7 +705,7 @@ app.post("/api/admin/line-settings/get", async (req, res) => {
             login_hint: results[7] || DEFAULT_MSG_LOGIN_HINT,
             err_passed: results[8] || DEFAULT_MSG_ERR_PASSED,
             err_no_sub: results[9] || DEFAULT_MSG_ERR_NO_SUB,
-            set_hint:   results[10] || DEFAULT_MSG_SET_HINT // [新增]
+            set_hint:   results[10] || DEFAULT_MSG_SET_HINT
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -692,7 +714,7 @@ app.post("/api/admin/line-settings/save", async (req, res) => {
     try {
         const { 
             approach, arrival, status, personal, passed, set_ok, cancel, login_hint,
-            err_passed, err_no_sub, set_hint // [新增]
+            err_passed, err_no_sub, set_hint
         } = req.body;
         
         if (!approach || !arrival || !status) return res.status(400).json({ error: "主要文案不可為空" });
@@ -709,7 +731,7 @@ app.post("/api/admin/line-settings/save", async (req, res) => {
         
         pipeline.set(KEY_LINE_MSG_ERR_PASSED, sanitize(err_passed));
         pipeline.set(KEY_LINE_MSG_ERR_NO_SUB, sanitize(err_no_sub));
-        pipeline.set(KEY_LINE_MSG_SET_HINT, sanitize(set_hint)); // [新增]
+        pipeline.set(KEY_LINE_MSG_SET_HINT, sanitize(set_hint));
         
         await pipeline.exec();
         addAdminLog(req.user.nickname, "📝 更新了 LINE 自動回覆文案");
@@ -725,7 +747,7 @@ app.post("/api/admin/line-settings/reset", async (req, res) => {
             KEY_LINE_MSG_PASSED, KEY_LINE_MSG_SET_OK, KEY_LINE_MSG_CANCEL,
             KEY_LINE_MSG_LOGIN_HINT,
             KEY_LINE_MSG_ERR_PASSED, KEY_LINE_MSG_ERR_NO_SUB,
-            KEY_LINE_MSG_SET_HINT // [新增]
+            KEY_LINE_MSG_SET_HINT
         ];
         await redis.del(keys);
         addAdminLog(req.user.nickname, "↺ 重置了 LINE 自動回覆文案");
@@ -741,7 +763,7 @@ app.post("/api/admin/line-settings/reset", async (req, res) => {
             login_hint: DEFAULT_MSG_LOGIN_HINT,
             err_passed: DEFAULT_MSG_ERR_PASSED,
             err_no_sub: DEFAULT_MSG_ERR_NO_SUB,
-            set_hint:   DEFAULT_MSG_SET_HINT // [新增]
+            set_hint:   DEFAULT_MSG_SET_HINT
         });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
