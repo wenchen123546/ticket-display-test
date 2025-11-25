@@ -1,6 +1,7 @@
 /*
  * ==========================================
- * 前端邏輯 (main.js) - v23.0 Fixed Viewport
+ * 前端邏輯 (main.js) - v25.0
+ * 包含：新增的說明文字翻譯
  * ==========================================
  */
 
@@ -9,6 +10,9 @@ const i18nData = {
         "current_number": "目前叫號",
         "issued_number": "已發號碼",
         "online_ticket_title": "線上取號",
+        "help_take_ticket": "無需現場排隊，手機直接領取號碼牌，即時通知。",
+        "manual_input_title": "手動追蹤",
+        "help_track_ticket": "若您已有實體號碼牌，輸入號碼即可開啟到號提醒。",
         "online_ticket_desc": "免排隊，到號通知",
         "take_ticket": "立即取號",
         "taking_ticket": "處理中...",
@@ -44,6 +48,9 @@ const i18nData = {
         "current_number": "Now Serving",
         "issued_number": "Issued",
         "online_ticket_title": "Online Ticket",
+        "help_take_ticket": "Get a digital ticket directly on your phone. No queueing needed.",
+        "manual_input_title": "Manual Track",
+        "help_track_ticket": "Already have a paper ticket? Enter the number to get notified.",
         "online_ticket_desc": "Skip the line",
         "take_ticket": "Get Ticket",
         "taking_ticket": "...",
