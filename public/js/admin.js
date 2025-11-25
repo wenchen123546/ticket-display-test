@@ -1,6 +1,6 @@
 /*
  * ==========================================
- * 後台邏輯 (admin.js) - v18.18 Optimized (Nickname Edit)
+ * 後台邏輯 (admin.js) - v18.19 Optimized (Inline Edit)
  * ==========================================
  */
 
@@ -225,7 +225,6 @@ async function showPanel() {
     document.title = `後台管理 - ${username}`;
     if(sidebarUserInfo) sidebarUserInfo.textContent = `Hi, ${username}`;
 
-    // 權限檢查和 UI 顯示
     const isSuper = userRole === 'super';
     const elementsToToggle = [
         "card-user-management", "btn-export-csv", 
@@ -236,9 +235,9 @@ async function showPanel() {
         if(el) el.style.display = isSuper ? "block" : "none";
     });
     
-    // 即使不是 Super Admin，只要有權限進入，都會加載基本數據
-    // 但只有 Super Admin 會顯示「管理員管理」區塊
-    if (isSuper) await loadAdminUsers();
+    // 讓所有有權限進入的使用者都能看到列表（以便修改自己暱稱）
+    // 後端 API 會把關是否能看到列表，但前端這裡我們開放呼叫
+    await loadAdminUsers();
     
     initTabs();
     await loadStats();
@@ -726,7 +725,7 @@ if (modeRadios) {
     });
 }
 
-// [修改] 優化後的管理員列表載入函式 (含修改暱稱按鈕)
+// [修改] 支援行內編輯 (Inline Editing) 的管理員列表
 async function loadAdminUsers() {
     const ui = document.getElementById("user-list-ui");
     if (!ui) return;
@@ -744,23 +743,27 @@ async function loadAdminUsers() {
         const fragment = document.createDocumentFragment();
         data.users.forEach(user => {
             const li = document.createElement("li");
-            // 讓列表項目有更好的佈局
-            li.style.display = "flex";
-            li.style.justifyContent = "space-between";
-            li.style.alignItems = "center";
+            // 改為 block 佈局，內部容器自己控制 flex
+            li.style.display = "block"; 
+            li.style.padding = "8px 14px"; 
 
-            const icon = user.role === 'super' ? '👑' : '👤';
-            
-            // --- 資訊區塊 ---
+            // --- 狀態 A: 檢視模式 (View Mode) ---
+            const viewDiv = document.createElement("div");
+            viewDiv.style.display = "flex";
+            viewDiv.style.justifyContent = "space-between";
+            viewDiv.style.alignItems = "center";
+            viewDiv.style.width = "100%";
+
+            // 1. 左側資訊
             const infoDiv = document.createElement("div");
             infoDiv.style.display = "flex";
             infoDiv.style.alignItems = "center";
             infoDiv.style.gap = "8px";
 
+            const icon = user.role === 'super' ? '👑' : '👤';
             const strong = document.createElement("strong");
             strong.textContent = user.nickname;
             strong.style.fontSize = "1rem";
-
             const smallUser = document.createElement("span");
             smallUser.textContent = `(${user.username})`;
             smallUser.style.color = "#666";
@@ -768,12 +771,11 @@ async function loadAdminUsers() {
 
             infoDiv.append(icon, strong, smallUser);
 
-            // --- 操作按鈕區塊 ---
+            // 2. 右側按鈕
             const actionDiv = document.createElement("div");
             actionDiv.style.display = "flex";
             actionDiv.style.gap = "5px";
 
-            // [新增] 修改暱稱按鈕
             const editBtn = document.createElement("button");
             editBtn.className = "btn-secondary"; 
             editBtn.textContent = "✎"; 
@@ -781,33 +783,20 @@ async function loadAdminUsers() {
             editBtn.style.padding = "2px 8px";
             editBtn.style.fontSize = "0.9rem";
             editBtn.style.minWidth = "30px";
-
-            editBtn.onclick = async () => {
-                const newNick = prompt(`請輸入 [${user.username}] 的新暱稱:`, user.nickname);
-                if (newNick && newNick.trim() !== "" && newNick.trim() !== user.nickname) {
-                    editBtn.disabled = true;
-                    const success = await apiRequest("/api/admin/set-nickname", { 
-                        targetUsername: user.username, 
-                        nickname: newNick.trim() 
-                    });
-                    
-                    if (success) {
-                        showToast(`✅ 暱稱已更新為: ${newNick.trim()}`, "success");
-                        await loadAdminUsers(); // 重整列表
-                    } else {
-                        editBtn.disabled = false;
-                    }
-                }
+            
+            // 點擊編輯：切換到編輯模式
+            editBtn.onclick = () => {
+                viewDiv.style.display = "none";
+                editDiv.style.display = "flex";
+                input.focus();
             };
             actionDiv.appendChild(editBtn);
-            
-            // 刪除按鈕 (Super Admin 不可刪除)
+
             if (user.role !== 'super') {
                 const deleteBtn = document.createElement("button");
                 deleteBtn.className = "delete-item-btn"; 
                 deleteBtn.textContent = "✕";
                 deleteBtn.title = "刪除帳號";
-                
                 setupConfirmationButton(deleteBtn, "✕", "⚠️", async () => { 
                     deleteBtn.disabled = true; 
                     if (await apiRequest("/api/admin/del-user", { delUsername: user.username })) { 
@@ -820,8 +809,94 @@ async function loadAdminUsers() {
                 actionDiv.appendChild(deleteBtn);
             }
 
-            li.appendChild(infoDiv);
-            li.appendChild(actionDiv);
+            viewDiv.appendChild(infoDiv);
+            viewDiv.appendChild(actionDiv);
+
+
+            // --- 狀態 B: 編輯模式 (Edit Mode) ---
+            const editDiv = document.createElement("div");
+            editDiv.style.display = "none"; // 預設隱藏
+            editDiv.style.justifyContent = "space-between";
+            editDiv.style.alignItems = "center";
+            editDiv.style.width = "100%";
+            editDiv.style.gap = "8px";
+
+            // 輸入框
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = user.nickname;
+            input.placeholder = "輸入新暱稱";
+            input.style.padding = "4px 8px";
+            input.style.fontSize = "0.95rem";
+            // 避免輸入框太寬或太窄
+            input.style.flex = "1"; 
+
+            // 按鈕容器
+            const editActionDiv = document.createElement("div");
+            editActionDiv.style.display = "flex";
+            editActionDiv.style.gap = "5px";
+
+            // 儲存邏輯
+            const saveChanges = async () => {
+                const newNick = input.value.trim();
+                if (newNick && newNick !== "" && newNick !== user.nickname) {
+                    // 鎖定按鈕
+                    saveBtn.disabled = true;
+                    const success = await apiRequest("/api/admin/set-nickname", { 
+                        targetUsername: user.username, 
+                        nickname: newNick
+                    });
+                    
+                    if (success) {
+                        showToast(`✅ 暱稱已更新`, "success");
+                        await loadAdminUsers(); 
+                    } else {
+                        saveBtn.disabled = false;
+                    }
+                } else {
+                    // 如果沒改或空白，直接退回檢視模式
+                    editDiv.style.display = "none";
+                    viewDiv.style.display = "flex";
+                    input.value = user.nickname; // 重置
+                }
+            };
+
+            // 儲存按鈕 (打勾)
+            const saveBtn = document.createElement("button");
+            saveBtn.className = "btn-secondary";
+            saveBtn.style.background = "var(--success)";
+            saveBtn.style.color = "white";
+            saveBtn.textContent = "✓";
+            saveBtn.style.padding = "2px 8px";
+            saveBtn.onclick = saveChanges;
+
+            // 取消按鈕 (叉叉)
+            const cancelBtn = document.createElement("button");
+            cancelBtn.className = "btn-secondary";
+            cancelBtn.style.background = "#e5e7eb"; // 淺灰
+            cancelBtn.style.color = "#374151";
+            cancelBtn.textContent = "✕";
+            cancelBtn.style.padding = "2px 8px";
+            cancelBtn.onclick = () => {
+                editDiv.style.display = "none";
+                viewDiv.style.display = "flex";
+                input.value = user.nickname; // 重置
+            };
+
+            // 支援 Enter 鍵儲存
+            input.addEventListener("keyup", (e) => {
+                if (e.key === "Enter") saveChanges();
+                if (e.key === "Escape") cancelBtn.click();
+            });
+
+            editActionDiv.appendChild(saveBtn);
+            editActionDiv.appendChild(cancelBtn);
+
+            editDiv.appendChild(input);
+            editDiv.appendChild(editActionDiv);
+
+            li.appendChild(viewDiv);
+            li.appendChild(editDiv);
             fragment.appendChild(li);
         });
         ui.appendChild(fragment);
