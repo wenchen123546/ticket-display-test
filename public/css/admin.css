@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v41.0 Line List Edit
+ * 後台樣式 (admin.css) - v42.0 Live Layout Fix
  * ========================================== */
 :root {
     --bg-body: #f3f4f6; --bg-surface: #ffffff; --bg-sidebar: #ffffff;
@@ -38,7 +38,8 @@ body { margin: 0; width: 100%; min-height: 100vh; font-family: 'Inter', sans-ser
 .dashboard-header { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
 .dashboard-item { background: var(--bg-surface); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; align-items: center; position: relative; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 .dashboard-item::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: var(--primary); }
-.big-number { font-size: 3.5rem; background: var(--primary-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: -1px; line-height: 1.2; }
+/* [v42.0] Fix font size scaling */
+.big-number { font-size: clamp(2.5rem, 4vw, 3.5rem); background: var(--primary-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: -1px; line-height: 1.2; }
 .sub-number { font-size: 1.8rem; font-weight: 700; color: var(--text-main); }
 .label { font-size: 0.85rem; color: var(--text-sub); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
 
@@ -48,9 +49,7 @@ body { margin: 0; width: 100%; min-height: 100vh; font-family: 'Inter', sans-ser
 @media (min-width: 1200px) { .card-container { grid-template-columns: repeat(3, 1fr); } } /* Desktop: 3 cols */
 
 /* 流量分析頁面強制兩欄滿版 */
-@media (min-width: 1200px) {
-    #section-stats .card-container { grid-template-columns: 1fr 1fr; }
-}
+@media (min-width: 1200px) { #section-stats .card-container { grid-template-columns: 1fr 1fr; } }
 
 .full-width-card { grid-column: 1 / -1; }
 
@@ -58,12 +57,17 @@ body { margin: 0; width: 100%; min-height: 100vh; font-family: 'Inter', sans-ser
 .admin-card h3 { margin: 0 0 20px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 8px; font-size: 1.1rem; color: var(--text-main); }
 .card-icon { font-size: 1.2rem; }
 
-/* Controls */
-.big-action-row { display: flex; gap: 15px; margin-bottom: 20px; width: 100%; }
-.btn-big { flex: 1; padding: 20px; border-radius: var(--radius-md); font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); min-height: 90px; border: none; cursor: pointer; transition: 0.2s; font-size: 1rem; }
+/* [v42.0] Controls Layout Fix */
+.big-action-row { display: flex; gap: 15px; margin-bottom: 20px; width: 100%; flex-wrap: wrap; }
+.btn-big { flex: 1; min-width: 80px; padding: 15px; border-radius: var(--radius-md); font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); min-height: 80px; border: none; cursor: pointer; transition: 0.2s; font-size: 1rem; }
+#hero-btn { flex: 1.5; background: var(--primary-grad); color: white; font-size: 1.2rem; min-width: 120px; }
+
+/* [v42.0] Quick Actions Row */
+.quick-actions { display: flex; gap: 8px; margin-bottom: 12px; width: 100%; }
+.quick-actions button { flex: 1; }
+
 .btn-glass { background: #f3f4f6; color: var(--text-main); }
 .btn-warn { background: #fee2e2; color: #b91c1c; }
-#btn-call-next { flex: 1.5; background: var(--primary-grad); color: white; font-size: 1.2rem; }
 .btn-big:active { transform: scale(0.98); }
 .btn-success { background: #d1fae5; color: #065f46; }
 
@@ -82,20 +86,11 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
 .btn-reset-single:hover { background: #f9fafb; color: var(--text-main); }
 
 /* Lists & Editors */
-.list-editor ul, .log-list { 
-    background: #f9fafb; border: 1px solid #f3f4f6; border-radius: var(--radius-md); 
-    max-height: 300px; overflow-y: auto; margin: 0 0 12px 0; padding: 0; list-style: none; 
-    flex: 1; min-height: 120px; 
-}
-/* [v41.0] Update: Allow li to flex-col for view/edit toggle */
-.list-editor li { 
-    padding: 10px; border-bottom: 1px solid #f3f4f6; 
-    display: flex; flex-direction: column; align-items: stretch; gap: 10px; 
-}
+.list-editor ul, .log-list { background: #f9fafb; border: 1px solid #f3f4f6; border-radius: var(--radius-md); max-height: 300px; overflow-y: auto; margin: 0 0 12px 0; padding: 0; list-style: none; flex: 1; min-height: 120px; }
+.list-editor li { padding: 10px; border-bottom: 1px solid #f3f4f6; display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
 .list-editor li > div { overflow: visible; } 
 .list-editor li span, .list-editor li small { white-space: normal; word-break: break-all; display: block; }
-.log-list li { padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 0.9rem; color: #555; flex-direction: row; /* Logs keep row */ }
-
+.log-list li { padding: 6px 10px; border-bottom: 1px solid #eee; font-size: 0.9rem; color: #555; flex-direction: row; }
 .var-hint { display: block; font-size: 0.8rem; color: #666; margin-bottom: 4px; font-family: monospace; background: #eee; padding: 2px 5px; border-radius: 4px; width: fit-content; }
 .form-group-boxed { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
 
@@ -119,11 +114,7 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
 .sec-icon { font-size: 2rem; background: #fff; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border-radius: 50%; box-shadow: 0 2px 5px rgba(234, 88, 12, 0.2); }
 .sec-content { flex: 1; }
 .sec-title { font-weight: 800; color: #c2410c; margin-bottom: 5px; display: block; font-size: 1rem; }
-
-/* [v41.0] Line Message Preview */
-.line-msg-preview {
-    display: block; font-family: monospace; line-height: 1.4; max-height: 100px; overflow-y: auto; color: #475569; font-size: 0.85rem;
-}
+.line-msg-preview { display: block; font-family: monospace; line-height: 1.4; max-height: 100px; overflow-y: auto; color: #475569; font-size: 0.85rem; }
 
 /* Overlays */
 #status-bar { position: fixed; top: 0; width: 100%; background: var(--danger); color: white; text-align: center; padding: 8px; transform: translateY(-100%); transition: 0.3s; z-index: 9999; } #status-bar.visible { transform: translateY(0); }
