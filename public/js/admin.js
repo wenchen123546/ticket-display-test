@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v38.0 (Live Lang & Fixes)
+ * 後台邏輯 (admin.js) - v38.1 (Fix No-Change Save)
  * ========================================== */
 const $ = i => document.getElementById(i);
 const $$ = s => document.querySelectorAll(s);
@@ -55,7 +55,7 @@ function toast(msg, type='info') {
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
 }
 
-// [功能] 即時更新語言 UI (不重新整理)
+// [功能] 即時更新語言 UI
 function updateLangUI() {
     T = i18n[curLang];
     $$('[data-i18n]').forEach(el => {
@@ -66,11 +66,9 @@ function updateLangUI() {
         const k = el.getAttribute('data-i18n-ph');
         if(T[k]) el.placeholder = T[k];
     });
-    // 重新載入動態生成的列表以套用語言
     loadUsers(); 
     loadStats();
-    // 重新取得 Featured Links (雖然內容是 user 定義，但按鈕語言要變)
-    req("/api/featured/get").then(res => { if(res) socket.emit("updateFeaturedContents", res); }); // Trigger refresh
+    req("/api/featured/get").then(res => { if(res) socket.emit("updateFeaturedContents", res); });
 }
 
 // API Wrapper
@@ -132,7 +130,7 @@ async function showPanel() {
     if($('button[data-target="section-line"]')) $('button[data-target="section-line"]').style.display = isSuper?"flex":"none";
     socket.auth.token = token; socket.connect();
     
-    updateLangUI(); // Apply Init Lang
+    updateLangUI(); 
     try { await loadStats(); } catch(e){ console.error(e); }
     if(isSuper) { 
         try { await loadUsers(); } catch(e){ console.error(e); }
@@ -212,7 +210,7 @@ function renderLogs(logs, init) {
     logs.forEach(msg => { const li=mk("li", null, msg); init ? ul.appendChild(li) : ul.insertBefore(li, ul.firstChild); });
 }
 
-// [修復] 帳號管理: 暱稱修改功能 (View/Edit 切換)
+// [修正重點] 帳號管理邏輯：加入 Dirty Checking (資料未更動檢查)
 async function loadUsers() {
     const ul = $("user-list-ui"); if(!ul) return;
     const d = await req("/api/admin/users");
@@ -229,8 +227,26 @@ async function loadUsers() {
         const editDiv = mk("div", null, null, {style:"display:none; width:100%; gap:5px; align-items:center;"});
         const input = mk("input", null, null, {value:u.nickname, type:"text"});
         const saveBtn = mk("button", "btn-secondary success", T.save);
-        saveBtn.onclick = async () => { if(await req("/api/admin/set-nickname", {targetUsername:u.username, nickname:input.value})) { toast(T.saved, "success"); loadUsers(); } };
-        const cancelBtn = mk("button", "btn-secondary", T.cancel, {onclick:()=>{ editDiv.style.display="none"; view.style.display="flex"; }});
+        
+        // 儲存邏輯
+        saveBtn.onclick = async () => { 
+            // 檢查：如果內容沒變，直接關閉，不呼叫 API
+            if(input.value === u.nickname) {
+                editDiv.style.display="none"; 
+                view.style.display="flex"; 
+                return;
+            }
+            if(await req("/api/admin/set-nickname", {targetUsername:u.username, nickname:input.value})) { 
+                toast(T.saved, "success"); 
+                loadUsers(); 
+            } 
+        };
+
+        const cancelBtn = mk("button", "btn-secondary", T.cancel, {onclick:()=>{ 
+            input.value = u.nickname; // 取消時還原數值
+            editDiv.style.display="none"; 
+            view.style.display="flex"; 
+        }});
         editDiv.append(input, saveBtn, cancelBtn);
 
         // 3. 按鈕區
@@ -248,7 +264,6 @@ async function loadUsers() {
     });
 }
 
-// [修復] 流量分析列表渲染
 async function loadStats() {
     const d = await req("/api/admin/stats");
     if(d?.success) {
@@ -295,7 +310,7 @@ $("sound-toggle")?.addEventListener("change", e => req("/set-sound-enabled", {en
 $("public-toggle")?.addEventListener("change", e => req("/set-public-status", {isPublic:e.target.checked}));
 $$('input[name="systemMode"]').forEach(r => r.addEventListener("change", ()=>confirm("Switch Mode?")?req("/set-system-mode", {mode:r.value}):(r.checked=!r.checked)));
 
-// [功能] 語言切換
+// 語言切換事件
 $("admin-lang-selector")?.addEventListener("change", e => { 
     curLang=e.target.value; localStorage.setItem('callsys_lang', curLang);
     updateLangUI();
