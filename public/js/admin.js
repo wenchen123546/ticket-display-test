@@ -1,6 +1,10 @@
+{
+type: uploaded file
+fileName: admin.js
+fullContent:
 /*
  * ==========================================
- * 後台邏輯 (admin.js) - v19.0 (Editable Links Fix)
+ * 後台邏輯 (admin.js) - v20.0 (Full I18n & UX)
  * ==========================================
  */
 
@@ -20,16 +24,16 @@ const adminI18n = {
         "admin_label_current": "目前叫號",
         "admin_label_issued": "已發號至",
         "admin_label_waiting": "等待組數",
-        "card_title_calling": "叫號控制",
-        "card_title_ticketing": "發號機設定",
-        "card_title_broadcast": "廣播與音效",
-        "card_title_editor": "過號與公告",
-        "card_title_logs": "操作日誌",
-        "card_title_system": "系統設定",
-        "card_title_stats": "數據分析",
-        "card_title_links": "精選連結",
+        "card_title_calling": "叫號控制台",
+        "card_title_ticketing": "發號機管理",
+        "card_title_broadcast": "前台音效",
+        "card_title_editor": "過號名單",
+        "card_title_logs": "系統日誌",
+        "card_title_system": "系統開關",
+        "card_title_stats": "流量分析",
+        "card_title_links": "前台連結管理",
         "card_title_online": "在線管理員",
-        "card_title_line": "LINE 通知設定",
+        "card_title_line": "LINE 自動回覆設定",
         "btn_prev": "上一號",
         "btn_next": "下一號",
         "btn_pass": "過號", 
@@ -37,12 +41,12 @@ const adminI18n = {
         "btn_issue_next": "發號",
         "btn_set": "設定",
         "btn_reset_call": "↺ 重置叫號歸零",
-        "btn_broadcast": "發送",
-        "placeholder_broadcast": "輸入內容...",
-        "hint_manual_set": "直接設定「目前叫號」螢幕顯示的數字",
-        "label_public_toggle": "🌐 對外開放前台",
-        "label_sound_toggle": "啟用前台提示音",
-        "btn_reset_all": "💥 全域重置系統",
+        "btn_broadcast": "播放",
+        "placeholder_broadcast": "輸入文字廣播...",
+        "hint_manual_set": "直接變更螢幕顯示的號碼，不影響排隊順序",
+        "label_public_toggle": "🌐 對外開放前台頁面",
+        "label_sound_toggle": "啟用提示音 (叮咚)",
+        "btn_reset_all": "💥 系統全域重置 (危險)",
         "login_verifying": "驗證中...",
         "login_fail": "登入失敗",
         "login_error_server": "無法連線到伺服器",
@@ -79,28 +83,33 @@ const adminI18n = {
         "list_load_fail": "載入失敗",
         "list_no_online": "(目前無人在線)",
         "log_no_data": "[目前尚無日誌]",
-        "btn_clear_log": "清除紀錄",
+        "btn_clear_log": "清除所有日誌",
         "btn_reset_passed": "清空過號列表",
         "btn_reset_links": "清空連結",
         "toast_passed_marked": "⏩ 已標記過號，跳至下一號",
         "toast_recalled": "↩️ 已重呼過號",
         "toast_link_updated": "✅ 連結已更新",
-        "btn_save_edit": "✓"
+        "btn_save_edit": "✓",
+        "nav_live": "現場控台",
+        "nav_stats": "數據報表",
+        "nav_settings": "系統設定",
+        "nav_line": "LINE 設定",
+        "card_title_line_settings": "LINE 自動回覆設定"
     },
     "en": {
         "status_disconnected": "Disconnected, reconnecting...",
         "status_connected": "✅ Connected",
-        "admin_label_current": "CURRENT",
-        "admin_label_issued": "ISSUED",
-        "admin_label_waiting": "WAITING",
-        "card_title_calling": "Calling Control",
+        "admin_label_current": "Current",
+        "admin_label_issued": "Issued",
+        "admin_label_waiting": "Waiting",
+        "card_title_calling": "Control Panel",
         "card_title_ticketing": "Ticketing",
-        "card_title_broadcast": "Broadcast & Sound",
-        "card_title_editor": "Passed & Notices",
-        "card_title_logs": "Logs",
-        "card_title_system": "System",
+        "card_title_broadcast": "Sound & Broadcast",
+        "card_title_editor": "Passed List",
+        "card_title_logs": "System Logs",
+        "card_title_system": "System Settings",
         "card_title_stats": "Analytics",
-        "card_title_links": "Links",
+        "card_title_links": "Frontend Links",
         "card_title_online": "Online Admins",
         "card_title_line": "LINE Settings",
         "btn_prev": "Prev",
@@ -109,13 +118,13 @@ const adminI18n = {
         "btn_issue_prev": "Recall",
         "btn_issue_next": "Issue",
         "btn_set": "Set",
-        "btn_reset_call": "↺ Reset Current",
-        "btn_broadcast": "Send",
-        "placeholder_broadcast": "Type message...",
-        "hint_manual_set": "Manually set the display number",
+        "btn_reset_call": "↺ Reset to 0",
+        "btn_broadcast": "Play",
+        "placeholder_broadcast": "Enter text to speak...",
+        "hint_manual_set": "Manually update display number",
         "label_public_toggle": "🌐 Public Access",
-        "label_sound_toggle": "Frontend Sound",
-        "btn_reset_all": "💥 Global Reset",
+        "label_sound_toggle": "Enable Ding-Dong Sound",
+        "btn_reset_all": "💥 Global Reset (Danger)",
         "login_verifying": "Verifying...",
         "login_fail": "Login Failed",
         "login_error_server": "Server Error",
@@ -126,11 +135,11 @@ const adminI18n = {
         "mode_ticketing": "Online Ticket",
         "mode_input": "Manual Input",
         "toast_num_set": "✅ Number set",
-        "toast_issued_updated": "✅ Issued number updated",
+        "toast_issued_updated": "✅ Issued updated",
         "toast_reset_zero": "✅ Reset to 0",
         "toast_passed_cleared": "✅ Passed list cleared",
         "toast_featured_cleared": "✅ Links cleared",
-        "toast_all_reset": "💥 System Reset Complete",
+        "toast_all_reset": "💥 Global Reset Complete",
         "toast_log_clearing": "🧼 Clearing logs...",
         "alert_positive_int": "Positive integer only.",
         "alert_link_required": "Text and URL required.",
@@ -158,7 +167,12 @@ const adminI18n = {
         "toast_passed_marked": "⏩ Skipped to next",
         "toast_recalled": "↩️ Number recalled",
         "toast_link_updated": "✅ Link updated",
-        "btn_save_edit": "✓"
+        "btn_save_edit": "✓",
+        "nav_live": "Console",
+        "nav_stats": "Stats",
+        "nav_settings": "Settings",
+        "nav_line": "LINE Setup",
+        "card_title_line_settings": "LINE Auto-Reply Settings"
     }
 };
 
@@ -166,10 +180,28 @@ let currentAdminLang = localStorage.getItem('callsys_lang') || 'zh-TW';
 let at = adminI18n[currentAdminLang];
 
 function applyAdminI18n() {
+    // 通用文字替換
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
         if(at[key]) { el.textContent = at[key]; }
     });
+    
+    // 側邊欄導航翻譯
+    const navTextMap = {
+        'section-live': 'nav_live',
+        'section-stats': 'nav_stats',
+        'section-settings': 'nav_settings',
+        'section-line': 'nav_line'
+    };
+    
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        const target = btn.getAttribute('data-target');
+        if(navTextMap[target] && at[navTextMap[target]]) {
+            const txtSpan = btn.querySelector('.nav-text');
+            if(txtSpan) txtSpan.textContent = at[navTextMap[target]];
+        }
+    });
+
     const broadcastInput = document.getElementById("broadcast-msg");
     if(broadcastInput) broadcastInput.placeholder = at["placeholder_broadcast"];
 }
@@ -191,10 +223,24 @@ let uniqueUsername = "";
 let toastTimer = null;
 let publicToggleConfirmTimer = null;
 let editingHour = null;
-let editingLinkItem = null; // 用於追蹤正在編輯的連結，包含 linkText, linkUrl
+let editingLinkItem = null; 
 
 // --- Socket ---
 const socket = io({ autoConnect: false, auth: { token: "" } });
+
+// --- Helper: Add Enter Key Support ---
+function addEnterTrigger(inputId, buttonId) {
+    const input = document.getElementById(inputId);
+    const btn = document.getElementById(buttonId);
+    if (input && btn) {
+        input.addEventListener("keyup", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                btn.click();
+            }
+        });
+    }
+}
 
 function initTabs() {
     const navBtns = document.querySelectorAll('.nav-btn');
@@ -256,6 +302,16 @@ async function showPanel() {
     initTabs();
     await loadStats();
     if (isSuper) await loadLineSettings();
+
+    // 綁定所有 Enter 鍵事件
+    addEnterTrigger("manualNumber", "setNumber");
+    addEnterTrigger("manualIssuedNumber", "setIssuedNumber");
+    addEnterTrigger("new-passed-number", "add-passed-btn");
+    addEnterTrigger("new-link-text", "add-featured-btn"); // 連結文字也可觸發
+    addEnterTrigger("new-link-url", "add-featured-btn");
+    addEnterTrigger("broadcast-msg", "btn-broadcast");
+    addEnterTrigger("line-unlock-pwd", "btn-save-unlock-pwd");
+    addEnterTrigger("new-user-password", "add-user-btn");
 
     socket.connect();
 }
@@ -454,7 +510,7 @@ function setupConfirmationButton(buttonEl, originalTextKey, confirmTextKey, acti
 
     const resetBtn = () => {
         clearInterval(timer); isConfirming = false; countdown = 5;
-        buttonEl.textContent = originalTextKey; 
+        buttonEl.textContent = at[originalTextKey] || originalTextKey; // Ensure text is localized
         buttonEl.classList.remove("is-confirming");
     };
     
@@ -518,7 +574,6 @@ function renderPassedListUI(numbers) {
     ui.appendChild(fragment);
 }
 
-// [修改] 編輯連結邏輯整合
 function renderFeaturedListUI(contents) {
     const ui = document.getElementById("featured-list-ui");
     ui.replaceChildren();
@@ -529,7 +584,6 @@ function renderFeaturedListUI(contents) {
     contents.forEach((item) => {
         const li = document.createElement("li");
         
-        // --- 顯示區塊 ---
         const viewDiv = document.createElement("div");
         viewDiv.style.flex = "1";
         viewDiv.style.display = "flex";
@@ -548,13 +602,11 @@ function renderFeaturedListUI(contents) {
         viewDiv.appendChild(span);
         viewDiv.appendChild(small);
         
-        // --- 按鈕區塊 ---
         const btnGroup = document.createElement("div");
         btnGroup.style.display = "flex";
         btnGroup.style.gap = "6px";
         btnGroup.style.marginLeft = "8px";
 
-        // 編輯按鈕
         const editBtn = document.createElement("button");
         editBtn.className = "btn-secondary";
         editBtn.textContent = "✎";
@@ -564,13 +616,11 @@ function renderFeaturedListUI(contents) {
             startEditingLink(item);
         };
 
-        // 刪除按鈕
         const deleteBtn = document.createElement("button");
         deleteBtn.className = "delete-item-btn"; 
         deleteBtn.textContent = "✕";
         setupConfirmationButton(deleteBtn, "✕", "⚠️", async () => { 
             deleteBtn.disabled = true; 
-            // 如果正在編輯此項目，先取消編輯
             if(editingLinkItem && editingLinkItem.linkText === item.linkText) {
                 cancelEditingLink();
             }
@@ -587,9 +637,7 @@ function renderFeaturedListUI(contents) {
     ui.appendChild(fragment);
 }
 
-// 進入編輯模式
 function startEditingLink(item) {
-    // 儲存原始數據，用於 LREM 或 LSET 查找
     editingLinkItem = { linkText: item.linkText, linkUrl: item.linkUrl };
     
     const textInput = document.getElementById("new-link-text");
@@ -599,25 +647,22 @@ function startEditingLink(item) {
     textInput.value = item.linkText;
     urlInput.value = item.linkUrl;
     
-    // UI 變更提示
-    textInput.style.backgroundColor = "#fffbeb"; // 淺黃底
+    textInput.style.backgroundColor = "#fffbeb"; 
     urlInput.style.backgroundColor = "#fffbeb";
     btn.textContent = at["btn_save_edit"] || "✓";
     btn.classList.remove("btn-add");
     btn.classList.add("btn-success");
 
-    // [新增]: 增加一個取消按鈕的提示/功能
     const cancelHint = document.createElement('span');
     cancelHint.id = 'cancel-edit-hint';
-    cancelHint.innerHTML = ` (Esc 取消編輯)`;
+    cancelHint.innerHTML = ` (Esc Cancel)`;
     cancelHint.style.fontSize = '0.85rem';
     cancelHint.style.color = 'var(--warning-text)';
-    btn.parentElement.appendChild(cancelHint); // 放在按鈕旁邊
+    btn.parentElement.appendChild(cancelHint);
     
     textInput.focus();
 }
 
-// 取消編輯模式
 function cancelEditingLink() {
     editingLinkItem = null;
     
@@ -631,7 +676,6 @@ function cancelEditingLink() {
     
     if (cancelHint) cancelHint.remove();
 
-    // UI 還原
     textInput.style.backgroundColor = "";
     urlInput.style.backgroundColor = "";
     btn.textContent = "+";
@@ -744,7 +788,7 @@ setupConfirmationButton(document.getElementById("resetNumber"), "btn_reset_call"
 
 setupConfirmationButton(
     document.getElementById("resetIssued"), 
-    "↺ 重置發號歸零", 
+    "btn_reset_call", 
     "btn_confirm_reset", 
     async () => { 
         if (await apiRequest("/api/control/set-issue", { number: 0 })) { 
@@ -760,9 +804,9 @@ setupConfirmationButton(document.getElementById("resetAll"), "btn_reset_all", "b
 
 const btnClearLogs = document.getElementById("btn-clear-logs");
 if (btnClearLogs) {
-    setupConfirmationButton(btnClearLogs, "清除所有日誌", "btn_confirm_clear", async () => {
+    setupConfirmationButton(btnClearLogs, "btn_clear_log", "btn_confirm_clear", async () => {
         if (await apiRequest("/api/logs/clear", {})) {
-            showToast(at["toast_log_clearing"] || "日誌已清除", "success");
+            showToast(at["toast_log_clearing"] || "Logs cleared", "success");
         }
     });
 }
@@ -776,13 +820,11 @@ if(addPassedBtn) addPassedBtn.onclick = async () => {
     if (await apiRequest("/api/passed/add", { number: num })) newPassedNumberInput.value = "";
     addPassedBtn.disabled = false;
 };
-if(newPassedNumberInput) newPassedNumberInput.addEventListener("keyup", (event) => { if (event.key === "Enter") addPassedBtn.click(); });
 
 const newLinkTextInput = document.getElementById("new-link-text");
 const newLinkUrlInput = document.getElementById("new-link-url");
 const addFeaturedBtn = document.getElementById("add-featured-btn");
 
-// [修改] 新增或編輯連結按鈕邏輯
 if(addFeaturedBtn) addFeaturedBtn.onclick = async () => {
     const text = newLinkTextInput.value.trim();
     const url = newLinkUrlInput.value.trim();
@@ -794,7 +836,7 @@ if(addFeaturedBtn) addFeaturedBtn.onclick = async () => {
     let success = false;
 
     if(editingLinkItem) {
-        // 編輯模式
+        // [修改] 連結編輯：無論是否修改都執行 API (Force Save)
         const payload = {
             oldLinkText: editingLinkItem.linkText,
             oldLinkUrl: editingLinkItem.linkUrl,
@@ -804,10 +846,9 @@ if(addFeaturedBtn) addFeaturedBtn.onclick = async () => {
         success = await apiRequest("/api/featured/edit", payload); 
         if (success) {
             showToast(at["toast_link_updated"], "success");
-            cancelEditingLink(); // 成功後退出編輯模式
+            cancelEditingLink(); 
         }
     } else {
-        // 新增模式
         success = await apiRequest("/api/featured/add", { linkText: text, linkUrl: url });
         if (success) {
             newLinkTextInput.value = ""; 
@@ -816,25 +857,18 @@ if(addFeaturedBtn) addFeaturedBtn.onclick = async () => {
     }
     
     if(success) {
-        // 成功後強制刷新列表 (依賴 socket 廣播，但此處再次 call API 確保 client 狀態一致)
         await apiRequest("/api/featured/get", {}, true); 
     }
 
     addFeaturedBtn.disabled = false;
 };
 
-// 鍵盤監聽取消編輯
 document.addEventListener("keydown", (e) => {
-    // 檢查是否有正在編輯
     if(e.key === "Escape" && editingLinkItem) {
         cancelEditingLink();
-        e.preventDefault(); // 阻止 ESC 的默認行為
+        e.preventDefault(); 
     }
 });
-if(newLinkTextInput) newLinkTextInput.addEventListener("keyup", (e) => { 
-    if (e.key === "Enter") newLinkUrlInput.focus();
-});
-if(newLinkUrlInput) newLinkUrlInput.addEventListener("keyup", (event) => { if (event.key === "Enter") addFeaturedBtn.click(); });
 
 const broadcastBtn = document.getElementById("btn-broadcast");
 const broadcastInput = document.getElementById("broadcast-msg");
@@ -846,7 +880,6 @@ if (broadcastBtn) {
         if (await apiRequest("/api/admin/broadcast", { message: msg })) { showToast(at["toast_broadcast_sent"], "success"); broadcastInput.value = ""; }
         broadcastBtn.disabled = false;
     };
-    broadcastInput.addEventListener("keyup", (e) => { if (e.key === "Enter") broadcastBtn.click(); });
 }
 
 const soundToggle = document.getElementById("sound-toggle");
@@ -932,8 +965,6 @@ async function loadAdminUsers() {
         const fragment = document.createDocumentFragment();
         data.users.forEach(user => {
             const li = document.createElement("li");
-            
-            // --- View Mode ---
             const viewDiv = document.createElement("div");
             viewDiv.style.display = "flex";
             viewDiv.style.justifyContent = "space-between";
@@ -995,7 +1026,6 @@ async function loadAdminUsers() {
             viewDiv.appendChild(infoDiv);
             viewDiv.appendChild(actionDiv);
 
-            // --- Edit Mode ---
             const editDiv = document.createElement("div");
             editDiv.style.display = "none"; 
             editDiv.style.justifyContent = "space-between";
@@ -1017,7 +1047,8 @@ async function loadAdminUsers() {
 
             const saveChanges = async () => {
                 const newNick = input.value.trim();
-                if (newNick && newNick !== "" && newNick !== user.nickname) {
+                if (newNick && newNick !== "") {
+                    // [修改] 移除檢查是否相同的邏輯，允許覆寫
                     saveBtn.disabled = true;
                     const success = await apiRequest("/api/admin/set-nickname", { 
                         targetUsername: user.username, 
@@ -1202,7 +1233,7 @@ if(btnStatsMinus) btnStatsMinus.onclick = () => adjustStat(-1);
 if(btnStatsPlus) btnStatsPlus.onclick = () => adjustStat(1);
 if(modalOverlay) modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeEditModal(); }
 
-// --- LINE 設定邏輯 (保持不變) ---
+// --- LINE 設定 ---
 const domKeys = [
     "approach", "arrival", "status", "personal", "passed", 
     "set_ok", "cancel", "login_hint", "err_passed", "err_no_sub", "set_hint" 
@@ -1247,7 +1278,7 @@ if (btnSaveLineMsg) btnSaveLineMsg.onclick = async () => {
     btnSaveLineMsg.disabled = false; 
 };
 
-if (btnResetLineMsg) setupConfirmationButton(btnResetLineMsg, at["zh-TW"] ? "恢復預設" : "Reset to default", "btn_confirm_reset", async () => { 
+if (btnResetLineMsg) setupConfirmationButton(btnResetLineMsg, "btn_reset_call", "btn_confirm_reset", async () => { 
     const data = await apiRequest("/api/admin/line-settings/reset", {}, true); 
     if (data && data.success) { 
         domKeys.forEach(key => {
@@ -1302,10 +1333,11 @@ if (btnExportCsv) {
 
 const btnClearStats = document.getElementById("btn-clear-stats");
 if (btnClearStats) {
-    setupConfirmationButton(btnClearStats, at["zh-TW"] ? "⚠ 清空統計資料" : "⚠ Clear Stats", "btn_confirm_clear", async () => {
+    setupConfirmationButton(btnClearStats, "toast_stats_cleared", "btn_confirm_clear", async () => {
         if (await apiRequest("/api/admin/stats/clear", {})) {
             showToast(at["toast_stats_cleared"], "success");
             await loadStats();
         }
     });
+}
 }
