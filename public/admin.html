@@ -42,6 +42,7 @@
     </aside>
 
     <main class="content-area">
+        
         <div id="section-live" class="section-group active">
             <div class="dashboard-header">
                 <div class="dashboard-item"><span class="label" data-i18n="dash_curr">目前叫號</span><span class="value big-number" id="number">0</span></div>
@@ -200,8 +201,20 @@
                             <ul id="user-list-ui"></ul>
                             <label data-i18n="lbl_add_user">新增帳號</label>
                             <div class="input-group vertical">
-                                <div class="input-group"><input type="text" id="new-user-username" data-i18n-ph="ph_account" placeholder="帳號"><input type="text" id="new-user-nickname" data-i18n-ph="ph_nick" placeholder="暱稱"></div>
-                                <div class="input-group"><input type="password" id="new-user-password" data-i18n-ph="ph_password" placeholder="密碼"><button id="add-user-btn" class="btn-add">+</button></div>
+                                <div class="input-group">
+                                    <input type="text" id="new-user-username" data-i18n-ph="ph_account" placeholder="帳號">
+                                    <input type="text" id="new-user-nickname" data-i18n-ph="ph_nick" placeholder="暱稱">
+                                </div>
+                                <div class="input-group">
+                                    <input type="password" id="new-user-password" data-i18n-ph="ph_password" placeholder="密碼">
+                                    <select id="new-user-role" style="padding:10px; border-radius:6px; background:#f9fafb; border:1px solid #e5e7eb;">
+                                        <option value="VIEWER">Viewer</option>
+                                        <option value="OPERATOR" selected>Operator</option>
+                                        <option value="MANAGER">Manager</option>
+                                        <option value="ADMIN">Admin</option>
+                                    </select>
+                                    <button id="add-user-btn" class="btn-add">+</button>
+                                </div>
                             </div>
                         </div>
                     </div>
