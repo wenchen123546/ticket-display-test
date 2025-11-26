@@ -20,7 +20,7 @@ const server = Server(app);
 const io = socketio(server, { cors: { origin: "*" }, pingTimeout: 60000 });
 const { PORT = 3000, UPSTASH_REDIS_URL: REDIS_URL, ADMIN_TOKEN, LINE_ACCESS_TOKEN, LINE_CHANNEL_SECRET } = process.env;
 
-if (!ADMIN_TOKEN || !REDIS_URL) { console.error("❌ 缺核心變數"); process.exit(1); }
+if (!ADMIN_TOKEN || !REDIS_URL) { console.error("❌ 缺核心變數: 請檢查 .env 檔案設定"); process.exit(1); }
 
 // --- Config & Helpers ---
 const LOG_DIR = path.join(__dirname, 'user_logs');
@@ -34,12 +34,13 @@ const logSystemDaily = (user, msg) => {
     fs.appendFile(logPath, `[${timeStr}] [${user || 'System'}] ${msg}\n`, (err) => { if(err) console.error("Log Error:", err); });
 };
 
-// [Optimization] Add family: 4 to force IPv4, prevents lookups delay
+// [關鍵修正] 加入 family: 4 強制使用 IPv4，解決 Node.js 17+ DNS 解析問題
 const redis = new Redis(REDIS_URL, { 
     tls: { rejectUnauthorized: false }, 
     family: 4,
     retryStrategy: t => Math.min(t * 50, 2000) 
 });
+
 const lineClient = (LINE_ACCESS_TOKEN && LINE_CHANNEL_SECRET) ? new line.Client({ channelAccessToken: LINE_ACCESS_TOKEN, channelSecret: LINE_CHANNEL_SECRET }) : null;
 
 const KEYS = {
@@ -62,7 +63,7 @@ const addLog = async (nick, msg) => {
     const time = new Date().toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour12:false});
     await redis.lpush(KEYS.LOGS, `[${time}] [${nick}] ${msg}`); 
     await redis.ltrim(KEYS.LOGS, 0, 99); 
-    io.to("admin").emit("newAdminLog", `[${time}] [${nick}] ${msg}`); // Removed redundant nick
+    io.to("admin").emit("newAdminLog", `[${time}] [${nick}] ${msg}`);
 };
 const broadcast = async (evt, data) => { io.emit(evt, data); await redis.set(KEYS.UPDATED, new Date().toISOString()); io.emit("updateTimestamp", new Date().toISOString()); };
 const broadcastList = async (k, evt, isJSON) => broadcast(evt, (isJSON ? await redis.lrange(k,0,-1) : await redis.zrange(k,0,-1)).map(isJSON?JSON.parse:Number));
@@ -70,21 +71,20 @@ const broadcastList = async (k, evt, isJSON) => broadcast(evt, (isJSON ? await r
 let cacheWait = 0, lastWaitCalc = 0;
 const calcWaitTime = async (force=false) => {
     if(!force && Date.now()-lastWaitCalc<60000) return cacheWait;
-    const hist = (await redis.lrange(KEYS.HISTORY, 0, 19)).map(JSON.parse).filter(r=>r.num); // Increased sample size
+    const hist = (await redis.lrange(KEYS.HISTORY, 0, 19)).map(JSON.parse).filter(r=>r.num);
     let total=0, weight=0;
-    // [Optimization] Robust calc logic preventing division by zero
+    // [優化] 防止除以零與 NaN 的計算邏輯
     for(let i=0; i<hist.length-1; i++) {
         const t1 = new Date(hist[i].time), t2 = new Date(hist[i+1].time);
         const diff = (t1 - t2)/60000; 
         const nDiff = Math.abs(hist[i].num - hist[i+1].num);
-        // Only count reasonable processing times (e.g. < 20 mins per group)
         if(nDiff > 0 && diff > 0 && (diff/nDiff) <= 20) { 
-            const w = (20-i); // Higher weight for recent
+            const w = (20-i); 
             total += (diff/nDiff) * w; 
             weight += w; 
         }
     }
-    cacheWait = weight > 0 ? (total/weight) : 0; // Prevent NaN
+    cacheWait = weight > 0 ? (total/weight) : 0;
     lastWaitCalc = Date.now();
     return cacheWait;
 };
@@ -104,7 +104,7 @@ async function handleControl(type, { body, user }) {
         } else { newNum = await redis.decrIfPositive(KEYS.CURRENT); logMsg = `號碼回退為 ${newNum}`; }
         
         await logHistory(newNum, user.nickname, delta);
-        // [Optimization] Fire and forget LINE notify (don't await)
+        // [優化] LINE 通知改為背景執行 (不 await)，避免卡頓
         checkLineNotify(newNum).catch(e => console.error("Line Error:", e)); 
     } else if(type === 'issue') {
         if(direction==='next') { newNum = await redis.incr(KEYS.ISSUED); logMsg = `手動發號至 ${newNum}`; }
@@ -153,7 +153,9 @@ async function logHistory(num, op, delta=0) {
 
 // Middleware
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.static("public")); app.use(express.json()); app.set('trust proxy', 1);
+// [重要] 確保 public 資料夾結構正確，否則 CSS 會 404
+app.use(express.static("public")); 
+app.use(express.json()); app.set('trust proxy', 1);
 
 const asyncHandler = fn => async(req, res, next) => {
     try { const r = await fn(req, res); if(r!==false) res.json(r||{success:true}); }
