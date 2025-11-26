@@ -60,10 +60,10 @@
                         </div>
                         <div class="control-group">
                             <label data-i18n="lbl_assign">指定 / 插隊</label>
-                            <div style="display:flex; gap:8px; margin-bottom:8px;">
-                                <button class="btn-secondary" id="quick-add-1" style="flex:1;">+1</button>
-                                <button class="btn-secondary" id="quick-add-5" style="flex:1;">+5</button>
-                                <button class="btn-secondary" id="quick-clear" style="flex:1; background:#f3f4f6;">C</button>
+                            <div class="quick-actions">
+                                <button class="btn-secondary" id="quick-add-1">+1</button>
+                                <button class="btn-secondary" id="quick-add-5">+5</button>
+                                <button class="btn-secondary" id="quick-clear" style="background:#f3f4f6;">C</button>
                             </div>
                             <div class="input-group">
                                 <input type="number" id="manualNumber" placeholder="#" inputmode="numeric" pattern="\d*">
@@ -140,7 +140,6 @@
                 <div class="card-wrapper">
                     <div class="admin-card">
                         <h3><span class="card-icon">⚙️</span> <span data-i18n="card_sys">系統</span></h3>
-                        
                         <div class="settings-grid">
                             <label class="setting-card">
                                 <span class="setting-icon">🌐</span>
@@ -153,7 +152,6 @@
                                 <input type="checkbox" id="sound-toggle">
                             </label>
                         </div>
-
                         <div class="control-group">
                             <label data-i18n="lbl_tts">TTS 語音廣播</label>
                             <div class="input-group">
@@ -161,7 +159,6 @@
                                 <button id="btn-broadcast" class="btn-secondary" data-i18n="btn_play">播放</button>
                             </div>
                         </div>
-
                         <div id="mode-switcher-group" class="control-group form-group-boxed" style="display:none; margin-top:10px;">
                             <label data-i18n="lbl_mode">取號模式</label>
                             <div style="display:flex; gap:15px; margin-top:5px;">
@@ -217,7 +214,6 @@
                 <div class="card-wrapper full-width-card" style="grid-column: 1 / -1;">
                     <div class="admin-card">
                         <h3><span class="card-icon">💬</span> LINE 設定</h3>
-                        
                         <div class="security-box" id="unlock-pwd-group" style="display:none;">
                             <div class="sec-icon">🔑</div>
                             <div class="sec-content">
@@ -228,13 +224,9 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="control-group list-editor">
-                            <ul id="line-settings-list-ui">
-                                <li>Loading settings...</li>
-                            </ul>
+                            <ul id="line-settings-list-ui"><li>Loading settings...</li></ul>
                         </div>
-
                         <div class="control-group" style="margin-top:20px; display:flex; gap:10px; justify-content: flex-end;">
                             <button id="btn-reset-line-msg" class="btn-reset-single" style="width:auto;" data-i18n="btn_restore">恢復預設值</button>
                         </div>
