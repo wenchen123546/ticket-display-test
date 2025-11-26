@@ -57,16 +57,33 @@ body { margin: 0; width: 100%; height: 100dvh; overflow-y: auto; overflow-x: hid
     letter-spacing: -4px; margin-top: 20px; text-shadow: 0 10px 30px rgba(59, 130, 246, 0.2);
 }
 
-/* Passed List */
+/* -------------------------------------------
+ * [修改] 過號名單容器 (Wrap Layout)
+ * ------------------------------------------- */
 .list-section { padding: 12px 16px; display: flex; align-items: center; gap: 12px; min-height: 56px; }
 .list-header { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .list-title { font-size: 0.85rem; font-weight: 700; color: var(--text-sub); }
 .badge { font-size: 0.7rem; background: #cbd5e1; color: #fff; padding: 2px 6px; border-radius: 6px; font-weight: 800; }
-.scroll-view { flex: 1; overflow-x: auto; overflow-y: hidden; white-space: nowrap; -webkit-overflow-scrolling: touch; mask-image: linear-gradient(to right, black 90%, transparent 100%); }
-.tag-list { display: inline-flex; gap: 6px; padding: 0; margin: 0; list-style: none; }
+
+.scroll-view { 
+    flex: 1; 
+    overflow-x: hidden; /* 禁止左右捲動 */
+    overflow-y: auto;   /* 允許垂直捲動 */
+    white-space: normal; /* 允許換行 */
+    -webkit-overflow-scrolling: touch; 
+}
+.tag-list { 
+    display: flex; 
+    flex-wrap: wrap; /* 關鍵：允許換行 */
+    gap: 6px; 
+    padding: 0; 
+    margin: 0; 
+    list-style: none; 
+}
 .tag-list li { 
     font-size: 0.9rem; font-weight: 700; color: #ef4444; background: #fee2e2; 
     padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(254, 202, 202, 0.5); 
+    white-space: nowrap; /* 數字本身不換行 */
 }
 .empty-state { font-size: 0.8rem; color: #cbd5e1; font-style: italic; }
 
@@ -133,8 +150,11 @@ body { margin: 0; width: 100%; height: 100dvh; overflow-y: auto; overflow-x: hid
     #number { font-size: 14rem; margin-top: 0; }
 
     .side-panel { height: 100%; justify-content: space-between; }
-    .list-section { background: rgba(255,255,255,0.6); padding: 20px; border-radius: 20px; }
+    
+    /* Desktop List (過號列表在桌面版改為垂直排列) */
+    .list-section { background: rgba(255,255,255,0.6); padding: 20px; border-radius: 20px; flex-direction: column; align-items: flex-start; gap: 10px; max-height: 200px; overflow-y: auto; }
     .tag-list li { font-size: 1rem; padding: 6px 14px; }
+    .scroll-view { width: 100%; }
 
     .control-section { flex: 1; background: white; border-radius: 30px; padding: 40px; box-shadow: var(--shadow-deep); display: flex; flex-direction: column; justify-content: center; }
     .btn-main, .fancy-input, .btn-track { height: 70px; font-size: 1.5rem; border-radius: 16px; }
