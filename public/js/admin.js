@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v35.0 (Persistence, User Edit UI, Fix Stats)
+ * 後台邏輯 (admin.js) - v36.0 (Content Restore)
  * ========================================== */
 const $ = i => document.getElementById(i);
 const $$ = s => document.querySelectorAll(s);
@@ -38,7 +38,6 @@ async function req(url, data={}, lockBtn=null) {
     finally { if(lockBtn) setTimeout(()=>lockBtn.disabled=false, 300); }
 }
 
-// Helper: Confirm Button
 function confirmBtn(el, origTxt, action) {
     if(!el) return;
     let t, c=5;
@@ -53,21 +52,17 @@ function confirmBtn(el, origTxt, action) {
     const reset = () => { clearInterval(t); el.classList.remove("is-confirming"); el.textContent = origTxt; c=5; };
 }
 
-// --- Session & View Management ---
+// Session
 function checkSession() {
     const storedToken = localStorage.getItem('callsys_token');
     const storedUser = localStorage.getItem('callsys_user');
     const storedRole = localStorage.getItem('callsys_role');
     const storedNick = localStorage.getItem('callsys_nick');
-    
     if(storedToken && storedUser) {
         token = storedToken; uniqueUser = storedUser; userRole = storedRole; username = storedNick;
         showPanel();
-    } else {
-        showLogin();
-    }
+    } else { showLogin(); }
 }
-
 function logout() {
     localStorage.removeItem('callsys_token'); localStorage.removeItem('callsys_user');
     localStorage.removeItem('callsys_role'); localStorage.removeItem('callsys_nick');
@@ -81,13 +76,11 @@ async function showPanel() {
     const isSuper = userRole === 'super';
     ["card-user-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group"].forEach(id => { if($(id)) $(id).style.display = isSuper ? "block" : "none"; });
     if($('button[data-target="section-line"]')) $('button[data-target="section-line"]').style.display = isSuper?"flex":"none";
-    
     socket.auth.token = token; socket.connect();
     await loadStats(); if(isSuper) { await loadUsers(); loadLineSettings(); }
 }
 
 $("btn-logout")?.addEventListener("click", logout);
-
 $("login-button").onclick = async () => {
     const b=$("login-button"); b.disabled=true;
     const res = await fetch("/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username:$("username-input").value, password:$("password-input").value})}).then(r=>r.json()).catch(()=>({error:T.login_fail}));
@@ -96,12 +89,11 @@ $("login-button").onclick = async () => {
         localStorage.setItem('callsys_token', token); localStorage.setItem('callsys_user', uniqueUser);
         localStorage.setItem('callsys_role', userRole); localStorage.setItem('callsys_nick', username);
         showPanel(); 
-    }
-    else { $("login-error").textContent=res.error||T.login_fail; }
+    } else { $("login-error").textContent=res.error||T.login_fail; }
     b.disabled=false;
 };
 
-// --- Socket Events ---
+// Socket
 socket.on("connect", () => { $("status-bar").classList.remove("visible"); toast(`${T.status_conn} (${username})`, "success"); });
 socket.on("disconnect", () => { $("status-bar").classList.add("visible"); });
 socket.on("updateQueue", d => { $("number").textContent=d.current; $("issued-number").textContent=d.issued; $("waiting-count").textContent=Math.max(0, d.issued-d.current); loadStats(); });
@@ -112,7 +104,6 @@ socket.on("updateSoundSetting", b => $("sound-toggle").checked=b);
 socket.on("updatePublicStatus", b => $("public-toggle").checked=b);
 socket.on("updateSystemMode", m => $$('input[name="systemMode"]').forEach(r => r.checked=(r.value===m)));
 
-// Lists
 socket.on("updatePassed", list => {
     const ul = $("passed-list-ui"); ul.innerHTML="";
     list.forEach(n => {
@@ -129,8 +120,8 @@ socket.on("updateFeaturedContents", list => {
     list.forEach(item => {
         const li = mk("li");
         const view = mk("div", null, null, {style:"display:flex; justify-content:space-between; width:100%; align-items:center;"});
-        const info = mk("div", null, null, {style:"display:flex; flex-direction:column; overflow:hidden;"});
-        info.append(mk("span", null, item.linkText, {style:"font-weight:600"}), mk("small", null, item.linkUrl, {style:"color:#666; overflow:hidden; text-overflow:ellipsis;"}));
+        const info = mk("div", null, null, {style:"display:flex; flex-direction:column; width:100%;"});
+        info.append(mk("span", null, item.linkText, {style:"font-weight:600"}), mk("small", null, item.linkUrl, {style:"color:#666;"}));
         
         const editDiv = mk("div", null, null, {style:"display:none; width:100%; flex-direction:column; gap:5px;"});
         const i1 = mk("input", null, null, {value:item.linkText, placeholder:"Name"}), i2 = mk("input", null, null, {value:item.linkUrl, placeholder:"URL"});
@@ -161,29 +152,21 @@ function renderLogs(logs, init) {
     logs.forEach(msg => { const li=mk("li", null, msg); init ? ul.appendChild(li) : ul.insertBefore(li, ul.firstChild); });
 }
 
-// --- Data Loading ---
-// [修正] 帳號管理 UI 重寫，仿照連結管理模式
+// Data
 async function loadUsers() {
     const d = await req("/api/admin/users");
     const ul = $("user-list-ui"); if(!d || !ul) return; ul.innerHTML="";
     d.users.forEach(u => {
         const li = mk("li");
-        
-        // View Mode
         const view = mk("div", null, null, {style:"display:flex; justify-content:space-between; width:100%; align-items:center;"});
         const info = mk("div", null, null, {style:"display:flex; flex-direction:column;"});
         info.append(mk("span", null, `${u.role==='super'?'👑':'👤'} ${u.nickname}`, {style:"font-weight:600"}), mk("small", null, u.username, {style:"color:#666;"}));
 
-        // Edit Mode
         const editDiv = mk("div", null, null, {style:"display:none; width:100%; gap:5px; align-items:center;"});
         const input = mk("input", null, null, {value:u.nickname, type:"text", placeholder:"Nickname"});
         const saveBtn = mk("button", "btn-secondary success", T.save);
         
-        saveBtn.onclick = async () => {
-            if(await req("/api/admin/set-nickname", {targetUsername:u.username, nickname:input.value})) {
-                toast(T.saved, "success"); loadUsers();
-            }
-        };
+        saveBtn.onclick = async () => { if(await req("/api/admin/set-nickname", {targetUsername:u.username, nickname:input.value})) { toast(T.saved, "success"); loadUsers(); } };
 
         const acts = mk("div", null, null, {style:"display:flex; gap:5px; flex-shrink:0;"});
         const editBtn = mk("button", "btn-secondary", T.edit, {onclick:()=>{ view.style.display="none"; editDiv.style.display="flex"; }});
@@ -194,18 +177,19 @@ async function loadUsers() {
             confirmBtn(del, T.del, async()=>{ await req("/api/admin/del-user",{delUsername:u.username}); loadUsers(); });
             acts.appendChild(del);
         }
-
         editDiv.append(input, saveBtn, mk("button", "btn-secondary", T.cancel, {onclick:()=>{ editDiv.style.display="none"; view.style.display="flex"; }}));
         view.appendChild(info, acts); li.append(view, editDiv); ul.appendChild(li);
     });
 }
 
+// [修正 3] 恢復流量分析列表內容的渲染邏輯
 async function loadStats() {
-    const ul = $("stats-list-ui"); // Note: removed stats list from HTML but keeping func logic safe
+    const ul = $("stats-list-ui"); 
     const d = await req("/api/admin/stats");
     if(d?.success) {
         if($("stats-today-count")) $("stats-today-count").textContent = d.todayCount;
         renderChart(d.hourlyCounts, d.serverHour);
+        if(ul) ul.innerHTML = d.history.map(h => `<li><span>${new Date(h.time).toLocaleTimeString('zh-TW',{hour12:false})} - ${h.num} <small>(${h.operator})</small></span></li>`).join("") || `<li>[Empty]</li>`;
     }
 }
 
@@ -226,7 +210,6 @@ act("btn-mark-passed", "/api/control/pass-current");
 act("btn-issue-prev", "/api/control/issue", {direction:"prev"});
 act("btn-issue-next", "/api/control/issue", {direction:"next"});
 
-// Inputs & Buttons
 $("setNumber")?.addEventListener("click", async()=>{ const n=$("manualNumber").value; if(n>0 && await req("/api/control/set-call",{number:n})) { $("manualNumber").value=""; toast(T.saved,"success"); } });
 $("setIssuedNumber")?.addEventListener("click", async()=>{ const n=$("manualIssuedNumber").value; if(n>=0 && await req("/api/control/set-issue",{number:n})) { $("manualIssuedNumber").value=""; toast(T.saved,"success"); } });
 $("add-passed-btn")?.addEventListener("click", async()=>{ const n=$("new-passed-number").value; if(n>0 && await req("/api/passed/add",{number:n})) $("new-passed-number").value=""; });
@@ -242,17 +225,11 @@ confirmBtn($("btn-clear-logs"), "清除日誌", ()=>req("/api/logs/clear"));
 confirmBtn($("btn-clear-stats"), "🗑️ 清空統計", ()=>req("/api/admin/stats/clear").then(()=>loadStats()));
 confirmBtn($("btn-reset-line-msg"), "↺ 恢復預設", ()=>req("/api/admin/line-settings/reset").then(d=>{if(d)loadLineSettings();}));
 
-// Toggles
 $("sound-toggle")?.addEventListener("change", e => req("/set-sound-enabled", {enabled:e.target.checked}));
 $("public-toggle")?.addEventListener("change", e => req("/set-public-status", {isPublic:e.target.checked}));
 $$('input[name="systemMode"]').forEach(r => r.addEventListener("change", ()=>confirm("Switch Mode?")?req("/set-system-mode", {mode:r.value}):(r.checked=!r.checked)));
+$("admin-lang-selector")?.addEventListener("change", e => { curLang=e.target.value; localStorage.setItem('callsys_lang', curLang); T=i18n[curLang]; location.reload(); });
 
-$("admin-lang-selector")?.addEventListener("change", e => { 
-    curLang=e.target.value; localStorage.setItem('callsys_lang', curLang); T=i18n[curLang]; 
-    location.reload(); // Now safe because checkSession will restore login
-});
-
-// Modals
 const modal = $("edit-stats-overlay"); let editHr=null;
 function openStatModal(h, val) { $("modal-current-count").textContent=val; editHr=h; modal.style.display="flex"; }
 $("btn-modal-close")?.addEventListener("click", ()=>modal.style.display="none");
@@ -262,24 +239,17 @@ $("btn-modal-close")?.addEventListener("click", ()=>modal.style.display="none");
 }));
 $("btn-export-csv")?.addEventListener("click", async()=>{ const d=await req("/api/admin/export-csv"); if(d?.csvData) { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\uFEFF"+d.csvData],{type:'text/csv'})); a.download=d.fileName; a.click(); toast("✅ Downloaded","success"); }});
 
-// LINE Settings
 const lineKeys = ["approach","arrival","status","personal","passed","set_ok","cancel","login_hint","err_passed","err_no_sub","set_hint"];
 async function loadLineSettings() { const d=await req("/api/admin/line-settings/get"); if(d) lineKeys.forEach(k=>{ if($(`line-msg-${k}`)) $(`line-msg-${k}`).value=d[k]||""; }); $("line-unlock-pwd").value = (await req("/api/admin/line-settings/get-unlock-pass"))?.password || ""; }
 $("btn-save-line-msg")?.addEventListener("click", async()=>{ const data={}; lineKeys.forEach(k=>data[k]=$(`line-msg-${k}`).value); if(await req("/api/admin/line-settings/save", data)) toast(T.saved,"success"); });
 $("btn-save-unlock-pwd")?.addEventListener("click", async()=>{ if(await req("/api/admin/line-settings/set-unlock-pass", {password:$("line-unlock-pwd").value})) toast(T.saved,"success"); });
-
 $("add-user-btn")?.addEventListener("click", async()=>{ if(await req("/api/admin/add-user", {newUsername:$("new-user-username").value, newPassword:$("new-user-password").value, newNickname:$("new-user-nickname").value})) { toast(T.saved,"success"); $("new-user-username").value=""; $("new-user-password").value=""; $("new-user-nickname").value=""; loadUsers(); }});
 
-// Init
 document.addEventListener("DOMContentLoaded", () => {
     $("admin-lang-selector").value = curLang; 
-    
-    // Check local storage for session
     checkSession();
-
     const enter = (i,b) => $(i)?.addEventListener("keyup", e=>{if(e.key==="Enter")$(b).click()});
     enter("username-input","login-button"); enter("password-input","login-button"); enter("manualNumber","setNumber"); enter("new-link-url","add-featured-btn");
-    
     $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
         $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active');
         $$('.section-group').forEach(s=>s.classList.remove('active')); $(b.dataset.target)?.classList.add('active');
