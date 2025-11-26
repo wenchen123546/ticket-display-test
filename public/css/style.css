@@ -1,37 +1,38 @@
 /* ==========================================
- * Theme: Maximized Compact v32.2 Fix
+ * Theme: Maximized Compact v32.3 Fixed
  * ========================================== */
 :root {
     --primary: #3b82f6; --primary-dark: #2563eb; --bg-app: #f1f5f9; --text-main: #0f172a; --text-sub: #475569;
     --glass-bg: rgba(255, 255, 255, 0.95); --radius-lg: 16px; --radius-sm: 8px; --gap: 4px;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-body { margin: 0; width: 100%; height: 100dvh; overflow: hidden; font-family: 'DM Sans', sans-serif; background: var(--bg-app); color: var(--text-main); display: flex; justify-content: center; }
+/* FIX: Changed overflow: hidden to auto to prevent cutting off content on mobile */
+body { margin: 0; width: 100%; height: 100dvh; overflow-y: auto; overflow-x: hidden; font-family: 'DM Sans', sans-serif; background: var(--bg-app); color: var(--text-main); display: flex; justify-content: center; }
 .bg-decoration { position: fixed; inset: 0; z-index: -1; opacity: 0.3; pointer-events: none; }
 .orb { position: absolute; border-radius: 50%; filter: blur(90px); }
 .orb-1 { width: 90vw; height: 90vw; background: #bfdbfe; top: -30%; left: -20%; }
 .orb-2 { width: 80vw; height: 80vw; background: #e9d5ff; bottom: -30%; right: -20%; }
 
 /* Mobile Layout */
-.app-container { width: 100%; max-width: 550px; height: 100%; padding: max(var(--gap), env(safe-area-inset-top)) var(--gap) 4px var(--gap); display: flex; flex-direction: column; gap: var(--gap); position: relative; }
+.app-container { width: 100%; max-width: 550px; min-height: 100%; padding: max(var(--gap), env(safe-area-inset-top)) var(--gap) 4px var(--gap); display: flex; flex-direction: column; gap: var(--gap); position: relative; }
 .glass { background: var(--glass-bg); border: 1px solid #fff; border-radius: var(--radius-lg); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); width: 100%; }
 .side-panel { display: flex; flex-direction: column; gap: var(--gap); flex: 0 0 auto; }
 
-/* Header & Lang Switch (Fix Issue #2) */
+/* Header & Lang Switch */
 .app-header { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; height: 40px; z-index: 10; width: 100%; }
 .status-indicator { font-size: 0.75rem; font-weight: 700; color: var(--text-sub); display: flex; align-items: center; }
 .dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; margin-right: 6px; }
 .lang-switch { background: #e2e8f0; border: 1px solid #cbd5e1; border-radius: 20px; font-size: 0.85rem; font-weight: 700; color: var(--text-main); padding: 4px 12px; outline: none; white-space: nowrap; }
 
 /* Hero */
-.hero-section { flex: 1; display: flex; flex-direction: column; padding: 12px; position: relative; overflow: hidden; min-height: 0; }
+.hero-section { flex: 1; display: flex; flex-direction: column; padding: 12px; position: relative; overflow: hidden; min-height: 200px; }
 .hero-top-info { display: flex; justify-content: space-between; align-items: center; z-index: 2; margin-bottom: 0; }
 .hero-label { font-size: 0.95rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
 .stat-pill { background: #e2e8f0; padding: 4px 12px; border-radius: 10px; display: flex; align-items: baseline; gap: 6px; }
 .s-value { font-size: 1.3rem; font-weight: 900; line-height: 1; }
 #number { flex: 1; display: flex; align-items: center; justify-content: center; font-size: clamp(6rem, 25vh, 14rem); font-weight: 900; line-height: 1; background: linear-gradient(180deg, var(--text-main) 10%, var(--primary-dark) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -4px; margin: 0; padding-bottom: 2vh; }
 
-/* Passed List (Fix Issue #1) */
+/* Passed List */
 .list-section { padding: 10px; display: flex; align-items: flex-start; gap: 10px; min-height: 60px; }
 .list-header { display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding-top: 4px; }
 .list-title { font-size: 0.9rem; font-weight: 700; color: var(--text-sub); }
@@ -70,7 +71,7 @@ body { margin: 0; width: 100%; height: 100dvh; overflow: hidden; font-family: 'D
 
 /* Desktop */
 @media (min-width: 1024px) {
-    body { padding: 30px; background: #e2e8f0; }
+    body { padding: 30px; background: #e2e8f0; overflow: hidden; /* Desktop fits in screen */ }
     .app-container { max-width: 1400px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 30px; height: 100%; max-height: 900px; margin: auto; padding: 0; }
     .app-header { position: absolute; top: -50px; right: 0; width: auto; }
     .status-indicator { display: none; } .lang-switch { background: white; padding: 8px 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
