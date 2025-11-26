@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v33.2 Fix Layout
+ * 後台樣式 (admin.css) - v33.4 Consistent Grid
  * ========================================== */
 :root {
     --bg-body: #f3f4f6; --bg-surface: #ffffff; --bg-sidebar: #ffffff;
@@ -30,7 +30,6 @@ body { margin: 0; width: 100%; min-height: 100vh; font-family: 'Inter', sans-ser
 .lang-select { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: #f9fafb; }
 
 /* Content Area */
-/* [FIX] 確保桌面版有正確的寬度計算，避免內容溢出 */
 .content-area { flex: 1; padding: 30px; width: 0; min-width: 0; }
 .section-group { max-width: 1400px; margin: 0 auto; display: none; } 
 .section-group.active { display: block; animation: fadeIn 0.3s; }
@@ -44,15 +43,18 @@ body { margin: 0; width: 100%; min-height: 100vh; font-family: 'Inter', sans-ser
 .sub-number { font-size: 1.8rem; font-weight: 700; color: var(--text-main); }
 .label { font-size: 0.85rem; color: var(--text-sub); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
 
-/* [FIX] 調整 Grid 最小寬度為 280px，適應小手機 */
-.card-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; } 
+/* [FIXED] 改為明確的斷點控制，解決卡片寬度不一 (大有小) 的問題 */
+.card-container { display: grid; gap: 24px; grid-template-columns: 1fr; } /* 手機預設 1 欄 */
+@media (min-width: 768px) { .card-container { grid-template-columns: repeat(2, 1fr); } } /* 平板 2 欄 */
+@media (min-width: 1200px) { .card-container { grid-template-columns: repeat(3, 1fr); } } /* 桌機 3 欄 */
+
 .full-width-card { grid-column: 1 / -1; }
 
 .admin-card { background: var(--bg-surface); border-radius: var(--radius-lg); padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); height: 100%; display: flex; flex-direction: column; }
 .admin-card h3 { margin: 0 0 20px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 8px; font-size: 1.1rem; color: var(--text-main); }
 .card-icon { font-size: 1.2rem; }
 
-/* [FIX] 補上這段致命遺漏的 Flex 設定 */
+/* Actions */
 .big-action-row { display: flex; gap: 15px; margin-bottom: 20px; width: 100%; }
 
 .btn-big { flex: 1; padding: 20px; border-radius: var(--radius-md); font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); min-height: 90px; border: none; cursor: pointer; transition: 0.2s; font-size: 1rem; }
@@ -65,7 +67,6 @@ body { margin: 0; width: 100%; min-height: 100vh; font-family: 'Inter', sans-ser
 .control-group { margin-bottom: 15px; }
 .control-group label { display: block; margin-bottom: 6px; font-weight: 600; color: var(--text-main); font-size: 0.9rem; }
 
-/* [FIX] 補上 Input Group 的 Flex 設定 */
 .input-group { display: flex; gap: 8px; width: 100%; } 
 .input-group.vertical { flex-direction: column; }
 
@@ -79,7 +80,6 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
 
 .list-editor ul, .log-list { background: #f9fafb; border: 1px solid #f3f4f6; border-radius: var(--radius-md); max-height: 300px; overflow-y: auto; margin: 0 0 12px 0; padding: 0; list-style: none; }
 .list-editor li { padding: 10px; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-/* [FIX] 防止列表內容撐開版面 */
 .list-editor li > div { overflow: hidden; }
 .list-editor li span, .list-editor li small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 
@@ -108,26 +108,19 @@ textarea { resize: vertical; min-height: 80px; font-family: inherit; }
 /* Responsive Mobile Admin */
 @media (max-width: 768px) {
     #admin-panel { flex-direction: column; }
-    
-    /* [FIX] 手機版 Sidebar 樣式修復 */
     .sidebar { width: 100%; height: auto; position: fixed; bottom: 0; top: auto; flex-direction: row; border-top: 1px solid var(--border-color); border-right: none; z-index: 2000; padding-bottom: env(safe-area-inset-bottom); }
     .sidebar-header, .sidebar-footer { display: none; }
     .sidebar-nav { flex-direction: row; width: 100%; padding: 0; display: flex; overflow-x: auto; }
-    
     .nav-btn { flex-direction: column; justify-content: center; flex: 1; font-size: 0.75rem; border-radius: 0; text-align: center; height: 60px; padding: 5px; gap: 4px; white-space: nowrap; }
     
-    /* [FIX] 手機版內容區域寬度修復，預留底部導航空間 */
     .content-area { padding: 15px 15px 90px 15px; width: 100%; min-width: 100%; flex: auto; }
+    .dashboard-header { grid-template-columns: 1fr 1fr; } .dashboard-item:last-child { grid-column: 1 / -1; }
     
-    .dashboard-header { grid-template-columns: 1fr 1fr; } 
-    .dashboard-item:last-child { grid-column: 1 / -1; }
+    /* 確保手機版全都是單欄 */
+    .card-container { grid-template-columns: 1fr; } 
     
-    .card-container { grid-template-columns: 1fr; } /* 手機強制單欄 */
-    
-    /* 手機版按鈕垂直排列 */
     .big-action-row { flex-direction: column; }
     .input-group { flex-direction: column; }
     #btn-call-next { order: -1; min-width: 100%; }
-    
     .btn-secondary { width: 100%; }
 }
