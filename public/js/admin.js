@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v33.1 Fix (Layout & Actions)
+ * 後台邏輯 (admin.js) - v35.0 (Persistence, User Edit UI, Fix Stats)
  * ========================================== */
 const $ = i => document.getElementById(i);
 const $$ = s => document.querySelectorAll(s);
@@ -26,7 +26,10 @@ async function req(url, data={}, lockBtn=null) {
         const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, token }) });
         const res = await r.json();
         if(!r.ok) {
-            if(r.status===403) { toast(res.error?.includes("權限")?T.denied:T.expired, "error"); if(!res.error?.includes("權限")) showLogin(); }
+            if(r.status===403) { 
+                toast(res.error?.includes("權限")?T.denied:T.expired, "error"); 
+                if(!res.error?.includes("權限")) logout(); 
+            }
             else toast(`❌ ${res.error||'Error'}`, "error");
             return null;
         }
@@ -35,7 +38,7 @@ async function req(url, data={}, lockBtn=null) {
     finally { if(lockBtn) setTimeout(()=>lockBtn.disabled=false, 300); }
 }
 
-// Confirm Button Helper (Modified to accept Element)
+// Helper: Confirm Button
 function confirmBtn(el, origTxt, action) {
     if(!el) return;
     let t, c=5;
@@ -50,21 +53,57 @@ function confirmBtn(el, origTxt, action) {
     const reset = () => { clearInterval(t); el.classList.remove("is-confirming"); el.textContent = origTxt; c=5; };
 }
 
-// Views
+// --- Session & View Management ---
+function checkSession() {
+    const storedToken = localStorage.getItem('callsys_token');
+    const storedUser = localStorage.getItem('callsys_user');
+    const storedRole = localStorage.getItem('callsys_role');
+    const storedNick = localStorage.getItem('callsys_nick');
+    
+    if(storedToken && storedUser) {
+        token = storedToken; uniqueUser = storedUser; userRole = storedRole; username = storedNick;
+        showPanel();
+    } else {
+        showLogin();
+    }
+}
+
+function logout() {
+    localStorage.removeItem('callsys_token'); localStorage.removeItem('callsys_user');
+    localStorage.removeItem('callsys_role'); localStorage.removeItem('callsys_nick');
+    token=""; location.reload();
+}
+
 function showLogin() { $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); }
 async function showPanel() {
     $("login-container").style.display="none"; $("admin-panel").style.display="flex";
     if($("sidebar-user-info")) $("sidebar-user-info").textContent = `Hi, ${username}`;
     const isSuper = userRole === 'super';
-    ["card-user-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group"].forEach(id => $(id).style.display = isSuper ? "block" : "none");
+    ["card-user-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group"].forEach(id => { if($(id)) $(id).style.display = isSuper ? "block" : "none"; });
     if($('button[data-target="section-line"]')) $('button[data-target="section-line"]').style.display = isSuper?"flex":"none";
-    await loadUsers(); await loadStats(); if(isSuper) loadLineSettings();
+    
     socket.auth.token = token; socket.connect();
+    await loadStats(); if(isSuper) { await loadUsers(); loadLineSettings(); }
 }
 
-// Socket Events
+$("btn-logout")?.addEventListener("click", logout);
+
+$("login-button").onclick = async () => {
+    const b=$("login-button"); b.disabled=true;
+    const res = await fetch("/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username:$("username-input").value, password:$("password-input").value})}).then(r=>r.json()).catch(()=>({error:T.login_fail}));
+    if(res.token) { 
+        token=res.token; userRole=res.role; username=res.nickname; uniqueUser=res.username;
+        localStorage.setItem('callsys_token', token); localStorage.setItem('callsys_user', uniqueUser);
+        localStorage.setItem('callsys_role', userRole); localStorage.setItem('callsys_nick', username);
+        showPanel(); 
+    }
+    else { $("login-error").textContent=res.error||T.login_fail; }
+    b.disabled=false;
+};
+
+// --- Socket Events ---
 socket.on("connect", () => { $("status-bar").classList.remove("visible"); toast(`${T.status_conn} (${username})`, "success"); });
-socket.on("disconnect", () => { $("status-bar").classList.add("visible"); toast(T.status_dis, "error"); });
+socket.on("disconnect", () => { $("status-bar").classList.add("visible"); });
 socket.on("updateQueue", d => { $("number").textContent=d.current; $("issued-number").textContent=d.issued; $("waiting-count").textContent=Math.max(0, d.issued-d.current); loadStats(); });
 socket.on("update", n => { $("number").textContent=n; loadStats(); });
 socket.on("initAdminLogs", l => renderLogs(l, true));
@@ -73,7 +112,7 @@ socket.on("updateSoundSetting", b => $("sound-toggle").checked=b);
 socket.on("updatePublicStatus", b => $("public-toggle").checked=b);
 socket.on("updateSystemMode", m => $$('input[name="systemMode"]').forEach(r => r.checked=(r.value===m)));
 
-// --- Lists Rendering (Passed, Featured, Online) ---
+// Lists
 socket.on("updatePassed", list => {
     const ul = $("passed-list-ui"); ul.innerHTML="";
     list.forEach(n => {
@@ -89,34 +128,27 @@ socket.on("updateFeaturedContents", list => {
     const ul = $("featured-list-ui"); ul.innerHTML="";
     list.forEach(item => {
         const li = mk("li");
-        // View Mode
         const view = mk("div", null, null, {style:"display:flex; justify-content:space-between; width:100%; align-items:center;"});
-        const info = mk("div", null, null, {style:"display:flex; flex-direction:column; overflow:hidden;"}); // Added overflow hidden
+        const info = mk("div", null, null, {style:"display:flex; flex-direction:column; overflow:hidden;"});
         info.append(mk("span", null, item.linkText, {style:"font-weight:600"}), mk("small", null, item.linkUrl, {style:"color:#666; overflow:hidden; text-overflow:ellipsis;"}));
         
-        // Edit Mode
         const editDiv = mk("div", null, null, {style:"display:none; width:100%; flex-direction:column; gap:5px;"});
         const i1 = mk("input", null, null, {value:item.linkText, placeholder:"Name"}), i2 = mk("input", null, null, {value:item.linkUrl, placeholder:"URL"});
-        const save = mk("button", "btn-secondary success", T.save, {onclick: async()=>{ 
-            if(await req("/api/featured/edit",{oldLinkText:item.linkText,oldLinkUrl:item.linkUrl,newLinkText:i1.value,newLinkUrl:i2.value})) { toast(T.saved,"success"); }
-        }});
+        const save = mk("button", "btn-secondary success", T.save, {onclick: async()=>{ if(await req("/api/featured/edit",{oldLinkText:item.linkText,oldLinkUrl:item.linkUrl,newLinkText:i1.value,newLinkUrl:i2.value})) toast(T.saved,"success"); }});
         
-        // Actions
         const acts = mk("div", null, null, {style:"display:flex; gap:5px; flex-shrink:0;"});
         acts.append(mk("button", "btn-secondary", T.edit, {onclick:()=>{view.style.display="none"; editDiv.style.display="flex";}}));
         const del = mk("button", "delete-item-btn", T.del); confirmBtn(del, T.del, ()=>req("/api/featured/remove", item));
         acts.append(del);
 
-        // Assemble Edit
         editDiv.append(i1, i2, mk("div", null, null, {style:"display:flex; gap:5px; justify-content:flex-end;"}));
         editDiv.lastChild.append(save, mk("button", "btn-secondary", T.cancel, {onclick:()=>{editDiv.style.display="none"; view.style.display="flex";}}));
-        
         view.append(info, acts); li.append(view, editDiv); ul.appendChild(li);
     });
 });
 
 socket.on("updateOnlineAdmins", list => {
-    const ul = $("online-users-list"); ul.innerHTML = "";
+    const ul = $("online-users-list"); if(!ul) return; ul.innerHTML = "";
     if(!list || !list.length) { ul.innerHTML = `<li>(Offline)</li>`; return; }
     list.sort((a,b)=>(a.role==='super'?-1:1)).forEach(u => {
         ul.appendChild(mk("li", null, `${u.role==='super'?'👑':'👤'} ${u.nickname} ${u.username===uniqueUser?'(You)':''}`));
@@ -124,12 +156,13 @@ socket.on("updateOnlineAdmins", list => {
 });
 
 function renderLogs(logs, init) {
-    const ul = $("admin-log-ui"); if(init) ul.innerHTML="";
+    const ul = $("admin-log-ui"); if(!ul) return; if(init) ul.innerHTML="";
     if(!logs?.length && init) { ul.innerHTML="<li>[No Logs]</li>"; return; }
     logs.forEach(msg => { const li=mk("li", null, msg); init ? ul.appendChild(li) : ul.insertBefore(li, ul.firstChild); });
 }
 
 // --- Data Loading ---
+// [修正] 帳號管理 UI 重寫，仿照連結管理模式
 async function loadUsers() {
     const d = await req("/api/admin/users");
     const ul = $("user-list-ui"); if(!d || !ul) return; ul.innerHTML="";
@@ -138,11 +171,12 @@ async function loadUsers() {
         
         // View Mode
         const view = mk("div", null, null, {style:"display:flex; justify-content:space-between; width:100%; align-items:center;"});
-        view.innerHTML = `<span>${u.role==='super'?'👑':'👤'} <b>${u.nickname}</b> <small>(${u.username})</small></span>`;
-        
+        const info = mk("div", null, null, {style:"display:flex; flex-direction:column;"});
+        info.append(mk("span", null, `${u.role==='super'?'👑':'👤'} ${u.nickname}`, {style:"font-weight:600"}), mk("small", null, u.username, {style:"color:#666;"}));
+
         // Edit Mode
         const editDiv = mk("div", null, null, {style:"display:none; width:100%; gap:5px; align-items:center;"});
-        const input = mk("input", null, null, {value:u.nickname, type:"text"});
+        const input = mk("input", null, null, {value:u.nickname, type:"text", placeholder:"Nickname"});
         const saveBtn = mk("button", "btn-secondary success", T.save);
         
         saveBtn.onclick = async () => {
@@ -162,37 +196,27 @@ async function loadUsers() {
         }
 
         editDiv.append(input, saveBtn, mk("button", "btn-secondary", T.cancel, {onclick:()=>{ editDiv.style.display="none"; view.style.display="flex"; }}));
-        view.appendChild(acts); li.append(view, editDiv); ul.appendChild(li);
+        view.appendChild(info, acts); li.append(view, editDiv); ul.appendChild(li);
     });
 }
 
 async function loadStats() {
-    const ul = $("stats-list-ui"); if(!ul) return;
+    const ul = $("stats-list-ui"); // Note: removed stats list from HTML but keeping func logic safe
     const d = await req("/api/admin/stats");
     if(d?.success) {
-        $("stats-today-count").textContent = d.todayCount;
+        if($("stats-today-count")) $("stats-today-count").textContent = d.todayCount;
         renderChart(d.hourlyCounts, d.serverHour);
-        ul.innerHTML = d.history.map(h => `<li><span>${new Date(h.time).toLocaleTimeString('zh-TW',{hour12:false})} - ${h.num} <small>(${h.operator})</small></span></li>`).join("") || `<li>[Empty]</li>`;
     }
 }
 
 function renderChart(counts, curHr) {
-    const c = $("hourly-chart"); c.innerHTML=""; const max = Math.max(...counts, 1);
+    const c = $("hourly-chart"); if(!c) return; c.innerHTML=""; const max = Math.max(...counts, 1);
     counts.forEach((val, i) => {
         const col = mk("div", `chart-col ${i===curHr?'current':''}`, null, {onclick:()=>openStatModal(i, val)});
         col.innerHTML = `<div class="chart-val">${val||''}</div><div class="chart-bar" style="height:${Math.max(val/max*100, 2)}%; background:${val===0?'#e5e7eb':''}"></div><div class="chart-label">${String(i).padStart(2,'0')}</div>`;
         c.appendChild(col);
     });
 }
-
-// --- Logic ---
-$("login-button").onclick = async () => {
-    const b=$("login-button"); b.disabled=true;
-    const res = await fetch("/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username:$("username-input").value, password:$("password-input").value})}).then(r=>r.json()).catch(()=>({error:T.login_fail}));
-    if(res.token) { token=res.token; userRole=res.role; username=res.nickname; uniqueUser=res.username; showPanel(); }
-    else { $("login-error").textContent=res.error||T.login_fail; showLogin(); }
-    b.disabled=false;
-};
 
 // Bindings
 const act = (id, api, data={}) => $(id)?.addEventListener("click", () => req(api, data, $(id)));
@@ -202,14 +226,13 @@ act("btn-mark-passed", "/api/control/pass-current");
 act("btn-issue-prev", "/api/control/issue", {direction:"prev"});
 act("btn-issue-next", "/api/control/issue", {direction:"next"});
 
-// Inputs & Static Confirms
+// Inputs & Buttons
 $("setNumber")?.addEventListener("click", async()=>{ const n=$("manualNumber").value; if(n>0 && await req("/api/control/set-call",{number:n})) { $("manualNumber").value=""; toast(T.saved,"success"); } });
 $("setIssuedNumber")?.addEventListener("click", async()=>{ const n=$("manualIssuedNumber").value; if(n>=0 && await req("/api/control/set-issue",{number:n})) { $("manualIssuedNumber").value=""; toast(T.saved,"success"); } });
 $("add-passed-btn")?.addEventListener("click", async()=>{ const n=$("new-passed-number").value; if(n>0 && await req("/api/passed/add",{number:n})) $("new-passed-number").value=""; });
 $("add-featured-btn")?.addEventListener("click", async()=>{ const t=$("new-link-text").value, u=$("new-link-url").value; if(t&&u && await req("/api/featured/add",{linkText:t, linkUrl:u})) { $("new-link-text").value=""; $("new-link-url").value=""; } });
 $("btn-broadcast")?.addEventListener("click", async()=>{ const m=$("broadcast-msg").value; if(m && await req("/api/admin/broadcast",{message:m})) { toast("📢 Sent","success"); $("broadcast-msg").value=""; } });
 
-// Bind Static Buttons
 confirmBtn($("resetNumber"), "↺ 重置叫號", ()=>req("/api/control/set-call",{number:0}));
 confirmBtn($("resetIssued"), "↺ 重置發號", ()=>req("/api/control/set-issue",{number:0}));
 confirmBtn($("resetPassed"), "清空列表", ()=>req("/api/passed/clear"));
@@ -223,11 +246,15 @@ confirmBtn($("btn-reset-line-msg"), "↺ 恢復預設", ()=>req("/api/admin/line
 $("sound-toggle")?.addEventListener("change", e => req("/set-sound-enabled", {enabled:e.target.checked}));
 $("public-toggle")?.addEventListener("change", e => req("/set-public-status", {isPublic:e.target.checked}));
 $$('input[name="systemMode"]').forEach(r => r.addEventListener("change", ()=>confirm("Switch Mode?")?req("/set-system-mode", {mode:r.value}):(r.checked=!r.checked)));
-$("admin-lang-selector")?.addEventListener("change", e => { curLang=e.target.value; localStorage.setItem('callsys_lang', curLang); T=i18n[curLang]; location.reload(); });
 
-// Modals & CSV
+$("admin-lang-selector")?.addEventListener("change", e => { 
+    curLang=e.target.value; localStorage.setItem('callsys_lang', curLang); T=i18n[curLang]; 
+    location.reload(); // Now safe because checkSession will restore login
+});
+
+// Modals
 const modal = $("edit-stats-overlay"); let editHr=null;
-function openStatModal(h, val) { $("modal-title").textContent=`Edit ${h}:00`; editHr=h; $("modal-current-count").textContent=val; modal.style.display="flex"; }
+function openStatModal(h, val) { $("modal-current-count").textContent=val; editHr=h; modal.style.display="flex"; }
 $("btn-modal-close")?.addEventListener("click", ()=>modal.style.display="none");
 ["btn-stats-minus", "btn-stats-plus"].forEach((id, idx) => $(id)?.addEventListener("click", async()=>{
     if(editHr===null) return; const delta = idx===0 ? -1 : 1; await req("/api/admin/stats/adjust", {hour:editHr, delta}); 
@@ -235,19 +262,24 @@ $("btn-modal-close")?.addEventListener("click", ()=>modal.style.display="none");
 }));
 $("btn-export-csv")?.addEventListener("click", async()=>{ const d=await req("/api/admin/export-csv"); if(d?.csvData) { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\uFEFF"+d.csvData],{type:'text/csv'})); a.download=d.fileName; a.click(); toast("✅ Downloaded","success"); }});
 
-// LINE
+// LINE Settings
 const lineKeys = ["approach","arrival","status","personal","passed","set_ok","cancel","login_hint","err_passed","err_no_sub","set_hint"];
 async function loadLineSettings() { const d=await req("/api/admin/line-settings/get"); if(d) lineKeys.forEach(k=>{ if($(`line-msg-${k}`)) $(`line-msg-${k}`).value=d[k]||""; }); $("line-unlock-pwd").value = (await req("/api/admin/line-settings/get-unlock-pass"))?.password || ""; }
 $("btn-save-line-msg")?.addEventListener("click", async()=>{ const data={}; lineKeys.forEach(k=>data[k]=$(`line-msg-${k}`).value); if(await req("/api/admin/line-settings/save", data)) toast(T.saved,"success"); });
 $("btn-save-unlock-pwd")?.addEventListener("click", async()=>{ if(await req("/api/admin/line-settings/set-unlock-pass", {password:$("line-unlock-pwd").value})) toast(T.saved,"success"); });
 
-$("add-user-btn")?.addEventListener("click", async()=>{ if(await req("/api/admin/add-user", {newUsername:$("new-user-username").value, newPassword:$("new-user-password").value, newNickname:$("new-user-nickname").value})) { toast(T.saved,"success"); $("new-user-username").value=""; $("new-user-password").value=""; loadUsers(); }});
+$("add-user-btn")?.addEventListener("click", async()=>{ if(await req("/api/admin/add-user", {newUsername:$("new-user-username").value, newPassword:$("new-user-password").value, newNickname:$("new-user-nickname").value})) { toast(T.saved,"success"); $("new-user-username").value=""; $("new-user-password").value=""; $("new-user-nickname").value=""; loadUsers(); }});
 
 // Init
 document.addEventListener("DOMContentLoaded", () => {
-    $("admin-lang-selector").value = curLang; showLogin();
+    $("admin-lang-selector").value = curLang; 
+    
+    // Check local storage for session
+    checkSession();
+
     const enter = (i,b) => $(i)?.addEventListener("keyup", e=>{if(e.key==="Enter")$(b).click()});
     enter("username-input","login-button"); enter("password-input","login-button"); enter("manualNumber","setNumber"); enter("new-link-url","add-featured-btn");
+    
     $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
         $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active');
         $$('.section-group').forEach(s=>s.classList.remove('active')); $(b.dataset.target)?.classList.add('active');
