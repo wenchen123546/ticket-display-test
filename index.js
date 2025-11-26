@@ -1,5 +1,5 @@
 /* ==========================================
- * 伺服器 (index.js) - v41.1 Safe Mode
+ * 伺服器 (index.js) - v41.2 Robust Path Fix
  * ========================================== */
 require('dotenv').config();
 const { Server } = require("http");
@@ -13,15 +13,13 @@ const bcrypt = require('bcrypt');
 const line = require('@line/bot-sdk');
 const cron = require('node-cron');
 const fs = require("fs");
-const path = require("path");
+const path = require("path"); // [必要] 引入路徑處理模組
 
-// --- 1. 環境變數檢查 (最常見的崩潰原因) ---
+// --- 1. 環境變數檢查 ---
 const { PORT = 3000, UPSTASH_REDIS_URL: REDIS_URL, ADMIN_TOKEN, LINE_ACCESS_TOKEN, LINE_CHANNEL_SECRET } = process.env;
 if (!ADMIN_TOKEN || !REDIS_URL) {
     console.error("\n\n❌❌❌ [嚴重錯誤] 缺少核心變數 ❌❌❌");
-    console.error("請檢查您的 .env 檔案，確認包含：");
-    console.error("1. UPSTASH_REDIS_URL (Redis 連線網址)");
-    console.error("2. ADMIN_TOKEN (後台登入密碼)\n\n");
+    console.error("請檢查 .env 檔案是否包含 UPSTASH_REDIS_URL 和 ADMIN_TOKEN\n\n");
     process.exit(1);
 }
 
@@ -30,9 +28,9 @@ const server = Server(app);
 const io = socketio(server, { cors: { origin: "*" }, pingTimeout: 60000 });
 
 // --- 2. Config & Helpers ---
+// 使用 path.join 確保在任何作業系統下路徑都正確
 const LOG_DIR = path.join(__dirname, 'user_logs');
-// 使用 try-catch 防止沒有權限建立資料夾時崩潰
-try { if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR); } catch(e) { console.warn("⚠️ 無法建立 Log 資料夾，將略過檔案日誌"); }
+try { if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR); } catch(e) { console.warn("⚠️ 無法建立 Log 資料夾，忽略日誌功能"); }
 
 const logSystemDaily = (user, msg) => {
     try {
@@ -45,7 +43,6 @@ const logSystemDaily = (user, msg) => {
 };
 
 // --- 3. Redis 連線 (安全模式) ---
-// [修正] 移除 family: 4，增加錯誤監聽
 const redis = new Redis(REDIS_URL, { 
     tls: { rejectUnauthorized: false }, 
     retryStrategy: t => Math.min(t * 50, 2000) 
@@ -123,7 +120,7 @@ async function handleControl(type, { body, user }) {
         } else { newNum = await redis.decrIfPositive(KEYS.CURRENT); logMsg = `號碼回退為 ${newNum}`; }
         
         await logHistory(newNum, user.nickname, delta);
-        checkLineNotify(newNum).catch(e => console.error("Line Error (Background):", e.message)); 
+        checkLineNotify(newNum).catch(e => console.error("Line Error (BG):", e.message)); 
     } else if(type === 'issue') {
         if(direction==='next') { newNum = await redis.incr(KEYS.ISSUED); logMsg = `手動發號至 ${newNum}`; }
         else if(issued > curr) { newNum = await redis.decr(KEYS.ISSUED); logMsg = `手動發號回退至 ${newNum}`; }
@@ -137,7 +134,7 @@ async function handleControl(type, { body, user }) {
             await redis.mset(KEYS.CURRENT, newNum, ...(newNum>issued?[KEYS.ISSUED, newNum]:[]));
             delta = Math.max(0, newNum-curr); logMsg = `手動設定為 ${newNum}`;
             await logHistory(newNum, user.nickname, delta);
-            checkLineNotify(newNum).catch(e => console.error("Line Error (Background):", e.message));
+            checkLineNotify(newNum).catch(e => console.error("Line Error (BG):", e.message));
         } else { await redis.set(KEYS.ISSUED, newNum); logMsg = `修正發號為 ${newNum}`; }
     }
     if(logMsg) { addLog(user.nickname, logMsg); logSystemDaily(user.username, `[操作] ${logMsg}`); }
@@ -171,7 +168,11 @@ async function logHistory(num, op, delta=0) {
 
 // Middleware
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.static("public")); 
+
+// [關鍵修正] 使用 path.join(__dirname, 'public') 強制鎖定 public 資料夾位置
+// 這能確保無論您在哪個目錄執行 node index.js，都能正確找到 CSS 和 HTML
+app.use(express.static(path.join(__dirname, "public"))); 
+
 app.use(express.json()); app.set('trust proxy', 1);
 
 const asyncHandler = fn => async(req, res, next) => {
@@ -358,4 +359,4 @@ io.on("connection", async s => {
     s.emit("updateWaitTime", await calcWaitTime());
 });
 
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v41.1 running on ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v41.2 running on ${PORT}`));
