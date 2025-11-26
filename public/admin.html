@@ -140,23 +140,33 @@
                 <div class="card-wrapper">
                     <div class="admin-card">
                         <h3><span class="card-icon">⚙️</span> <span data-i18n="card_sys">系統</span></h3>
-                        <div class="control-group system-toggle-group">
-                            <label for="public-toggle" style="cursor:pointer;" data-i18n="lbl_public">🌐 開放前台</label>
-                            <input type="checkbox" id="public-toggle" checked>
+                        
+                        <div class="settings-grid">
+                            <label class="setting-card">
+                                <span class="setting-icon">🌐</span>
+                                <span class="setting-label" data-i18n="lbl_public">開放前台</span>
+                                <input type="checkbox" id="public-toggle" checked>
+                            </label>
+                            <label class="setting-card">
+                                <span class="setting-icon">🔊</span>
+                                <span class="setting-label" data-i18n="lbl_sound">提示音效</span>
+                                <input type="checkbox" id="sound-toggle">
+                            </label>
                         </div>
-                        <div class="control-group sound-toggle-group">
-                            <label for="sound-toggle" style="cursor:pointer;" data-i18n="lbl_sound">🔊 提示音</label>
-                            <input type="checkbox" id="sound-toggle">
-                        </div>
+
                         <div class="control-group">
-                            <label data-i18n="lbl_tts">TTS 廣播</label>
-                            <div class="input-group"><input type="text" id="broadcast-msg" placeholder="..."><button id="btn-broadcast" class="btn-secondary" data-i18n="btn_play">播放</button></div>
+                            <label data-i18n="lbl_tts">TTS 語音廣播</label>
+                            <div class="input-group">
+                                <input type="text" id="broadcast-msg" placeholder="輸入內容...">
+                                <button id="btn-broadcast" class="btn-secondary" data-i18n="btn_play">播放</button>
+                            </div>
                         </div>
+
                         <div id="mode-switcher-group" class="control-group form-group-boxed" style="display:none; margin-top:10px;">
-                            <label data-i18n="lbl_mode">模式</label>
+                            <label data-i18n="lbl_mode">取號模式</label>
                             <div style="display:flex; gap:15px; margin-top:5px;">
-                                <label><input type="radio" name="systemMode" value="ticketing" checked> <span data-i18n="mode_online">線上</span></label>
-                                <label><input type="radio" name="systemMode" value="input"> <span data-i18n="mode_manual">手動</span></label>
+                                <label><input type="radio" name="systemMode" value="ticketing" checked> <span data-i18n="mode_online">線上取號</span></label>
+                                <label><input type="radio" name="systemMode" value="input"> <span data-i18n="mode_manual">手動輸入</span></label>
                             </div>
                         </div>
                         <button id="resetAll" class="btn-reset-single" data-i18n="btn_reset_all">💥 全域重置</button>
@@ -207,22 +217,31 @@
                 <div class="card-wrapper full-width-card" style="grid-column: 1 / -1;">
                     <div class="admin-card">
                         <h3><span class="card-icon">💬</span> LINE 設定</h3>
-                        <div class="control-group form-group-boxed" id="unlock-pwd-group" style="background:#fff7ed; display:none;">
-                            <label style="color:#c2410c;">🔑 後台解鎖密碼</label>
-                            <div class="input-group"><input type="text" id="line-unlock-pwd" placeholder="密碼"><button id="btn-save-unlock-pwd" class="btn-warn" data-i18n="btn_save">儲存</button></div>
-                        </div>
-                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px;">
-                            <div>
-                                <h4 style="margin:10px 0; color:var(--primary);">📌 主要通知</h4>
-                                <div class="control-group form-group-boxed"><label>快到了</label><span class="var-hint">{current} {target} {diff}</span><textarea id="line-msg-approach"></textarea></div>
-                                <div class="control-group form-group-boxed"><label>正式到號</label><span class="var-hint">{current} {target}</span><textarea id="line-msg-arrival"></textarea></div>
-                            </div>
-                            <div>
-                                <h4 style="margin:10px 0; color:var(--text-sub);">🤖 自動回覆</h4>
-                                <div class="control-group form-group-boxed"><label>查詢狀態</label><textarea id="line-msg-status" style="height:60px;"></textarea></div>
-                                <div class="control-group form-group-boxed"><label>追蹤文字</label><textarea id="line-msg-personal" style="height:50px;"></textarea></div>
+                        
+                        <div class="security-box" id="unlock-pwd-group" style="display:none;">
+                            <div class="sec-icon">🔑</div>
+                            <div class="sec-content">
+                                <span class="sec-title">後台安全鎖</span>
+                                <div class="input-group">
+                                    <input type="text" id="line-unlock-pwd" placeholder="設定 Line 解鎖密碼..." style="background:white;">
+                                    <button id="btn-save-unlock-pwd" class="btn-secondary" style="background:#fff7ed; color:#c2410c; border:1px solid #fed7aa;" data-i18n="btn_save">儲存</button>
+                                </div>
                             </div>
                         </div>
+
+                        <div class="line-config-grid">
+                            <div class="config-section">
+                                <h4 class="config-title"><span style="color:var(--primary);">📌 主要通知</span></h4>
+                                <div class="control-group"><label>快到了</label><span class="var-hint">{current} {target} {diff}</span><textarea id="line-msg-approach"></textarea></div>
+                                <div class="control-group"><label>正式到號</label><span class="var-hint">{current} {target}</span><textarea id="line-msg-arrival"></textarea></div>
+                            </div>
+                            <div class="config-section">
+                                <h4 class="config-title"><span style="color:var(--text-sub);">🤖 自動回覆</span></h4>
+                                <div class="control-group"><label>查詢狀態</label><textarea id="line-msg-status" style="height:70px;"></textarea></div>
+                                <div class="control-group"><label>追蹤文字</label><textarea id="line-msg-personal" style="height:60px;"></textarea></div>
+                            </div>
+                        </div>
+
                         <div class="control-group" style="margin-top:20px; display:flex; gap:10px;">
                             <button id="btn-save-line-msg" class="btn-primary" style="flex:2;" data-i18n="btn_save_settings">儲存設定</button>
                             <button id="btn-reset-line-msg" class="btn-reset-single" style="flex:1;" data-i18n="btn_restore">恢復預設</button>
