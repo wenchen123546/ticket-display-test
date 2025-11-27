@@ -1,5 +1,5 @@
 /* ==========================================
- * 伺服器 (index.js) - v54.0 Optimized
+ * 伺服器 (index.js) - v56.0 Dynamic Roles
  * ========================================== */
 require('dotenv').config();
 const { Server } = require("http");
@@ -20,11 +20,13 @@ const { PORT = 3000, UPSTASH_REDIS_URL: REDIS_URL, ADMIN_TOKEN, LINE_ACCESS_TOKE
 if (!ADMIN_TOKEN || !REDIS_URL) process.exit(1);
 
 const BUSINESS_HOURS = { start: 8, end: 22, enabled: false };
-const ROLES = {
+
+// [修改] 定義預設權限，但不寫死，僅作為初始化使用
+const DEFAULT_ROLES = {
     VIEWER:   { level: 0, can: [] },
     OPERATOR: { level: 1, can: ['call', 'pass', 'recall', 'issue'] },
     MANAGER:  { level: 2, can: ['call', 'pass', 'recall', 'issue', 'settings', 'appointment'] },
-    ADMIN:    { level: 9, can: ['*'] }
+    ADMIN:    { level: 9, can: ['*'] } // Admin 擁有所有權限
 };
 
 const app = express();
@@ -48,8 +50,19 @@ const KEYS = {
     FEATURED: 'callsys:featured', UPDATED: 'callsys:updated', SOUND: 'callsys:soundEnabled', PUBLIC: 'callsys:isPublic',
     LOGS: 'callsys:admin-log', USERS: 'callsys:users', NICKS: 'callsys:nicknames', USER_ROLES: 'callsys:user_roles',
     SESSION: 'callsys:session:', HISTORY: 'callsys:stats:history', HOURLY: 'callsys:stats:hourly:',
-    LINE: { SUB: 'callsys:line:notify:', USER: 'callsys:line:user:', PWD: 'callsys:line:unlock_pwd', ADMIN: 'callsys:line:admin_session:', CTX: 'callsys:line:context:', ACTIVE: 'callsys:line:active_subs_set' }
+    LINE: { SUB: 'callsys:line:notify:', USER: 'callsys:line:user:', PWD: 'callsys:line:unlock_pwd', ADMIN: 'callsys:line:admin_session:', CTX: 'callsys:line:context:', ACTIVE: 'callsys:line:active_subs_set' },
+    ROLES_CONFIG: 'callsys:config:roles' // [新增] 權限設定 Key
 };
+
+// [新增] 初始化權限設定到 Redis
+async function initRoles() {
+    const exists = await redis.exists(KEYS.ROLES_CONFIG);
+    if (!exists) {
+        await redis.set(KEYS.ROLES_CONFIG, JSON.stringify(DEFAULT_ROLES));
+        console.log("Initialized default roles to Redis");
+    }
+}
+initRoles();
 
 redis.defineCommand("safeNextNumber", { numberOfKeys: 2, lua: `return (tonumber(redis.call("GET",KEYS[1]))or 0) < (tonumber(redis.call("GET",KEYS[2]))or 0) and redis.call("INCR",KEYS[1]) or -1` });
 redis.defineCommand("decrIfPositive", { numberOfKeys: 1, lua: `local v=tonumber(redis.call("GET",KEYS[1])) return (v and v>0) and redis.call("DECR",KEYS[1]) or (v or 0)` });
@@ -154,11 +167,24 @@ const auth = async(req, res, next) => {
         req.user = u; await redis.expire(`${KEYS.SESSION}${req.body.token}`, 28800); next();
     } catch(e) { res.status(403).json({error:"Invalid"}); }
 };
-const checkPermission = (act) => (req, res, next) => {
-    const roleKey = req.user.role === 'super' ? 'ADMIN' : (req.user.userRole || 'OPERATOR');
-    const role = ROLES[roleKey] || ROLES.OPERATOR;
-    if(role.level >= 9 || role.can.includes(act) || role.can.includes('*')) return next();
-    res.status(403).json({ error: "權限不足" });
+
+// [修改] 權限檢查：改為從 Redis 讀取當前設定
+const checkPermission = (act) => async (req, res, next) => {
+    try {
+        const roleKey = req.user.role === 'super' ? 'ADMIN' : (req.user.userRole || 'OPERATOR');
+        // 從 Redis 獲取最新權限表
+        const rolesConfigStr = await redis.get(KEYS.ROLES_CONFIG);
+        const rolesConfig = rolesConfigStr ? JSON.parse(rolesConfigStr) : DEFAULT_ROLES;
+        
+        const role = rolesConfig[roleKey] || rolesConfig.OPERATOR;
+        
+        // Admin 或 擁有權限 或 擁有萬用字元 '*'
+        if(role.level >= 9 || role.can.includes(act) || role.can.includes('*')) return next();
+        
+        res.status(403).json({ error: "權限不足" });
+    } catch(e) {
+        res.status(500).json({ error: "權限驗證錯誤" });
+    }
 };
 
 // Routes
@@ -218,16 +244,33 @@ app.post("/api/admin/del-user", auth, checkPermission('settings'), asyncHandler(
     if(r.body.delUsername==='superadmin') throw new Error("不可刪除"); 
     await redis.hdel(KEYS.USERS, r.body.delUsername); await redis.hdel(KEYS.NICKS, r.body.delUsername); await redis.hdel(KEYS.USER_ROLES, r.body.delUsername);
 }));
+
+// [修正] 修復 req 變數錯誤，正確使用 r.user.userRole
 app.post("/api/admin/set-nickname", auth, asyncHandler(async r=>{ 
-    if(r.body.targetUsername !== r.user.username && req.user.userRole !== 'ADMIN') throw new Error("權限不足");
+    if(r.body.targetUsername !== r.user.username && r.user.userRole !== 'ADMIN') throw new Error("權限不足");
     await redis.hset(KEYS.NICKS, r.body.targetUsername, r.body.nickname);
+}));
+
+// [新增] 權限管理 API
+app.post("/api/admin/roles/get", auth, checkPermission('settings'), asyncHandler(async r => {
+    const roles = await redis.get(KEYS.ROLES_CONFIG);
+    return roles ? JSON.parse(roles) : DEFAULT_ROLES;
+}));
+
+app.post("/api/admin/roles/update", auth, checkPermission('settings'), asyncHandler(async r => {
+    if(r.user.role !== 'super') throw new Error("僅超級管理員可修改權限結構");
+    const newConfig = r.body.rolesConfig;
+    // 簡單驗證：確保 ADMIN 至少有 '*'
+    if (!newConfig.ADMIN || !newConfig.ADMIN.can.includes('*')) {
+        newConfig.ADMIN = { level: 9, can: ['*'] };
+    }
+    await redis.set(KEYS.ROLES_CONFIG, JSON.stringify(newConfig));
+    addLog(r.user.nickname, "🔧 修改了角色權限表");
 }));
 
 app.post("/api/passed/add", auth, checkPermission('pass'), asyncHandler(async r=>{ await redis.zadd(KEYS.PASSED, r.body.number, r.body.number); io.emit("updatePassed", (await redis.zrange(KEYS.PASSED,0,-1)).map(Number)); }));
 app.post("/api/passed/remove", auth, checkPermission('pass'), asyncHandler(async r=>{ await redis.zrem(KEYS.PASSED, r.body.number); io.emit("updatePassed", (await redis.zrange(KEYS.PASSED,0,-1)).map(Number)); }));
 app.post("/api/passed/clear", auth, checkPermission('pass'), asyncHandler(async r=>{ await redis.del(KEYS.PASSED); io.emit("updatePassed", []); }));
-
-// [新增] 預約管理 API
 app.post("/api/appointment/add", auth, checkPermission('appointment'), asyncHandler(async req => { db.run("INSERT INTO appointments (number, scheduled_time) VALUES (?, ?)", [req.body.number, new Date(req.body.timeStr).getTime()]); addLog(req.user.nickname, `📅 預約: ${req.body.number}號`); }));
 app.post("/api/appointment/list", auth, checkPermission('appointment'), asyncHandler(async req => { return new Promise((res, rej) => { db.all("SELECT * FROM appointments WHERE status='pending' ORDER BY scheduled_time ASC", [], (err, rows) => { if(err) rej(err); else res({ appointments: rows }); }); }); }));
 app.post("/api/appointment/remove", auth, checkPermission('appointment'), asyncHandler(async req => { db.run("DELETE FROM appointments WHERE id = ?", [req.body.id]); addLog(req.user.nickname, `🗑️ 刪除預約 ID: ${req.body.id}`); }));
@@ -240,7 +283,6 @@ app.post("/api/admin/stats", auth, asyncHandler(async req => {
     
     return new Promise((resolve, reject) => {
         db.all("SELECT * FROM history ORDER BY id DESC LIMIT 50", [], (err, rows) => {
-            // [優化] 確保回傳數據，避免前端圖表錯誤
             resolve({ history: rows || [], hourlyCounts: counts, todayCount: total, serverHour: hour });
         });
     });
@@ -267,19 +309,14 @@ app.post("/api/admin/line-settings/:act", auth, checkPermission('settings'), asy
 async function checkLineNotify(curr) { if(!lineClient) return; const t=curr+5, [a,r,s,e]=await Promise.all([redis.get('callsys:line:msg:approach'),redis.get('callsys:line:msg:arrival'),redis.smembers(`${KEYS.LINE.SUB}${t}`),redis.smembers(`${KEYS.LINE.SUB}${curr}`)]); const snd=(i,x)=>i.length&&lineClient.multicast(i,[{type:'text',text:x}]); if(s.length) await snd(s,(a||'🔔 快到了').replace('{current}',curr).replace('{target}',t).replace('{diff}',5)); if(e.length) { await snd(e,(r||'🎉 到您了').replace('{current}',curr).replace('{target}',curr).replace('{diff}',0)); const p=redis.multi().del(`${KEYS.LINE.SUB}${curr}`).srem(KEYS.LINE.ACTIVE,curr); e.forEach(u=>p.del(`${KEYS.LINE.USER}${u}`)); await p.exec(); } }
 if(lineClient) app.post('/callback', line.middleware({channelAccessToken:LINE_ACCESS_TOKEN,channelSecret:LINE_CHANNEL_SECRET}), (req,res)=>Promise.all(req.body.events.map(handleLine)).then(r=>res.json(r)).catch(e=>res.status(500).end()));
 
-// [修改] LINE Bot 處理邏輯
 async function handleLine(e) { 
     if(e.type!=='message'||e.message.type!=='text')return; 
     const t=e.message.text.trim().toLowerCase(),u=e.source.userId,r=e.replyToken,c=`${KEYS.LINE.CTX}${u}`,rp=x=>lineClient.replyMessage(r,{type:'text',text:x}); 
     
-    // 後台登入
     if(t==='後台登入')return rp((await redis.get(`${KEYS.LINE.ADMIN}${u}`))?`🔗 ${process.env.RENDER_EXTERNAL_URL}/admin.html`:(await redis.set(c,'WAIT_PWD','EX',120),"請輸入密碼")); 
     if((await redis.get(c))==='WAIT_PWD'&&t===(await redis.get(KEYS.LINE.PWD)||`unlock${ADMIN_TOKEN}`)) { await redis.set(`${KEYS.LINE.ADMIN}${u}`,"1","EX",600); await redis.del(c); return rp("🔓 驗證成功"); } 
     
-    // 查詢功能
     if(['?','status'].includes(t)){ const [n,i,un]=await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.get(`${KEYS.LINE.USER}${u}`)]); return rp(`叫號:${n||0}\n發號:${i||0}${un?`\n您的:${un}`:''}`); } 
-    
-    // [新增] 查詢等待組數
     if(['wait', '等待', '前面'].includes(t)) {
         const myNum = await redis.get(`${KEYS.LINE.USER}${u}`);
         if (!myNum) return rp("您尚未取號/輸入號碼");
@@ -294,10 +331,8 @@ async function handleLine(e) {
     if(/^\d+$/.test(t)){ const n=parseInt(t),curr=parseInt(await redis.get(KEYS.CURRENT))||0; if(n<=curr)return rp("已過號"); await redis.multi().set(`${KEYS.LINE.USER}${u}`,n,'EX',43200).sadd(`${KEYS.LINE.SUB}${n}`,u).expire(`${KEYS.LINE.SUB}${n}`,43200).sadd(KEYS.LINE.ACTIVE,n).exec(); return rp(`設定成功: ${n}號`); } 
 }
 
-// [修改] 每天凌晨 4 點重置並清理舊資料
 cron.schedule('0 4 * * *', () => { 
     performReset('系統自動');
-    // 清理 30 天前的歷史記錄
     const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
     db.run("DELETE FROM history WHERE timestamp < ?", [thirtyDaysAgo], (err) => {
         if(!err) console.log("🧹 Auto-cleaned old history data");
@@ -313,4 +348,4 @@ io.on("connection", async s => {
     s.on("disconnect", () => { setTimeout(broadcastOnlineAdmins, 1000); });
 });
 
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v54.0 running on ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v56.0 running on ${PORT}`));
