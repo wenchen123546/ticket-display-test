@@ -1,5 +1,5 @@
 /* ==========================================
- * 前端邏輯 (main.js) - v33.0 ETA Added
+ * 前端邏輯 (main.js) - v56.2 Broadcast Fix
  * ========================================== */
 const $ = i => document.getElementById(i);
 const on = (el, evt, fn) => el?.addEventListener(evt, fn);
@@ -14,26 +14,44 @@ const i18n = {
 // --- State ---
 let lang = localStorage.getItem('callsys_lang')||'zh-TW', T = i18n[lang];
 let myTicket = localStorage.getItem('callsys_ticket'), sysMode = 'ticketing';
-let sndEnabled = false, localMute = false, avgTime = 0, lastUpd = null, audioCtx = null, ttsOk = false;
+// [修正] sndEnabled 預設為 true，避免初始無聲
+let sndEnabled = true, localMute = false, avgTime = 0, lastUpd = null, audioCtx = null;
 let connTimer;
 const socket = io({ autoConnect: false, reconnection: true });
 
 // --- Core Helpers ---
-const toast = (msg, type='info') => {
+// [修正] 增加 duration 參數，預設 3000ms
+const toast = (msg, type='info', duration=3000) => {
     const c = $('toast-container') || document.body.appendChild(Object.assign(document.createElement('div'),{id:'toast-container'}));
     const el = document.createElement('div'); el.className = `toast-message ${type} show`; el.textContent = msg;
     c.appendChild(el); if(navigator.vibrate) navigator.vibrate(50);
-    setTimeout(() => { el.classList.remove('show'); setTimeout(()=>el.remove(), 300); }, 3000);
+    setTimeout(() => { el.classList.remove('show'); setTimeout(()=>el.remove(), 300); }, duration);
 };
+
 const unlockAudio = () => {
     if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume().then(() => { ttsOk=true; updateMuteUI(false); });
+    if (audioCtx.state === 'suspended') audioCtx.resume().then(() => { updateMuteUI(false); });
+    // [新增] 嘗試預載入語音列表，解決部分瀏覽器第一次無聲問題
+    if ('speechSynthesis' in window) window.speechSynthesis.getVoices();
 };
+
 const speak = (txt) => {
-    if(ttsOk && !localMute && sndEnabled && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(txt); u.lang='zh-TW'; u.rate=0.9; window.speechSynthesis.speak(u);
+    // [修正] 移除 ttsOk 檢查，只要沒靜音且系統允許就嘗試播放
+    if(!localMute && sndEnabled && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); 
+        const u = new SpeechSynthesisUtterance(txt); 
+        u.lang = 'zh-TW'; 
+        u.rate = 0.9; 
+        
+        // [新增] 強制指定中文語音 (如果有的話)，提升穩定性
+        const voices = window.speechSynthesis.getVoices();
+        const zhVoice = voices.find(v => v.lang.includes('zh') || v.lang.includes('TW'));
+        if (zhVoice) u.voice = zhVoice;
+
+        window.speechSynthesis.speak(u);
     }
 };
+
 const playDing = () => {
     if($("notify-sound") && !localMute) $("notify-sound").play().then(()=>updateMuteUI(false)).catch(()=>updateMuteUI(true, true));
 };
@@ -65,7 +83,7 @@ function updateTicket(curr) {
     $("ticket-waiting-count").textContent = diff > 0 ? diff : (diff===0 ? "0" : "-");
     $("ticket-status-text").textContent = diff > 0 ? T.wait.replace("%s",diff) : (diff===0 ? T.arr : T.pass);
     
-    // [Optimization] ETA Display
+    // ETA Display
     if(diff > 0 && avgTime >= 0) { 
         const min = Math.ceil(diff * avgTime);
         const etaTime = new Date(Date.now() + min * 60000);
@@ -113,7 +131,13 @@ socket.on("updateQueue", d => {
     }
     updateTicket(d.current);
 });
-socket.on("adminBroadcast", m => { if(!localMute) speak(m); toast(T.notice+m); });
+
+// [修正] 廣播時播放語音，並顯示 10 秒鐘的 Toast
+socket.on("adminBroadcast", m => { 
+    if(!localMute) speak(m); 
+    toast(T.notice+m, 'info', 10000); 
+});
+
 socket.on("updateWaitTime", t => { avgTime = t; updateTicket(parseInt($("number").textContent)||0); });
 socket.on("updateSoundSetting", b => sndEnabled = b);
 socket.on("updatePublicStatus", b => { document.body.classList.toggle("is-closed", !b); if(b) socket.connect(); else socket.disconnect(); });
@@ -165,6 +189,7 @@ on($("language-selector"), "change", e => {
 // Init
 document.addEventListener("DOMContentLoaded", () => {
     $("language-selector").value = lang; applyText(); renderMode(); socket.connect();
-    document.body.addEventListener('click', unlockAudio, {once:true});
+    // [修正] 頁面載入後，任何點擊都嘗試解鎖音效，但不強制只執行一次 (確保 SpeechSynthesis 有機會被觸發)
+    document.body.addEventListener('click', unlockAudio);
     if($("qr-code-placeholder")) try{ new QRCode($("qr-code-placeholder"), {text:location.href, width:120, height:120}); }catch(e){}
 });
