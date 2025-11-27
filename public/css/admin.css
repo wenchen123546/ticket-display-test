@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v63.0 Compact Stats
+ * 後台樣式 (admin.css) - v64.0 Side-by-Side Stats
  * ========================================== */
 :root {
     --bg-body: #f3f4f6; --bg-surface: #ffffff; --bg-sidebar: #ffffff;
@@ -62,28 +62,21 @@ body.dark-mode .nav-btn.active { background: rgba(99, 102, 241, 0.15); color: #8
 .sub-number { font-size: 1.8rem; font-weight: 700; color: var(--text-main); }
 .label { font-size: 0.85rem; color: var(--text-sub); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
 
-/* Grid Layout */
+/* Grid Layout - General */
 .card-container { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 768px) { .card-container { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-/* [修改] 數據報表區域：強制在大螢幕併排，消除空白 */
-@media (min-width: 1200px) { 
-    .card-container { grid-template-columns: repeat(3, minmax(0, 1fr)); } 
-    #section-stats .card-container { 
-        grid-template-columns: 2fr 1fr; /* 左側圖表寬一點，右側日誌窄一點 */
-        align-items: start;
-    } 
-}
+@media (min-width: 1200px) { .card-container { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .full-width-card { grid-column: 1 / -1; }
 
 .admin-card { 
     background: var(--bg-surface); border-radius: var(--radius-lg); 
-    padding: 20px; /* [縮小] 減少內距 */
+    padding: 20px; 
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); height: 100%; 
     display: flex; flex-direction: column; overflow: hidden; 
     border: 1px solid var(--border-color);
 }
 .admin-card h3 { 
-    margin: 0 0 16px 0; /* [縮小] 標題下方間距 */
+    margin: 0 0 16px 0; 
     border-bottom: 1px solid var(--border-color); padding-bottom: 10px; 
     display: flex; align-items: center; gap: 8px; font-size: 1.1rem; color: var(--text-main); 
 }
@@ -115,7 +108,7 @@ body.dark-mode .btn-secondary.success { background: rgba(16, 185, 129, 0.2); col
 /* Lists & Tables */
 .list-editor ul, .log-list { 
     background: var(--bg-body); border: 1px solid var(--border-color); border-radius: var(--radius-md); 
-    max-height: 400px; /* [增大] 讓列表能顯示更多，填滿高度 */
+    max-height: 320px; /* [高度調整] 配合圖表高度，讓兩邊等高 */
     overflow-y: auto; margin: 0 0 12px 0; padding: 0; 
     list-style: none; flex: 1; min-height: 120px; width: 100%; 
 }
@@ -125,21 +118,21 @@ body.dark-mode .btn-secondary.success { background: rgba(16, 185, 129, 0.2); col
 .role-table { width: 100%; border-collapse: collapse; min-width: 500px; }
 .role-table th, .role-table td { padding: 8px; border: 1px solid var(--border-color); text-align: center; }
 
-/* [重要修正] 圖表與統計區域 */
+/* Stats & Chart */
 .stats-header { 
     display: flex; justify-content: space-between; align-items: flex-end; 
-    margin-bottom: 10px; /* [縮小] 標題與圖表間距 */
+    margin-bottom: 10px; 
 }
 .chart-container { 
-    height: 350px; /* [增大] 增加高度，填滿中間空白 */
-    min-height: 300px;
+    height: 320px; /* [高度調整] 設定為固定高度，填滿卡片 */
+    min-height: 250px;
     display: flex; align-items: flex-end; gap: 2px; padding: 10px 0; width: 100%; overflow-x: auto; 
     border-bottom: 1px solid var(--border-color);
 }
 .chart-col { flex: 1; min-width: 20px; text-align: center; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; transition: 0.2s; height: 100%; }
 .chart-bar { 
     background: var(--primary); opacity: 0.6; width: 100%; border-radius: 2px 2px 0 0; transition: height 0.3s; 
-    min-height: 2px; /* 確保 0 值也有一條線 */
+    min-height: 2px; 
 }
 .chart-col.current .chart-bar { background: var(--warning); opacity: 1; }
 .chart-col:hover .chart-bar { opacity: 1; }
@@ -157,7 +150,24 @@ body.dark-mode .btn-secondary.success { background: rgba(16, 185, 129, 0.2); col
 #toast-notification.show { transform: translateY(-20px); opacity: 1; }
 .mobile-only-settings { display: none; margin-top: 20px; border-top: 1px dashed var(--border-color); padding-top: 20px; }
 
-/* Mobile Responsive Fixes */
+/* [關鍵修復] Desktop Layout - 強制並排顯示 */
+@media (min-width: 1200px) { 
+    /* 針對數據報表區塊 */
+    #section-stats .card-container { 
+        display: grid;
+        /* 設定 2:1 比例 */
+        grid-template-columns: 2fr 1fr; 
+        align-items: start;
+        gap: 20px;
+    } 
+    
+    /* 強制取消數據報表區塊內卡片的全寬屬性 */
+    #section-stats .full-width-card {
+        grid-column: auto !important;
+    }
+}
+
+/* Mobile Responsive */
 @media (max-width: 768px) {
     #admin-panel { flex-direction: column; }
     
@@ -181,7 +191,9 @@ body.dark-mode .btn-secondary.success { background: rgba(16, 185, 129, 0.2); col
     
     .dashboard-header { grid-template-columns: 1fr 1fr; } 
     .dashboard-item:last-child { grid-column: 1 / -1; }
-    .card-container { grid-template-columns: 1fr !important; } /* 手機版強制單欄 */
+    
+    /* 手機版確保堆疊 */
+    .card-container { grid-template-columns: 1fr !important; } 
     #section-stats .card-container { grid-template-columns: 1fr !important; }
     
     .mobile-only-settings { display: block; }
