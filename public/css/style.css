@@ -1,5 +1,5 @@
 /* ==========================================
- * 前台樣式 (style.css) - v63.0 Multi-Column Tags
+ * 前台樣式 (style.css) - v64.0 Force Grid
  * ========================================== */
 :root {
     /* [Light Mode - 高對比清晰版] */
@@ -218,27 +218,33 @@ body.dark-mode .my-num { color: #ffffff; text-shadow: 0 0 20px rgba(255,255,255,
 
 .scroll-view { overflow-y: auto; max-height: 150px; -webkit-overflow-scrolling: touch; }
 
-/* [重要修改] Tag List - 多列顯示 */
+/* [重要修改] Tag List - 強制 Grid 網格佈局 
+ * 使用 !important 確保覆蓋任何潛在的舊樣式
+ */
 .tag-list { 
-    display: flex;             /* 改用 Flexbox */
-    flex-wrap: wrap;           /* 允許自動換行，讓號碼並排 */
-    gap: 8px;                  /* 標籤間距 */
+    display: grid !important; 
+    /* 自動計算每行能放幾個，每個最小寬度 55px */
+    grid-template-columns: repeat(auto-fill, minmax(55px, 1fr)) !important; 
+    gap: 8px; 
     list-style: none; padding: 0; margin: 0; 
+    width: 100%;
 }
+
 .tag-list li { 
     font-size: 0.85rem; font-weight: 700; color: var(--accent-red); 
     background: var(--accent-bg-red); 
-    padding: 5px 12px; 
+    padding: 6px 4px; 
     border-radius: 12px; 
     border: 1px solid rgba(225, 29, 72, 0.2);
     
-    /* [重要修改] 寬度自適應 */
-    width: auto;               /* 寬度隨數字長度變化 */
-    min-width: 50px;           /* 設定最小寬度保持整齊 */
-    flex: 0 0 auto;            /* 不要強制撐滿整行 */
+    /* 強制重置寬度設定，避免被拉長 */
+    width: 100% !important; 
+    max-width: none !important;
+    
     display: flex; justify-content: center; align-items: center;
-    white-space: nowrap;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+
 body.dark-mode .tag-list li { 
     background: rgba(225, 29, 72, 0.1); 
     color: #fda4af; 
