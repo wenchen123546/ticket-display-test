@@ -1,7 +1,8 @@
 /* ==========================================
- * Theme: Premium Glass v57.0 Optimized
+ * Theme: Premium Glass v58.0 (Dark Mode Toggle)
  * ========================================== */
 :root {
+    /* 預設為淺色模式變數 */
     --primary: #6366f1; --primary-dark: #4f46e5; --primary-soft: #e0e7ff;
     --text-main: #1e293b; --text-sub: #64748b; --text-light: #94a3b8;
     --bg-body: #f8fafc; --surface: rgba(255, 255, 255, 0.85); --border: rgba(255, 255, 255, 0.6);
@@ -9,6 +10,13 @@
     --radius-lg: 24px; --radius-md: 16px;
     --shadow-card: 0 10px 40px -10px rgba(99, 102, 241, 0.15);
     --shadow-float: 0 20px 50px -10px rgba(30, 41, 59, 0.15);
+}
+
+/* 深色模式變數，透過 body.dark-mode 觸發 */
+body.dark-mode {
+    --bg-body: #0f172a; --surface: rgba(30, 41, 59, 0.85); --text-main: #f1f5f9; --text-sub: #94a3b8;
+    --border: rgba(255, 255, 255, 0.1); --shadow-card: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+    --primary-soft: #1e293b;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -19,7 +27,19 @@ body {
     background: var(--bg-body); color: var(--text-main); 
     display: flex; justify-content: center; 
     overflow-y: auto; overflow-x: hidden;
+    transition: background 0.3s, color 0.3s; /* 平滑切換效果 */
 }
+
+/* 深色模式下的元件微調 */
+body.dark-mode .control-section { background: #1e293b; }
+body.dark-mode .badge { background: #334155; color: #cbd5e1; }
+body.dark-mode .btn-util { background: #334155; color: #cbd5e1; }
+body.dark-mode .btn-util:hover { background: #475569; }
+body.dark-mode .fancy-input { background: #1e293b; border-color: #334155; color: white; }
+body.dark-mode .fancy-input:focus { background: #0f172a; }
+body.dark-mode .link-chip { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+body.dark-mode .list-header { border-bottom-color: #334155; }
+body.dark-mode .hero-section { background: #1e293b; }
 
 .bg-decoration { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
 .orb { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.5; animation: float 15s infinite ease-in-out; }
@@ -27,7 +47,6 @@ body {
 .orb-2 { width: 60vw; height: 60vw; background: radial-gradient(circle, #e2e8f0 0%, transparent 70%); bottom: -10%; right: -10%; animation-delay: -5s; }
 @keyframes float { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(20px, -20px); } }
 
-/* [優化] 數字變更動畫 */
 @keyframes pop-in { 0% { transform: scale(0.9); opacity: 0.7; } 50% { transform: scale(1.05); } 100% { transform: scale(1); opacity: 1; } }
 .number-change-anim { animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 
@@ -37,14 +56,16 @@ body {
     display: flex; flex-direction: column; gap: 16px; 
 }
 
-.glass { background: var(--surface); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.glass { background: var(--surface); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); transition: background 0.3s; }
 
 .app-header { display: flex; justify-content: space-between; align-items: center; padding: 0 4px; flex-shrink: 0; height: 40px; margin-bottom: 5px; }
 .status-indicator { font-size: 0.75rem; font-weight: 600; color: var(--text-sub); display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.5); padding: 6px 12px; border-radius: 20px; }
 .dot { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
+/* 新增按鈕樣式 */
+.btn-icon { background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.8); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.1rem; }
 .lang-switch { background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.8); border-radius: 20px; font-size: 0.8rem; color: var(--text-main); padding: 6px 12px; outline: none; }
 
-.hero-section { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px 20px; position: relative; text-align: center; margin-bottom: 10px; }
+.hero-section { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px 20px; position: relative; text-align: center; margin-bottom: 10px; transition: background 0.3s;}
 .hero-top-info { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .hero-label { font-size: 0.85rem; font-weight: 700; color: var(--text-light); letter-spacing: 1px; text-transform: uppercase; }
 .stat-pill { font-size: 0.85rem; font-weight: 600; color: var(--text-sub); background: var(--primary-soft); padding: 4px 10px; border-radius: 8px; }
@@ -60,7 +81,7 @@ body {
 .tag-list li { display: inline-flex; width: auto; flex: 0 0 auto; font-size: 0.85rem; font-weight: 700; color: var(--accent-red); background: var(--accent-bg-red); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(244, 63, 94, 0.2); box-shadow: 0 1px 1px rgba(0,0,0,0.02); }
 .empty-state { color: var(--text-light); font-size: 0.8rem; text-align: center; width: 100%; }
 
-.control-section { flex: 0 0 auto; padding: 20px; background: #ffffff; margin-bottom: 20px; }
+.control-section { flex: 0 0 auto; padding: 20px; background: #ffffff; margin-bottom: 20px; transition: background 0.3s; }
 .action-header { text-align: center; margin-bottom: 16px; }
 .action-header h3 { font-size: 1.1rem; margin: 0; color: var(--text-main); }
 .func-desc { font-size: 0.8rem; color: var(--text-sub); margin-top: 2px; }
@@ -93,28 +114,11 @@ body {
 .toast-message.show { opacity: 1; transform: translateY(0); }
 #qr-code-container { display: none; }
 
-/* [優化] Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg-body: #0f172a; --surface: rgba(30, 41, 59, 0.85); --text-main: #f1f5f9; --text-sub: #94a3b8;
-        --border: rgba(255, 255, 255, 0.1); --shadow-card: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
-    }
-    .control-section { background: #1e293b; }
-    .badge { background: #334155; color: #cbd5e1; }
-    .btn-util { background: #334155; color: #cbd5e1; }
-    .btn-util:hover { background: #475569; }
-    .fancy-input { background: #1e293b; border-color: #334155; color: white; }
-    .fancy-input:focus { background: #0f172a; }
-    .link-chip { background: #1e293b; border-color: #334155; color: #e2e8f0; }
-    .list-header { border-bottom-color: #334155; }
-}
-
 @media (min-width: 1024px) {
     .app-container { max-width: 1200px; height: 90vh; min-height: 600px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 30px; padding: 0; align-content: center; margin: auto; }
     body { align-items: center; overflow: hidden; }
     .app-header { position: absolute; top: 30px; right: 30px; width: auto; } .status-indicator { display: none; }
     .hero-section { padding: 60px; align-items: center; background: white; box-shadow: var(--shadow-float); height: 100%; margin: 0; }
-    @media (prefers-color-scheme: dark) { .hero-section { background: #1e293b; } }
     #number { font-size: 16rem; margin: 0; } .hero-label { font-size: 1.5rem; } .s-value { font-size: 2.5rem; }
     .side-panel { justify-content: center; height: 100%; }
     .list-section { max-height: none; flex: 1; align-items: flex-start; }
