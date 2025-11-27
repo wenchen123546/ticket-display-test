@@ -1,5 +1,5 @@
 /* ==========================================
- * 伺服器 (index.js) - v68.0 Passed Stats Fixed
+ * 伺服器 (index.js) - v70.0 Logic Fixed
  * ========================================== */
 require('dotenv').config();
 const { Server } = require("http");
@@ -298,12 +298,19 @@ app.post("/api/admin/roles/update", auth, checkPermission('settings'), asyncHand
     addLog(r.user.nickname, "🔧 修改了角色權限表");
 }));
 
-// 1. 手動加入過號 (修正：納入統計扣除)
+// 1. 手動加入過號 (修正：納入統計扣除 + 邏輯防呆)
 app.post("/api/passed/add", auth, checkPermission('pass'), asyncHandler(async r => {
     const { number } = r.body;
-    await redis.zadd(KEYS.PASSED, number, number);
+    const num = parseInt(number);
     
-    // 手動加入過號時，該時段統計 -1
+    // [新增] 檢查邏輯：不可大於已發號碼
+    const issued = parseInt(await redis.get(KEYS.ISSUED)) || 0;
+    if (num > issued) throw new Error("不可大於已發號碼");
+    if (num <= 0) throw new Error("號碼無效");
+
+    await redis.zadd(KEYS.PASSED, num, num);
+    
+    // 手動加入過號時，該時段統計 -1 (視為未處理)
     const { dateStr, hour } = getTWTime();
     await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, hour, -1);
     
@@ -417,4 +424,4 @@ io.on("connection", async s => {
     s.on("disconnect", () => { setTimeout(broadcastOnlineAdmins, 1000); });
 });
 
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v68.0 running on ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v70.0 running on ${PORT}`));
