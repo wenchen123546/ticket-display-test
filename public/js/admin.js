@@ -1,13 +1,104 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v61.0 Stable & Fixed
+ * 後台邏輯 (admin.js) - v61.1 i18n Fixed
  * ========================================== */
 const $ = i => document.getElementById(i);
 const $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}) => { const e = document.createElement(t); if(c) e.className=c; if(txt) e.textContent=txt; Object.entries(ev).forEach(([k,v])=>e[k]=v); return e; };
 
+// [關鍵修正] 補全所有 HTML 中用到的 data-i18n 鍵值
 const i18n = {
-    "zh-TW": { status_conn:"✅ 已連線", status_dis:"連線中斷...", saved:"✅ 已儲存", denied:"❌ 權限不足", expired:"Session 過期", login_fail:"登入失敗", confirm:"⚠️ 確認", recall:"↩️ 重呼", edit:"✎", del:"✕", save:"✓", cancel:"✕" },
-    "en": { status_conn:"✅ Connected", status_dis:"Disconnected...", saved:"✅ Saved", denied:"❌ Denied", expired:"Expired", login_fail:"Failed", confirm:"⚠️ Confirm", recall:"↩️ Recall", edit:"Edit", del:"Del", save:"Save", cancel:"Cancel" }
+    "zh-TW": { 
+        // 狀態與動態訊息
+        status_conn:"✅ 已連線", status_dis:"⚠️ 連線中斷...", saved:"✅ 已儲存", denied:"❌ 權限不足", 
+        expired:"Session 過期", login_fail:"登入失敗", confirm:"⚠️ 確認", recall:"↩️ 重呼", 
+        edit:"✎", del:"✕", save:"✓", cancel:"✕",
+        
+        // 登入頁
+        login_title: "請登入管理系統", ph_account: "帳號", ph_password: "密碼", login_btn: "登入",
+        
+        // 側邊欄
+        admin_panel: "管理後台", nav_live: "現場控台", nav_stats: "數據報表", 
+        nav_settings: "系統設定", nav_line: "LINE設定", logout: "登出",
+        
+        // Dashboard
+        dash_curr: "目前叫號", dash_issued: "已發號至", dash_wait: "等待組數",
+        
+        // 現場控台卡片
+        card_call: "指揮中心", btn_next: "下一號 ▶", btn_prev: "◀ 上一號", btn_pass: "過號", 
+        lbl_assign: "指定 / 插隊", btn_exec: "GO", btn_reset_call: "↺ 重置叫號",
+        
+        // 發號管理卡片
+        card_issue: "發號管理", btn_recall: "➖ 收回", btn_issue: "發號 ➕", 
+        lbl_fix_issue: "修正發號數", btn_fix: "修正", btn_reset_issue: "↺ 重置發號",
+        
+        // 過號名單
+        card_passed: "過號名單", btn_clear_passed: "清空過號",
+        
+        // 統計
+        card_stats: "流量分析", lbl_today: "今日人次", btn_refresh: "重整", btn_clear_stats: "🗑️ 清空統計",
+        card_logs: "操作日誌", btn_clear_logs: "清除日誌",
+        
+        // 系統設定
+        card_sys: "系統", lbl_public: "開放前台", lbl_sound: "提示音效", 
+        lbl_tts: "TTS 語音廣播", btn_play: "播放", 
+        lbl_mode: "取號模式", mode_online: "線上取號", mode_manual: "手動輸入", btn_reset_all: "💥 全域重置",
+        
+        // 其他卡片
+        card_online: "在線管理", card_links: "連結管理", ph_link_name: "名稱", btn_clear_links: "清空連結",
+        card_users: "帳號管理", lbl_add_user: "新增帳號", ph_nick: "暱稱",
+        
+        // Line設定
+        btn_save: "儲存", btn_restore: "恢復預設值",
+        
+        // Modal
+        modal_edit: "編輯數據", btn_done: "完成"
+    },
+    "en": { 
+        // Status & Dynamic
+        status_conn:"✅ Connected", status_dis:"⚠️ Disconnected...", saved:"✅ Saved", denied:"❌ Denied", 
+        expired:"Session Expired", login_fail:"Login Failed", confirm:"⚠️ Confirm", recall:"↩️ Recall", 
+        edit:"Edit", del:"Del", save:"Save", cancel:"Cancel",
+        
+        // Login
+        login_title: "Login to Admin Panel", ph_account: "Username", ph_password: "Password", login_btn: "Login",
+        
+        // Sidebar
+        admin_panel: "Admin Panel", nav_live: "Live Console", nav_stats: "Statistics", 
+        nav_settings: "Settings", nav_line: "Line Config", logout: "Logout",
+        
+        // Dashboard
+        dash_curr: "Current Serving", dash_issued: "Last Issued", dash_wait: "Waiting",
+        
+        // Live Console
+        card_call: "Command Center", btn_next: "Next ▶", btn_prev: "◀ Prev", btn_pass: "Pass", 
+        lbl_assign: "Assign / Jump", btn_exec: "GO", btn_reset_call: "↺ Reset Call",
+        
+        // Issue Mgmt
+        card_issue: "Ticketing", btn_recall: "➖ Recall", btn_issue: "Issue ➕", 
+        lbl_fix_issue: "Fix Issued #", btn_fix: "Fix", btn_reset_issue: "↺ Reset Issue",
+        
+        // Passed List
+        card_passed: "Passed List", btn_clear_passed: "Clear Passed",
+        
+        // Stats
+        card_stats: "Analytics", lbl_today: "Today's Count", btn_refresh: "Refresh", btn_clear_stats: "🗑️ Clear Stats",
+        card_logs: "Action Logs", btn_clear_logs: "Clear Logs",
+        
+        // System Settings
+        card_sys: "System", lbl_public: "Public Access", lbl_sound: "Sound FX", 
+        lbl_tts: "TTS Broadcast", btn_play: "Play", 
+        lbl_mode: "Mode", mode_online: "Online Ticket", mode_manual: "Manual Input", btn_reset_all: "💥 Factory Reset",
+        
+        // Other Cards
+        card_online: "Online Users", card_links: "Links Manager", ph_link_name: "Name", btn_clear_links: "Clear Links",
+        card_users: "User Manager", lbl_add_user: "Add User", ph_nick: "Nickname",
+        
+        // Line Settings
+        btn_save: "Save", btn_restore: "Restore Defaults",
+        
+        // Modal
+        modal_edit: "Edit Data", btn_done: "Done"
+    }
 };
 
 let curLang = localStorage.getItem('callsys_lang')||'zh-TW', T = i18n[curLang];
@@ -33,9 +124,16 @@ function toast(msg, type='info') {
 
 function updateLangUI() {
     T = i18n[curLang] || i18n["zh-TW"];
+    // 更新一般文字
     $$('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if(T[k]) el.textContent = T[k]; });
+    // 更新 Placeholder
     $$('[data-i18n-ph]').forEach(el => { const k = el.getAttribute('data-i18n-ph'); if(T[k]) el.placeholder = T[k]; });
+    
+    // 確保下拉選單顯示正確語言
     if($("admin-lang-selector-mobile")) $("admin-lang-selector-mobile").value = curLang;
+    if($("admin-lang-selector")) $("admin-lang-selector").value = curLang;
+
+    // 重新載入動態內容以應用語言設定 (例如刪除按鈕的文字)
     loadUsers(); loadStats(); loadLineSettings();
     req("/api/featured/get").then(res => { if(res) socket.emit("updateFeaturedContents", res); });
 }
@@ -161,7 +259,7 @@ async function loadRoles() {
     const rolesConfig = await req("/api/admin/roles/get");
     if(!rolesConfig) return;
     const container = $("role-editor-content"); if(!container) return; container.innerHTML = "";
-    const wrapper = mk("div", "role-table-wrapper"); // Fix horizontal scroll
+    const wrapper = mk("div", "role-table-wrapper");
     const table = mk("table", "role-table"), thead = mk("thead"), trHead = mk("tr");
     trHead.appendChild(mk("th", null, "Role")); [{key:'call',label:'叫號'},{key:'pass',label:'過號'},{key:'recall',label:'重呼'},{key:'issue',label:'發號'},{key:'settings',label:'設定'},{key:'appointment',label:'預約'}].forEach(p => trHead.appendChild(mk("th", null, p.label)));
     thead.appendChild(trHead); table.appendChild(thead); const tbody = mk("tbody");
@@ -247,7 +345,19 @@ confirmBtn($("resetNumber"), "↺ 重置叫號", ()=>req("/api/control/set-call"
 $("sound-toggle")?.addEventListener("change", e => req("/set-sound-enabled", {enabled:e.target.checked})); $("public-toggle")?.addEventListener("change", e => req("/set-public-status", {isPublic:e.target.checked}));
 $$('input[name="systemMode"]').forEach(r => r.addEventListener("change", async (e) => { if(confirm(T.confirm + " Switch Mode?")) { const res = await req("/set-system-mode", {mode: r.value}); if(!res) { const old = document.querySelector(`input[name="systemMode"][value="${currentSystemMode}"]`); if(old) old.checked = true; } } else { const old = document.querySelector(`input[name="systemMode"][value="${currentSystemMode}"]`); if(old) old.checked = true; } }));
 
-// Initialize
+$("admin-lang-selector")?.addEventListener("change", e => { curLang=e.target.value; localStorage.setItem('callsys_lang', curLang); updateLangUI(); });
+const modal = $("edit-stats-overlay"); let editHr=null;
+function openStatModal(h, val) { $("modal-current-count").textContent=val; editHr=h; modal.style.display="flex"; }
+$("btn-modal-close")?.addEventListener("click", ()=>modal.style.display="none");
+["btn-stats-minus", "btn-stats-plus"].forEach((id, idx) => $(id)?.addEventListener("click", async()=>{ if(editHr===null) return; const delta = idx===0 ? -1 : 1; await req("/api/admin/stats/adjust", {hour:editHr, delta}); const n = parseInt($("modal-current-count").textContent)+delta; $("modal-current-count").textContent = n<0?0:n; loadStats(); }));
+$("btn-export-csv")?.addEventListener("click", async()=>{ const d=await req("/api/admin/export-csv"); if(d?.csvData) { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\uFEFF"+d.csvData],{type:'text/csv'})); a.download=d.fileName; a.click(); toast("✅ Downloaded","success"); }});
+$("btn-save-unlock-pwd")?.addEventListener("click", async()=>{ if(await req("/api/admin/line-settings/set-unlock-pass", {password:$("line-unlock-pwd").value})) toast("Saved","success"); });
+$("add-user-btn")?.addEventListener("click", async()=>{ const u=$("new-user-username").value, p=$("new-user-password").value, n=$("new-user-nickname").value, r=$("new-user-role")?.value; if(await req("/api/admin/add-user", {newUsername:u, newPassword:p, newNickname:n, newRole:r})) { toast("Saved","success"); $("new-user-username").value=""; $("new-user-password").value=""; $("new-user-nickname").value=""; loadUsers(); } });
+const lineSettingsConfig = { approach: { label: "快到了", hint: "{current} {target}" }, arrival: { label: "正式到號", hint: "{current} {target}" }, status: { label: "狀態回覆", hint: "{current} {issued}" }, personal: { label: "個人資訊", hint: "{target}" }, passed: { label: "過號回覆", hint: "{list}" }, set_ok: { label: "設定成功", hint: "{target}" }, cancel: { label: "取消成功", hint: "{target}" }, login_hint: { label: "登入提示", hint: "" }, err_passed: { label: "已過號錯誤", hint: "" }, err_no_sub: { label: "無設定錯誤", hint: "" }, set_hint: { label: "設定提示", hint: "" } };
+
+async function loadLineSettings() { const ul = $("line-settings-list-ui"); if (!ul) return; const data = await req("/api/admin/line-settings/get"); if(!data) return; ul.innerHTML=""; if($("line-unlock-pwd")) $("line-unlock-pwd").value = (await req("/api/admin/line-settings/get-unlock-pass"))?.password||""; Object.keys(lineSettingsConfig).forEach(key => { const config = lineSettingsConfig[key], val = data[key] || ""; const li = mk("li"); const view = mk("div", "line-setting-row"); const infoDiv = mk("div", "line-setting-info"); infoDiv.innerHTML = `<span style="font-weight:bold;">${config.label}</span><span class="line-msg-preview">${val||"(未設定)"}</span>`; const btn = mk("button","btn-secondary",T.edit||"Edit",{onclick:()=>{view.style.display="none";edit.style.display="flex"}}); view.append(infoDiv, btn); const edit = mk("div",null,null,{style:"display:none;flex-direction:column;gap:5px;width:100%;"}); const ta = mk("textarea",null,null,{value:val,rows:3}); const save = mk("button","btn-secondary success",T.save||"Save",{onclick:async()=>{if(await req("/api/admin/line-settings/save",{[key]:ta.value})) loadLineSettings();}}); const cancel = mk("button","btn-secondary",T.cancel||"X",{onclick:()=>{edit.style.display="none";view.style.display="flex";ta.value=val;}}); const row = mk("div",null,null,{style:"display:flex;gap:5px;justify-content:flex-end;"}); row.append(cancel,save); edit.append(mk("div",null,config.hint,{style:"font-size:0.8rem;color:var(--text-sub)"}),ta,row); li.append(view,edit); ul.appendChild(li); }); }
+
+// Init
 document.addEventListener("DOMContentLoaded", () => {
     // 1. Init Language
     $("admin-lang-selector").value = curLang; 
