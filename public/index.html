@@ -20,7 +20,10 @@
     <main class="app-container">
         <header class="app-header">
             <div class="status-indicator"><span class="dot"></span><span id="last-updated">Conn...</span></div>
-            <select id="language-selector" class="lang-switch"><option value="zh-TW">繁中</option><option value="en">EN</option></select>
+            <div class="header-controls" style="display:flex; gap:8px;">
+                <button id="theme-toggle" class="btn-icon" aria-label="Toggle Theme">🌙</button>
+                <select id="language-selector" class="lang-switch"><option value="zh-TW">繁中</option><option value="en">EN</option></select>
+            </div>
         </header>
 
         <section class="hero-section glass">
