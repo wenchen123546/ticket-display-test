@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v56.1 Mobile Fix
+ * 後台邏輯 (admin.js) - v57.0 Optimized
  * ========================================== */
 const $ = i => document.getElementById(i);
 const $$ = s => document.querySelectorAll(s);
@@ -13,14 +13,7 @@ const i18n = {
 let curLang = localStorage.getItem('callsys_lang')||'zh-TW', T = i18n[curLang];
 let token="", userRole="normal", username="", uniqueUser="", toastTimer;
 let currentSystemMode = 'ticketing'; 
-const PERMISSIONS_LIST = [
-    { key: 'call', label: '叫號' },
-    { key: 'pass', label: '過號' },
-    { key: 'recall', label: '重呼' },
-    { key: 'issue', label: '發號' },
-    { key: 'settings', label: '設定' },
-    { key: 'appointment', label: '預約' }
-];
+const PERMISSIONS_LIST = [ { key: 'call', label: '叫號' }, { key: 'pass', label: '過號' }, { key: 'recall', label: '重呼' }, { key: 'issue', label: '發號' }, { key: 'settings', label: '設定' }, { key: 'appointment', label: '預約' } ];
 
 const socket = io({ autoConnect: false, auth: { token: "" } });
 
@@ -52,10 +45,7 @@ function confirmBtn(el, origTxt, action) {
 }
 
 function checkSession() {
-    const storedToken = localStorage.getItem('callsys_token');
-    const storedUser = localStorage.getItem('callsys_user');
-    const storedRole = localStorage.getItem('callsys_role');
-    const storedNick = localStorage.getItem('callsys_nick');
+    const storedToken = localStorage.getItem('callsys_token'), storedUser = localStorage.getItem('callsys_user'), storedRole = localStorage.getItem('callsys_role'), storedNick = localStorage.getItem('callsys_nick');
     if(storedToken && storedUser) { token = storedToken; uniqueUser = storedUser; userRole = storedRole; username = storedNick; showPanel(); } else { showLogin(); }
 }
 function logout() { localStorage.removeItem('callsys_token'); token=""; location.reload(); }
@@ -66,14 +56,8 @@ async function showPanel() {
     const isSuper = userRole === 'super';
     ["card-user-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group"].forEach(id => { if($(id)) $(id).style.display = isSuper ? "block" : "none"; });
     if($('button[data-target="section-line"]')) $('button[data-target="section-line"]').style.display = isSuper?"flex":"none";
-    
-    if(isSuper) {
-        $("role-editor-container").style.display = "block";
-        loadRoles();
-    }
-
-    socket.auth.token = token; socket.connect();
-    updateLangUI(); 
+    if(isSuper) { $("role-editor-container").style.display = "block"; loadRoles(); }
+    socket.auth.token = token; socket.connect(); updateLangUI(); 
 }
 
 $("btn-logout")?.addEventListener("click", logout);
@@ -92,11 +76,7 @@ socket.on("initAdminLogs", l => renderLogs(l, true));
 socket.on("newAdminLog", l => renderLogs([l], false));
 socket.on("updatePublicStatus", b => { if($("public-toggle")) $("public-toggle").checked = b; });
 socket.on("updateSoundSetting", b => { if($("sound-toggle")) $("sound-toggle").checked=b; });
-
-socket.on("updateSystemMode", m => {
-    currentSystemMode = m; 
-    $$('input[name="systemMode"]').forEach(r => r.checked = (r.value === m));
-});
+socket.on("updateSystemMode", m => { currentSystemMode = m; $$('input[name="systemMode"]').forEach(r => r.checked = (r.value === m)); });
 
 socket.on("updateFeaturedContents", list => {
     const ul = $("featured-list-ui"); if(!ul) return; ul.innerHTML="";
@@ -155,60 +135,23 @@ async function loadUsers() {
 async function loadRoles() {
     const rolesConfig = await req("/api/admin/roles/get");
     if(!rolesConfig) return;
-    const container = $("role-editor-content");
-    container.innerHTML = "";
-    
-    const table = mk("table", "role-table");
-    const thead = mk("thead");
-    const trHead = mk("tr");
-    trHead.appendChild(mk("th", null, "Role"));
-    PERMISSIONS_LIST.forEach(p => trHead.appendChild(mk("th", null, p.label)));
-    thead.appendChild(trHead);
-    table.appendChild(thead);
-    
-    const tbody = mk("tbody");
-    const rolesToShow = ['VIEWER', 'OPERATOR', 'MANAGER'];
-    
-    rolesToShow.forEach(role => {
-        const config = rolesConfig[role] || { can: [] };
-        const tr = mk("tr");
+    const container = $("role-editor-content"); container.innerHTML = "";
+    const table = mk("table", "role-table"), thead = mk("thead"), trHead = mk("tr");
+    trHead.appendChild(mk("th", null, "Role")); PERMISSIONS_LIST.forEach(p => trHead.appendChild(mk("th", null, p.label)));
+    thead.appendChild(trHead); table.appendChild(thead); const tbody = mk("tbody");
+    ['VIEWER', 'OPERATOR', 'MANAGER'].forEach(role => {
+        const config = rolesConfig[role] || { can: [] }; const tr = mk("tr");
         tr.appendChild(mk("td", null, role, {style:"font-weight:bold"}));
-        
-        PERMISSIONS_LIST.forEach(p => {
-            const td = mk("td");
-            const chk = mk("input", "role-chk", null, {
-                type: "checkbox",
-                dataset: { role: role, perm: p.key },
-                checked: config.can.includes(p.key)
-            });
-            td.appendChild(chk);
-            tr.appendChild(td);
-        });
+        PERMISSIONS_LIST.forEach(p => { const td = mk("td"); td.appendChild(mk("input", "role-chk", null, { type: "checkbox", dataset: { role: role, perm: p.key }, checked: config.can.includes(p.key) })); tr.appendChild(td); });
         tbody.appendChild(tr);
     });
-    table.appendChild(tbody);
-    container.appendChild(table);
+    table.appendChild(tbody); container.appendChild(table);
 }
 
 $("btn-save-roles")?.addEventListener("click", async () => {
-    const newConfig = {
-        VIEWER: { level: 0, can: [] },
-        OPERATOR: { level: 1, can: [] },
-        MANAGER: { level: 2, can: [] },
-        ADMIN: { level: 9, can: ['*'] } 
-    };
-    
-    $$(".role-chk").forEach(chk => {
-        if(chk.checked) {
-            const r = chk.dataset.role;
-            const p = chk.dataset.perm;
-            if(newConfig[r]) newConfig[r].can.push(p);
-        }
-    });
-    
-    if(await req("/api/admin/roles/update", { rolesConfig: newConfig })) {
-        toast("Permissions Updated", "success");
-    }
+    const newConfig = { VIEWER: { level: 0, can: [] }, OPERATOR: { level: 1, can: [] }, MANAGER: { level: 2, can: [] }, ADMIN: { level: 9, can: ['*'] } };
+    $$(".role-chk").forEach(chk => { if(chk.checked) newConfig[chk.dataset.role].can.push(chk.dataset.perm); });
+    if(await req("/api/admin/roles/update", { rolesConfig: newConfig })) toast("Permissions Updated", "success");
 });
 
 async function loadStats() {
@@ -244,8 +187,31 @@ function renderLogs(logs, init) {
     logs.forEach(msg => { const li=mk("li", null, msg); init ? ul.appendChild(li) : ul.insertBefore(li, ul.firstChild); });
 }
 
-const act = (id, api, data={}) => $(id)?.addEventListener("click", () => req(api, data, $(id), 100));
-act("btn-call-prev", "/api/control/call", {direction:"prev"}); act("btn-call-next", "/api/control/call", {direction:"next"}); act("btn-mark-passed", "/api/control/pass-current"); act("btn-issue-prev", "/api/control/issue", {direction:"prev"}); act("btn-issue-next", "/api/control/issue", {direction:"next"});
+// [優化] Optimistic UI & Keyboard Support
+const act = (id, api, data={}) => $(id)?.addEventListener("click", async () => {
+    // 樂觀更新: 先更新畫面
+    const numEl = $("number");
+    if(api.includes('call') && numEl) {
+        const curr = parseInt(numEl.textContent)||0;
+        if(data.direction === 'next') numEl.textContent = curr + 1;
+        if(data.direction === 'prev' && curr > 0) numEl.textContent = curr - 1;
+    }
+    await req(api, data, $(id), 100);
+});
+
+act("btn-call-prev", "/api/control/call", {direction:"prev"}); 
+act("btn-call-next", "/api/control/call", {direction:"next"}); 
+act("btn-mark-passed", "/api/control/pass-current"); 
+act("btn-issue-prev", "/api/control/issue", {direction:"prev"}); 
+act("btn-issue-next", "/api/control/issue", {direction:"next"});
+
+// Keyboard Shortcuts
+document.addEventListener("keydown", (e) => {
+    if(["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+    if(e.key === "ArrowRight") $("btn-call-next")?.click();
+    if(e.key === "ArrowLeft") $("btn-call-prev")?.click();
+    if(e.key.toLowerCase() === "p") $("btn-mark-passed")?.click();
+});
 
 $("setNumber")?.addEventListener("click", async()=>{ const n=$("manualNumber").value; if(n>0 && await req("/api/control/set-call",{number:n})) { $("manualNumber").value=""; toast("Saved","success"); } });
 $("setIssuedNumber")?.addEventListener("click", async()=>{ const n=$("manualIssuedNumber").value; if(n>=0 && await req("/api/control/set-issue",{number:n})) { $("manualIssuedNumber").value=""; toast("Saved","success"); } });
@@ -262,14 +228,8 @@ $("sound-toggle")?.addEventListener("change", e => req("/set-sound-enabled", {en
 $$('input[name="systemMode"]').forEach(r => r.addEventListener("change", async (e) => {
     if(confirm(T.confirm + " Switch Mode?")) {
         const res = await req("/set-system-mode", {mode: r.value});
-        if(!res) {
-            const old = document.querySelector(`input[name="systemMode"][value="${currentSystemMode}"]`);
-            if(old) old.checked = true;
-        }
-    } else {
-        const old = document.querySelector(`input[name="systemMode"][value="${currentSystemMode}"]`);
-        if(old) old.checked = true;
-    }
+        if(!res) { const old = document.querySelector(`input[name="systemMode"][value="${currentSystemMode}"]`); if(old) old.checked = true; }
+    } else { const old = document.querySelector(`input[name="systemMode"][value="${currentSystemMode}"]`); if(old) old.checked = true; }
 }));
 
 $("admin-lang-selector")?.addEventListener("change", e => { curLang=e.target.value; localStorage.setItem('callsys_lang', curLang); updateLangUI(); });
@@ -282,7 +242,6 @@ $("btn-save-unlock-pwd")?.addEventListener("click", async()=>{ if(await req("/ap
 $("add-user-btn")?.addEventListener("click", async()=>{ const u=$("new-user-username").value, p=$("new-user-password").value, n=$("new-user-nickname").value, r=$("new-user-role")?.value; if(await req("/api/admin/add-user", {newUsername:u, newPassword:p, newNickname:n, newRole:r})) { toast("Saved","success"); $("new-user-username").value=""; $("new-user-password").value=""; $("new-user-nickname").value=""; loadUsers(); } });
 const lineSettingsConfig = { approach: { label: "快到了", hint: "{current} {target}" }, arrival: { label: "正式到號", hint: "{current} {target}" }, status: { label: "狀態回覆", hint: "{current} {issued}" }, personal: { label: "個人資訊", hint: "{target}" }, passed: { label: "過號回覆", hint: "{list}" }, set_ok: { label: "設定成功", hint: "{target}" }, cancel: { label: "取消成功", hint: "{target}" }, login_hint: { label: "登入提示", hint: "" }, err_passed: { label: "已過號錯誤", hint: "" }, err_no_sub: { label: "無設定錯誤", hint: "" }, set_hint: { label: "設定提示", hint: "" } };
 
-// [修正] 改用 CSS class 控制 LINE 設定的列表項佈局，解決寬度問題
 async function loadLineSettings() { const ul = $("line-settings-list-ui"); if (!ul) return; const data = await req("/api/admin/line-settings/get"); if(!data) return; ul.innerHTML=""; if($("line-unlock-pwd")) $("line-unlock-pwd").value = (await req("/api/admin/line-settings/get-unlock-pass"))?.password||""; Object.keys(lineSettingsConfig).forEach(key => { const config = lineSettingsConfig[key], val = data[key] || ""; const li = mk("li"); const view = mk("div", "line-setting-row"); const infoDiv = mk("div", "line-setting-info"); infoDiv.innerHTML = `<span style="font-weight:bold;">${config.label}</span><span class="line-msg-preview">${val||"(未設定)"}</span>`; const btn = mk("button","btn-secondary",T.edit||"Edit",{onclick:()=>{view.style.display="none";edit.style.display="flex"}}); view.append(infoDiv, btn); const edit = mk("div",null,null,{style:"display:none;flex-direction:column;gap:5px;width:100%;"}); const ta = mk("textarea",null,null,{value:val,rows:3}); const save = mk("button","btn-secondary success",T.save||"Save",{onclick:async()=>{if(await req("/api/admin/line-settings/save",{[key]:ta.value})) loadLineSettings();}}); const cancel = mk("button","btn-secondary",T.cancel||"X",{onclick:()=>{edit.style.display="none";view.style.display="flex";ta.value=val;}}); const row = mk("div",null,null,{style:"display:flex;gap:5px;justify-content:flex-end;"}); row.append(cancel,save); edit.append(mk("div",null,config.hint,{style:"font-size:0.8rem;color:#666"}),ta,row); li.append(view,edit); ul.appendChild(li); }); }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -290,15 +249,6 @@ document.addEventListener("DOMContentLoaded", () => {
     $$('.nav-btn').forEach(b => b.addEventListener('click', () => { $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); $$('.section-group').forEach(s=>s.classList.remove('active')); $(b.dataset.target)?.classList.add('active'); if(b.dataset.target === 'section-stats') loadStats(); }));
     const enter = (id, btnId) => { $(id)?.addEventListener("keyup", e => { if(e.key==="Enter") $(btnId)?.click(); }); };
     enter("username-input", "login-button"); enter("password-input", "login-button"); enter("manualNumber", "setNumber"); enter("manualIssuedNumber", "setIssuedNumber"); enter("new-passed-number", "add-passed-btn"); enter("broadcast-msg", "btn-broadcast");
-
-    if($("admin-lang-selector-mobile")) {
-        $("admin-lang-selector-mobile").value = curLang;
-        $("admin-lang-selector-mobile").addEventListener("change", e => {
-            curLang = e.target.value;
-            localStorage.setItem('callsys_lang', curLang);
-            $("admin-lang-selector").value = curLang; 
-            updateLangUI();
-        });
-    }
+    if($("admin-lang-selector-mobile")) { $("admin-lang-selector-mobile").value = curLang; $("admin-lang-selector-mobile").addEventListener("change", e => { curLang = e.target.value; localStorage.setItem('callsys_lang', curLang); $("admin-lang-selector").value = curLang; updateLangUI(); }); }
     $("btn-logout-mobile")?.addEventListener("click", logout);
 });
