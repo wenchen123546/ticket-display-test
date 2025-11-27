@@ -7,6 +7,13 @@
 <script src="/socket.io/socket.io.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/admin.css"> 
+<style>
+/* 新增：權限編輯表格樣式 */
+.role-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 10px; }
+.role-table th, .role-table td { padding: 6px; border: 1px solid #e5e7eb; text-align: center; }
+.role-table th { background: #f9fafb; font-weight: 600; color: var(--text-sub); }
+.role-chk { width: 16px; height: 16px; }
+</style>
 </head>
 <body>
 
@@ -179,7 +186,6 @@
                             </div>
                             <button id="btn-logout-mobile" class="btn-reset-single" style="color:var(--danger); border-color:var(--danger); margin-top:10px;" data-i18n="logout">登出</button>
                         </div>
-
                     </div>
                 </div>
 
@@ -229,6 +235,13 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <div id="role-editor-container" style="margin-top:20px; border-top:1px dashed #e5e7eb; padding-top:15px; display:none;">
+                            <label style="font-weight:bold; color:var(--text-main);">權限設定 (Super Admin Only)</label>
+                            <div id="role-editor-content">Loading permissions...</div>
+                            <button id="btn-save-roles" class="btn-secondary success" style="width:100%; margin-top:10px;">儲存權限變更</button>
+                        </div>
+
                     </div>
                 </div>
             </div>
