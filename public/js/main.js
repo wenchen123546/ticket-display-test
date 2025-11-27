@@ -1,5 +1,5 @@
 /* ==========================================
- * 前端邏輯 (main.js) - v58.0 Dark Mode & Fixes
+ * 前端邏輯 (main.js) - v59.0 Complete Optimized
  * ========================================== */
 const $ = i => document.getElementById(i);
 const on = (el, evt, fn) => el?.addEventListener(evt, fn);
@@ -7,8 +7,8 @@ const show = (el, v) => el && (el.style.display = v ? 'block' : 'none');
 
 // --- I18n Data ---
 const i18n = {
-    "zh-TW": { cur:"目前叫號", iss:"已發至", online:"線上取號", help:"免排隊，手機領號", man_t:"號碼提醒", man_p:"輸入您的號碼開啟到號提醒", take:"立即取號", track:"追蹤", my:"我的號碼", ahead:"前方", wait:"⏳ 剩 %s 組", arr:"🎉 輪到您了！", pass:"⚠️ 已過號", p_list:"過號", none:"無", links:"精選連結", copy:"複製連結", sound:"音效", s_on:"開啟", s_off:"靜音", scan:"掃描追蹤", off:"連線中斷", ok:"取號成功", fail:"失敗", no_in:"請輸入號碼", cancel:"取消追蹤？", copied:"已複製", notice:"📢 ", q_left:"還剩 %s 組！", est:"約 %s 分", est_less:"< 1 分", just:"剛剛", ago:"%s 分前", conn:"已連線", retry:"連線中 (%s)..." },
-    "en": { cur:"Now Serving", iss:"Issued", online:"Get Ticket", help:"Digital ticket & notify", man_t:"Number Alert", man_p:"Enter number to get alerted", take:"Get Ticket", track:"Track", my:"Your #", ahead:"Ahead", wait:"⏳ %s groups", arr:"🎉 Your Turn!", pass:"⚠️ Passed", p_list:"Passed", none:"None", links:"Links", copy:"Copy Link", sound:"Sound", s_on:"On", s_off:"Mute", scan:"Scan", off:"Offline", ok:"Success", fail:"Failed", no_in:"Enter #", cancel:"Stop tracking?", copied:"Copied", notice:"📢 ", q_left:"%s groups left!", est:"~%s min", est_less:"< 1 min", just:"Now", ago:"%s m ago", conn:"Online", retry:"Retry (%s)..." }
+    "zh-TW": { cur:"目前叫號", iss:"已發至", online:"線上取號", help:"免排隊，手機領號", man_t:"號碼提醒", man_p:"輸入您的號碼開啟到號提醒", take:"立即取號", track:"追蹤", my:"我的號碼", ahead:"前方", wait:"⏳ 剩 %s 組", arr:"🎉 輪到您了！", pass:"⚠️ 已過號", p_list:"過號", none:"無", links:"精選連結", copy:"複製", sound:"音效", s_on:"開啟", s_off:"靜音", scan:"掃描追蹤", off:"連線中斷", ok:"取號成功", fail:"失敗", no_in:"請輸入號碼", cancel:"取消追蹤？", copied:"已複製", notice:"📢 ", q_left:"還剩 %s 組！", est:"約 %s 分", est_less:"< 1 分", just:"剛剛", ago:"%s 分前", conn:"已連線", retry:"連線中 (%s)...", wait_count:"等待中" },
+    "en": { cur:"Now Serving", iss:"Issued", online:"Get Ticket", help:"Digital ticket & notify", man_t:"Number Alert", man_p:"Enter number to get alerted", take:"Get Ticket", track:"Track", my:"Your #", ahead:"Ahead", wait:"⏳ %s groups", arr:"🎉 Your Turn!", pass:"⚠️ Passed", p_list:"Passed", none:"None", links:"Links", copy:"Copy", sound:"Sound", s_on:"On", s_off:"Mute", scan:"Scan", off:"Offline", ok:"Success", fail:"Failed", no_in:"Enter #", cancel:"Stop tracking?", copied:"Copied", notice:"📢 ", q_left:"%s groups left!", est:"~%s min", est_less:"< 1 min", just:"Now", ago:"%s m ago", conn:"Online", retry:"Retry (%s)...", wait_count:"Waiting" }
 };
 
 // --- State ---
@@ -16,7 +16,6 @@ let lang = localStorage.getItem('callsys_lang')||'zh-TW', T = i18n[lang];
 let myTicket = localStorage.getItem('callsys_ticket'), sysMode = 'ticketing';
 let sndEnabled = true, localMute = false, avgTime = 0, lastUpd = null, audioCtx = null;
 let connTimer, wakeLock = null;
-// [新增] 讀取深色模式設定，預設為 'light' (false)
 let isDarkMode = localStorage.getItem('callsys_theme') === 'dark';
 
 const socket = io({ autoConnect: false, reconnection: true });
@@ -29,7 +28,6 @@ const toast = (msg, type='info', duration=3000) => {
     setTimeout(() => { el.classList.remove('show'); setTimeout(()=>el.remove(), 300); }, duration);
 };
 
-// Wake Lock
 const toggleWakeLock = async (active) => {
     if ('wakeLock' in navigator) {
         try {
@@ -45,7 +43,6 @@ const toggleWakeLock = async (active) => {
 };
 document.addEventListener('visibilitychange', () => { if (wakeLock !== null && document.visibilityState === 'visible') toggleWakeLock(true); });
 
-// Audio
 const unlockAudio = () => {
     if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') {
@@ -71,15 +68,9 @@ const speak = (txt) => {
 const playDing = () => { if($("notify-sound") && !localMute) $("notify-sound").play().then(()=>updateMuteUI(false)).catch(()=>updateMuteUI(true, true)); };
 
 // --- UI Logic ---
-// [新增] 應用主題
 function applyTheme() {
-    if (isDarkMode) {
-        document.body.classList.add('dark-mode');
-        $('theme-toggle').textContent = '☀️';
-    } else {
-        document.body.classList.remove('dark-mode');
-        $('theme-toggle').textContent = '🌙';
-    }
+    if (isDarkMode) { document.body.classList.add('dark-mode'); $('theme-toggle').textContent = '☀️'; } 
+    else { document.body.classList.remove('dark-mode'); $('theme-toggle').textContent = '🌙'; }
     localStorage.setItem('callsys_theme', isDarkMode ? 'dark' : 'light');
 }
 
@@ -87,12 +78,15 @@ function applyText() {
     document.querySelectorAll('[data-i18n]').forEach(e => {
         const k = e.getAttribute('data-i18n'), map = {
             current_number:'cur', issued_number:'iss', online_ticket_title:'online', help_take_ticket:'help', manual_input_title:'man_t', 
-            take_ticket:'take', set_reminder:'track', my_number:'my', wait_count:'ahead', passed_list_title:'p_list', passed_empty:'none', 
+            take_ticket:'take', set_reminder:'track', my_number:'my', wait_count:'wait_count', passed_list_title:'p_list', passed_empty:'none', 
             links_title:'links', copy_link:'copy', sound_enable:'sound', scan_qr:'scan'
         };
         if(map[k] && T[map[k]]) e.textContent = T[map[k]];
     });
+    // Special handling for dynamic placeholders/text
     if($("manual-ticket-input")) $("manual-ticket-input").placeholder = T.man_p;
+    if($("hero-waiting-count") && $("hero-waiting-count").previousElementSibling) $("hero-waiting-count").previousElementSibling.textContent = T.wait_count;
+    if($("ticket-waiting-count") && $("ticket-waiting-count").previousElementSibling) $("ticket-waiting-count").previousElementSibling.textContent = T.ahead;
 }
 
 function renderMode() {
@@ -104,9 +98,7 @@ function renderMode() {
         $("my-ticket-num").textContent = myTicket; 
         updateTicket(parseInt($("number").textContent)||0); 
         toggleWakeLock(true);
-    } else {
-        toggleWakeLock(false);
-    }
+    } else { toggleWakeLock(false); }
 }
 
 function updateTicket(curr) {
@@ -142,8 +134,14 @@ function feedback(btn, msgKey) {
 socket.on("connect", () => { socket.emit('joinRoom', 'public'); clearTimeout(connTimer); $("status-bar").textContent = T.conn; $("status-bar").classList.remove("visible"); });
 socket.on("disconnect", () => { connTimer = setTimeout(() => { $("status-bar").textContent = T.off; $("status-bar").classList.add("visible"); }, 1000); });
 socket.on("reconnect_attempt", a => $("status-bar").textContent = T.retry.replace("%s",a));
+
 socket.on("updateQueue", d => {
     if($("issued-number-main")) $("issued-number-main").textContent = d.issued;
+    
+    // [New] Update Hero Waiting Count
+    const waitCount = Math.max(0, d.issued - d.current);
+    if($("hero-waiting-count")) $("hero-waiting-count").textContent = waitCount;
+
     const numEl = $("number");
     if(numEl.textContent !== String(d.current)) {
         playDing(); setTimeout(()=>speak(`現在號碼，${d.current}號`), 800);
@@ -152,6 +150,7 @@ socket.on("updateQueue", d => {
     }
     updateTicket(d.current);
 });
+
 socket.on("adminBroadcast", m => { if(!localMute) speak(m); toast(T.notice+m, 'info', 10000); });
 socket.on("updateWaitTime", t => { avgTime = t; updateTicket(parseInt($("number").textContent)||0); });
 socket.on("updateSoundSetting", b => sndEnabled = b);
@@ -188,14 +187,11 @@ on($("btn-cancel-ticket"), "click", () => { if(confirm(T.cancel)) { localStorage
 on($("sound-prompt"), "click", () => { unlockAudio(); if(audioCtx?.state==='running') updateMuteUI(!localMute); else playDing(); });
 on($("copy-link-prompt"), "click", () => { navigator.clipboard?.writeText(location.href).then(()=>feedback($("copy-link-prompt"), 'copied')); });
 on($("language-selector"), "change", e => { lang = e.target.value; localStorage.setItem('callsys_lang', lang); T = i18n[lang]; applyText(); renderMode(); updateMuteUI(localMute); updTime(); });
-// [新增] 主題切換監聽
 on($("theme-toggle"), "click", () => { isDarkMode = !isDarkMode; applyTheme(); });
 
 // Init
 document.addEventListener("DOMContentLoaded", () => {
-    $("language-selector").value = lang; 
-    applyTheme(); // 應用主題
-    applyText(); renderMode(); socket.connect();
+    $("language-selector").value = lang; applyTheme(); applyText(); renderMode(); socket.connect();
     document.body.addEventListener('click', unlockAudio);
     if($("qr-code-placeholder")) try{ new QRCode($("qr-code-placeholder"), {text:location.href, width:120, height:120}); }catch(e){}
 });
