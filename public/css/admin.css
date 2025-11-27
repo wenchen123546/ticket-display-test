@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v68.0 Full Fix
+ * 後台樣式 (admin.css) - v69.0 Fixed Layout & UI
  * ========================================== */
 :root {
     --bg-body: #f8fafc; --bg-surface: #ffffff; --bg-sidebar: #ffffff;
@@ -78,11 +78,11 @@ body.dark-mode .nav-btn.active { background: rgba(99, 102, 241, 0.15); color: #8
 .label { font-size: 0.9rem; color: var(--text-sub); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
 
 /* Grid Layout */
-.card-container { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+.card-container { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: stretch; /* 修正: 等高 */ }
 @media (min-width: 768px) { .card-container { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 1200px) { 
     .card-container { grid-template-columns: repeat(3, minmax(0, 1fr)); } 
-    #section-stats .card-container { grid-template-columns: 2fr 1fr; align-items: start; } 
+    #section-stats .card-container { grid-template-columns: 2fr 1fr; align-items: stretch; } 
     #section-stats .full-width-card { grid-column: auto !important; }
 }
 .full-width-card { grid-column: 1 / -1; }
@@ -165,33 +165,39 @@ body.dark-mode .btn-secondary.success { background: rgba(16, 185, 129, 0.2); col
 .btn-reset-single { width: 100%; padding: 10px; border: 1px dashed var(--border-color); background: transparent; color: var(--text-sub); margin-top: auto; cursor: pointer; border-radius: var(--radius-md); transition: 0.2s; font-size: 0.85rem; }
 .btn-reset-single:hover { border-style: solid; color: var(--danger); border-color: var(--danger); }
 
-/* Lists & Tables */
+/* =========================================
+   [修正] 列表、日誌與圖表高度對齊
+   ========================================= */
 .list-editor ul, .log-list { 
     background: var(--bg-body); border: 1px solid var(--border-color); border-radius: var(--radius-md); 
-    max-height: 320px; overflow-y: auto; margin: 0 0 12px 0; padding: 0; 
-    list-style: none; flex: 1; min-height: 120px; width: 100%; 
+    /* 修正: 移除 max-height，讓 flex 或固定 height 生效 */
+    margin: 0 0 12px 0; padding: 0; 
+    list-style: none; width: 100%; 
+    overflow-y: auto; 
 }
 
-/* [修正] 連結管理列表版面 */
+/* 修正: 列表項目允許折行 (解決內容跑版) */
 .list-editor li { 
-    padding: 10px 12px; border-bottom: 1px solid var(--border-color); 
-    display: flex; gap: 10px; align-items: center; justify-content: space-between; 
-    word-break: break-all; white-space: normal;
+    padding: 12px; border-bottom: 1px solid var(--border-color); 
+    display: flex; flex-wrap: wrap; /* 關鍵: 允許內容折行 */
+    gap: 10px; align-items: center; justify-content: space-between; 
+    background: var(--bg-surface);
 }
-.list-editor li div { display: flex; flex-direction: column; max-width: calc(100% - 90px); }
-.list-editor li span { font-weight: 600; color: var(--text-main); }
-.list-editor li small { color: var(--text-sub); font-size: 0.8rem; line-height: 1.2; }
-.list-editor li .actions { display: flex; gap: 5px; flex-shrink: 0; }
+.list-editor li > div:first-child:not([style*="display: none"]) {
+    flex: 1; min-width: 0; /* 關鍵: 防止文字撐開 */
+    display: flex; flex-direction: column;
+}
+.list-editor li span { font-weight: 600; color: var(--text-main); font-size: 0.95rem; }
+.list-editor li small { color: var(--text-sub); font-size: 0.8rem; margin-top: 2px; word-break: break-all; }
+.list-editor li .actions { display: flex; gap: 8px; flex-shrink: 0; }
+.list-editor li .actions button { height: 36px; padding: 0 12px; font-size: 0.85rem; }
 
-.log-list li { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; display: block; }
-.role-table-wrapper { overflow-x: auto; width: 100%; } 
-.role-table { width: 100%; border-collapse: collapse; min-width: 500px; }
-.role-table th, .role-table td { padding: 8px; border: 1px solid var(--border-color); text-align: center; }
-
-/* Stats & Chart */
-.stats-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
+/* 修正: 日誌與圖表高度強制一致 */
+.log-list { height: 320px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; }
+.log-list li { display: block; padding: 4px 8px; border-bottom: 1px solid var(--border-color); }
 .chart-container { 
-    height: 320px; min-height: 250px;
+    height: 320px; /* 強制高度 */
+    min-height: 320px;
     display: flex; align-items: flex-end; gap: 2px; padding: 10px 0; width: 100%; overflow-x: auto; 
     border-bottom: 1px solid var(--border-color);
 }
@@ -201,6 +207,37 @@ body.dark-mode .btn-secondary.success { background: rgba(16, 185, 129, 0.2); col
 .chart-col:hover .chart-bar { opacity: 1; }
 .chart-label { font-size: 10px; color: var(--text-sub); margin-top: 4px; }
 .chart-val { font-size: 10px; color: var(--text-main); margin-bottom: 2px; font-weight: bold; }
+
+/* =========================================
+   [修正] LINE 設定 UI 美化
+   ========================================= */
+.line-setting-row { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.line-setting-info { display: flex; flex-direction: column; gap: 4px; flex: 1; padding-right: 10px; }
+.line-setting-label { font-weight: 700; color: var(--text-main); font-size: 0.95rem; }
+.line-setting-preview { 
+    background: var(--bg-body); border: 1px solid var(--border-color); 
+    padding: 4px 8px; border-radius: 6px; 
+    font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--primary);
+    display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.line-edit-box { 
+    width: 100%; background: var(--bg-body); padding: 12px; 
+    border-radius: 8px; margin-top: 10px; border: 1px solid var(--border-color);
+    display: flex; flex-direction: column; gap: 10px;
+}
+.line-edit-box textarea { 
+    width: 100%; min-height: 80px; resize: vertical; 
+    border: 1px solid var(--border-color); border-radius: 6px; padding: 8px; 
+    font-size: 0.9rem; line-height: 1.4; background: var(--bg-surface);
+}
+.line-edit-hint { font-size: 0.75rem; color: var(--text-sub); background: rgba(0,0,0,0.03); padding: 6px; border-radius: 4px; }
+body.dark-mode .line-edit-hint { background: rgba(255,255,255,0.05); }
+
+/* Role Table */
+.role-table-wrapper { overflow-x: auto; width: 100%; } 
+.role-table { width: 100%; border-collapse: collapse; min-width: 500px; }
+.role-table th, .role-table td { padding: 8px; border: 1px solid var(--border-color); text-align: center; }
+.role-chk { width: 18px; height: 18px; accent-color: var(--primary); }
 
 /* Settings Grid */
 .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; margin-bottom: 15px; }
@@ -243,7 +280,6 @@ body.dark-mode .btn-secondary.success { background: rgba(16, 185, 129, 0.2); col
     .secondary-actions-row { gap: 10px; margin-bottom: 15px; }
     .quick-actions button { padding: 0 12px; }
     
-    /* 修正手機版連結管理輸入框 */
     .input-group.vertical .input-group { display: flex; width: 100%; }
 }
 
