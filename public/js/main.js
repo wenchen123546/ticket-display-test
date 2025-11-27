@@ -1,5 +1,5 @@
 /* ==========================================
- * 前端邏輯 (main.js) - v32.0 Polished
+ * 前端邏輯 (main.js) - v33.0 ETA Added
  * ========================================== */
 const $ = i => document.getElementById(i);
 const on = (el, evt, fn) => el?.addEventListener(evt, fn);
@@ -65,10 +65,13 @@ function updateTicket(curr) {
     $("ticket-waiting-count").textContent = diff > 0 ? diff : (diff===0 ? "0" : "-");
     $("ticket-status-text").textContent = diff > 0 ? T.wait.replace("%s",diff) : (diff===0 ? T.arr : T.pass);
     
-    // [Optimization] Better estimate display
+    // [Optimization] ETA Display
     if(diff > 0 && avgTime >= 0) { 
         const min = Math.ceil(diff * avgTime);
-        wEl.textContent = (min <= 1) ? T.est_less : T.est.replace("%s", min); 
+        const etaTime = new Date(Date.now() + min * 60000);
+        const etaStr = etaTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const timeText = (min <= 1) ? T.est_less : T.est.replace("%s", min); 
+        wEl.innerHTML = `${timeText}<br><small style="opacity:0.8; font-size:0.8em">預計 ${etaStr} 到號</small>`;
         show(wEl, true); 
     } 
     else show(wEl, false);
@@ -98,7 +101,6 @@ socket.on("connect", () => {
     $("status-bar").classList.remove("visible"); 
 });
 socket.on("disconnect", () => { 
-    // [Optimization] Delay showing disconnect to prevent flickering
     connTimer = setTimeout(() => { $("status-bar").textContent = T.off; $("status-bar").classList.add("visible"); }, 1000);
 });
 socket.on("reconnect_attempt", a => $("status-bar").textContent = T.retry.replace("%s",a));
@@ -132,7 +134,7 @@ setInterval(updTime, 10000);
 
 // --- Interactions ---
 on($("btn-take-ticket"), "click", async () => {
-    if($("btn-take-ticket").disabled) return; // Double check
+    if($("btn-take-ticket").disabled) return;
     unlockAudio(); if(Notification.permission!=='granted') Notification.requestPermission();
     $("btn-take-ticket").disabled = true;
     try {
@@ -140,7 +142,7 @@ on($("btn-take-ticket"), "click", async () => {
         if(r.success) { myTicket = r.ticket; localStorage.setItem('callsys_ticket', myTicket); renderMode(); toast(T.ok, "success"); }
         else toast(r.error||T.fail, "error");
     } catch(e) { toast(T.off, "error"); }
-    setTimeout(() => $("btn-take-ticket").disabled = false, 1000); // Prevent double-tap
+    setTimeout(() => $("btn-take-ticket").disabled = false, 1000);
 });
 
 on($("btn-track-ticket"), "click", () => {
