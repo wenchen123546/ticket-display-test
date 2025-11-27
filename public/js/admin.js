@@ -1,21 +1,28 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v57.0 Optimized
+ * 後台邏輯 (admin.js) - v59.0 Command Center
  * ========================================== */
 const $ = i => document.getElementById(i);
 const $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}) => { const e = document.createElement(t); if(c) e.className=c; if(txt) e.textContent=txt; Object.entries(ev).forEach(([k,v])=>e[k]=v); return e; };
 
 const i18n = {
-    "zh-TW": { status_conn:"✅ 已連線", status_dis:"連線中斷...", saved:"✅ 已儲存", denied:"❌ 權限不足", expired:"Session 過期", login_fail:"登入失敗", confirm:"⚠️ 確認", recall:"↩️ 重呼", edit:"✎", del:"✕", save:"✓", cancel:"✕", btn_save:"儲存", btn_cancel:"取消" },
-    "en": { status_conn:"✅ Connected", status_dis:"Disconnected...", saved:"✅ Saved", denied:"❌ Denied", expired:"Expired", login_fail:"Failed", confirm:"⚠️ Confirm", recall:"↩️ Recall", edit:"Edit", del:"Del", save:"Save", cancel:"Cancel", btn_save:"Save", btn_cancel:"Cancel" }
+    "zh-TW": { status_conn:"✅ 已連線", status_dis:"連線中斷...", saved:"✅ 已儲存", denied:"❌ 權限不足", expired:"Session 過期", login_fail:"登入失敗", confirm:"⚠️ 確認", recall:"↩️ 重呼", edit:"✎", del:"✕", save:"✓", cancel:"✕" },
+    "en": { status_conn:"✅ Connected", status_dis:"Disconnected...", saved:"✅ Saved", denied:"❌ Denied", expired:"Expired", login_fail:"Failed", confirm:"⚠️ Confirm", recall:"↩️ Recall", edit:"Edit", del:"Del", save:"Save", cancel:"Cancel" }
 };
 
 let curLang = localStorage.getItem('callsys_lang')||'zh-TW', T = i18n[curLang];
 let token="", userRole="normal", username="", uniqueUser="", toastTimer;
 let currentSystemMode = 'ticketing'; 
-const PERMISSIONS_LIST = [ { key: 'call', label: '叫號' }, { key: 'pass', label: '過號' }, { key: 'recall', label: '重呼' }, { key: 'issue', label: '發號' }, { key: 'settings', label: '設定' }, { key: 'appointment', label: '預約' } ];
+let isDark = localStorage.getItem('callsys_admin_theme') === 'dark';
 
 const socket = io({ autoConnect: false, auth: { token: "" } });
+
+// --- Theme Logic ---
+function applyAdminTheme() {
+    if (isDark) { document.body.classList.add('dark-mode'); $('admin-theme-toggle').textContent = '☀️'; $('admin-theme-toggle-mobile').textContent = '☀️ Light'; }
+    else { document.body.classList.remove('dark-mode'); $('admin-theme-toggle').textContent = '🌙'; $('admin-theme-toggle-mobile').textContent = '🌙 Dark'; }
+    localStorage.setItem('callsys_admin_theme', isDark ? 'dark' : 'light');
+}
 
 function toast(msg, type='info') { const t = $("toast-notification"); if(!t) return; t.textContent = msg; t.className = `${type} show`; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3000); }
 
@@ -52,7 +59,7 @@ function logout() { localStorage.removeItem('callsys_token'); token=""; location
 function showLogin() { $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); }
 async function showPanel() {
     $("login-container").style.display="none"; $("admin-panel").style.display="flex";
-    if($("sidebar-user-info")) $("sidebar-user-info").textContent = `Hi, ${username}`;
+    if($("sidebar-user-info")) $("sidebar-user-info").textContent = `${username}`;
     const isSuper = userRole === 'super';
     ["card-user-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group"].forEach(id => { if($(id)) $(id).style.display = isSuper ? "block" : "none"; });
     if($('button[data-target="section-line"]')) $('button[data-target="section-line"]').style.display = isSuper?"flex":"none";
@@ -83,18 +90,18 @@ socket.on("updateFeaturedContents", list => {
     list.forEach(item => {
         const li = mk("li"), view = mk("div", null, null, {style:"display:flex; justify-content:space-between; width:100%; align-items:center;"});
         const info = mk("div", null, null, {style:"display:flex; flex-direction:column; width:100%;"});
-        info.append(mk("span", null, item.linkText, {style:"font-weight:600"}), mk("small", null, item.linkUrl, {style:"color:#666;"}));
+        info.append(mk("span", null, item.linkText, {style:"font-weight:600"}), mk("small", null, item.linkUrl, {style:"color:var(--text-sub);"}));
         const editDiv = mk("div", null, null, {style:"display:none; width:100%; flex-direction:column; gap:5px;"});
         const i1 = mk("input", null, null, {value:item.linkText}), i2 = mk("input", null, null, {value:item.linkUrl});
         const save = mk("button", "btn-secondary success", T.save, {onclick: async()=>{ if(await req("/api/featured/edit",{oldLinkText:item.linkText,oldLinkUrl:item.linkUrl,newLinkText:i1.value,newLinkUrl:i2.value})) toast(T.saved,"success"); }});
         const acts = mk("div", null, null, {style:"display:flex; gap:5px; flex-shrink:0;"});
-        acts.append(mk("button", "btn-secondary", T.edit, {onclick:()=>{view.style.display="none"; editDiv.style.display="flex";}}), mk("button", "delete-item-btn", T.del, {onclick:()=>req("/api/featured/remove", item)}));
+        acts.append(mk("button", "btn-secondary", T.edit, {onclick:()=>{view.style.display="none"; editDiv.style.display="flex";}}), mk("button", "btn-secondary", T.del, {onclick:()=>req("/api/featured/remove", item)}));
         editDiv.append(i1, i2, save, mk("button", "btn-secondary", T.cancel, {onclick:()=>{editDiv.style.display="none"; view.style.display="flex";}}));
         view.append(info, acts); li.append(view, editDiv); ul.appendChild(li);
     });
 });
 socket.on("updateOnlineAdmins", list => {
-    const ul = $("online-users-list"); if(!ul) return; if(!list || !list.length) { ul.innerHTML = `<li><small style="color:#999">等待連線...</small></li>`; return; }
+    const ul = $("online-users-list"); if(!ul) return; if(!list || !list.length) { ul.innerHTML = `<li><small style="color:var(--text-sub)">等待連線...</small></li>`; return; }
     ul.innerHTML = ""; list.sort((a,b)=>(a.role==='super'?-1:1)).forEach(u => ul.appendChild(mk("li", null, `🟢 ${u.nickname} (${u.username})`)));
 });
 socket.on("updatePassed", list => {
@@ -102,7 +109,7 @@ socket.on("updatePassed", list => {
     list.forEach(n => {
         const li = mk("li"), div = mk("div", null, null, {style:"display:flex; gap:10px; align-items:center;"});
         div.append(mk("span", null, n, {style:"font-weight:bold"}), mk("button", "btn-secondary", T.recall, {onclick:()=>{ if(confirm(`Recall ${n}?`)) req("/api/control/recall-passed",{number:n}); }}));
-        const del = mk("button", "delete-item-btn", T.del); confirmBtn(del, T.del, ()=>req("/api/passed/remove",{number:n}));
+        const del = mk("button", "btn-secondary", T.del); confirmBtn(del, T.del, ()=>req("/api/passed/remove",{number:n}));
         li.append(div, del); ul.appendChild(li);
     });
 });
@@ -113,7 +120,7 @@ async function loadUsers() {
     d.users.forEach(u => {
         const li = mk("li"), view = mk("div", null, null, {style:"display:flex; justify-content:space-between; width:100%; align-items:center;"});
         const info = mk("div", null, null, {style:"display:flex; flex-direction:column;"});
-        info.append(mk("span", null, `${u.role==='ADMIN'?'👑':'👤'} ${u.nickname}`, {style:"font-weight:600"}), mk("small", null, `${u.username} • ${roleOpts[u.role]||u.role}`, {style:"color:#666;"}));
+        info.append(mk("span", null, `${u.role==='ADMIN'?'👑':'👤'} ${u.nickname}`, {style:"font-weight:600"}), mk("small", null, `${u.username} • ${roleOpts[u.role]||u.role}`, {style:"color:var(--text-sub);"}));
         const editDiv = mk("div", null, null, {style:"display:none; width:100%; gap:5px;"});
         const inputNick = mk("input", null, null, {value:u.nickname}); const btnSave = mk("button", "btn-secondary success", T.save);
         btnSave.onclick = async () => { if(await req("/api/admin/set-nickname", {targetUsername:u.username, nickname:inputNick.value})) { toast("Saved", "success"); loadUsers(); } };
@@ -121,11 +128,11 @@ async function loadUsers() {
         const acts = mk("div", null, null, {style:"display:flex; gap:5px;"});
         if(u.username === uniqueUser || userRole === 'super') acts.appendChild(mk("button", "btn-secondary", T.edit, { onclick:()=>{ view.style.display="none"; editDiv.style.display="flex"; } }));
         if(u.username !== 'superadmin' && userRole === 'super') {
-            const roleSel = mk("select", null, null, {style:"padding:2px; font-size:0.8rem;"});
+            const roleSel = mk("select", "role-select", null, {style:"padding:2px; font-size:0.8rem;"});
             Object.keys(roleOpts).forEach(k => { const o = mk("option",null,roleOpts[k]); o.value=k; if(u.role===k) o.selected=true; roleSel.appendChild(o); });
             roleSel.onchange = async () => { if(await req("/api/admin/set-role", {targetUsername:u.username, newRole:roleSel.value})) toast("Role Saved", "success"); };
             acts.appendChild(roleSel);
-            const del = mk("button", "delete-item-btn", T.del); confirmBtn(del, T.del, async()=>{ await req("/api/admin/del-user",{delUsername:u.username}); loadUsers(); });
+            const del = mk("button", "btn-secondary", T.del); confirmBtn(del, T.del, async()=>{ await req("/api/admin/del-user",{delUsername:u.username}); loadUsers(); });
             acts.appendChild(del);
         }
         view.append(info, acts); li.append(view, editDiv); ul.appendChild(li);
@@ -137,12 +144,12 @@ async function loadRoles() {
     if(!rolesConfig) return;
     const container = $("role-editor-content"); container.innerHTML = "";
     const table = mk("table", "role-table"), thead = mk("thead"), trHead = mk("tr");
-    trHead.appendChild(mk("th", null, "Role")); PERMISSIONS_LIST.forEach(p => trHead.appendChild(mk("th", null, p.label)));
+    trHead.appendChild(mk("th", null, "Role")); [{key:'call',label:'叫號'},{key:'pass',label:'過號'},{key:'recall',label:'重呼'},{key:'issue',label:'發號'},{key:'settings',label:'設定'},{key:'appointment',label:'預約'}].forEach(p => trHead.appendChild(mk("th", null, p.label)));
     thead.appendChild(trHead); table.appendChild(thead); const tbody = mk("tbody");
     ['VIEWER', 'OPERATOR', 'MANAGER'].forEach(role => {
         const config = rolesConfig[role] || { can: [] }; const tr = mk("tr");
         tr.appendChild(mk("td", null, role, {style:"font-weight:bold"}));
-        PERMISSIONS_LIST.forEach(p => { const td = mk("td"); td.appendChild(mk("input", "role-chk", null, { type: "checkbox", dataset: { role: role, perm: p.key }, checked: config.can.includes(p.key) })); tr.appendChild(td); });
+        [{key:'call'},{key:'pass'},{key:'recall'},{key:'issue'},{key:'settings'},{key:'appointment'}].forEach(p => { const td = mk("td"); td.appendChild(mk("input", "role-chk", null, { type: "checkbox", dataset: { role: role, perm: p.key }, checked: config.can.includes(p.key) })); tr.appendChild(td); });
         tbody.appendChild(tr);
     });
     table.appendChild(tbody); container.appendChild(table);
@@ -163,13 +170,13 @@ async function loadStats() {
             renderChart(d.hourlyCounts, d.serverHour);
             if (ul) {
                 const hist = Array.isArray(d.history) ? d.history : [];
-                if (hist.length === 0) ul.innerHTML = `<li style="text-align:center; color:#94a3b8; padding:20px;">[ 本日尚無紀錄 ]</li>`;
+                if (hist.length === 0) ul.innerHTML = `<li style="text-align:center; color:var(--text-sub); padding:20px;">[ 本日尚無紀錄 ]</li>`;
                 else ul.innerHTML = hist.map(h => {
-                    try { const item = (typeof h === 'string') ? JSON.parse(h) : h; const timeStr = new Date(item.time || item.timestamp).toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' }); return `<li><span>${timeStr} - <b style="color:var(--primary);">${item.num || item.number}</b> <small style="color:#64748b;">(${item.operator})</small></span></li>`; } catch (err) { return ""; }
+                    try { const item = (typeof h === 'string') ? JSON.parse(h) : h; const timeStr = new Date(item.time || item.timestamp).toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit' }); return `<li><span>${timeStr} - <b style="color:var(--primary);">${item.num || item.number}</b> <small style="color:var(--text-sub);">(${item.operator})</small></span></li>`; } catch (err) { return ""; }
                 }).join("");
             }
-        } else { if (ul) ul.innerHTML = `<li style="text-align:center; padding:20px; color:#cbd5e1;">等待數據...</li>`; }
-    } catch (e) { if (ul) ul.innerHTML = `<li style="color:#ef4444; text-align:center; padding:10px;">載入失敗</li>`; }
+        } else { if (ul) ul.innerHTML = `<li style="text-align:center; padding:20px; color:var(--text-sub);">等待數據...</li>`; }
+    } catch (e) { if (ul) ul.innerHTML = `<li style="color:var(--danger); text-align:center; padding:10px;">載入失敗</li>`; }
 }
 
 function renderChart(counts, curHr) {
@@ -177,7 +184,7 @@ function renderChart(counts, curHr) {
     const safeCounts = counts || new Array(24).fill(0); const max = Math.max(...safeCounts, 1);
     safeCounts.forEach((val, i) => {
         const col = mk("div", `chart-col ${i===curHr?'current':''}`, null, {onclick:()=>openStatModal(i, val)});
-        col.innerHTML = `<div class="chart-val">${val||''}</div><div class="chart-bar" style="height:${Math.max(val/max*100, 2)}%; background:${val===0?'#e5e7eb':''}"></div><div class="chart-label">${String(i).padStart(2,'0')}</div>`;
+        col.innerHTML = `<div class="chart-val">${val||''}</div><div class="chart-bar" style="height:${Math.max(val/max*100, 2)}%; background:${val===0?'var(--border-color)':''}"></div><div class="chart-label">${String(i).padStart(2,'0')}</div>`;
         c.appendChild(col);
     });
 }
@@ -187,9 +194,8 @@ function renderLogs(logs, init) {
     logs.forEach(msg => { const li=mk("li", null, msg); init ? ul.appendChild(li) : ul.insertBefore(li, ul.firstChild); });
 }
 
-// [優化] Optimistic UI & Keyboard Support
+// Optimistic UI
 const act = (id, api, data={}) => $(id)?.addEventListener("click", async () => {
-    // 樂觀更新: 先更新畫面
     const numEl = $("number");
     if(api.includes('call') && numEl) {
         const curr = parseInt(numEl.textContent)||0;
@@ -220,17 +226,9 @@ $("add-featured-btn")?.addEventListener("click", async()=>{ const t=$("new-link-
 $("btn-broadcast")?.addEventListener("click", async()=>{ const m=$("broadcast-msg").value; if(m && await req("/api/admin/broadcast",{message:m})) { toast("📢 Sent","success"); $("broadcast-msg").value=""; } });
 $("quick-add-1")?.addEventListener("click", async()=>{ await req("/api/control/call", {direction:"next"}, $("quick-add-1"), 100); }); 
 $("quick-add-5")?.addEventListener("click", async()=>{ const c=parseInt($("number").textContent)||0; $("manualNumber").value = c + 5; });
-$("quick-clear")?.addEventListener("click", ()=>{ $("manualNumber").value=""; });
-
 confirmBtn($("resetNumber"), "↺ 重置叫號", ()=>req("/api/control/set-call",{number:0})); confirmBtn($("resetIssued"), "↺ 重置發號", ()=>req("/api/control/set-issue",{number:0})); confirmBtn($("resetPassed"), "清空列表", ()=>req("/api/passed/clear")); confirmBtn($("resetFeaturedContents"), "清空連結", ()=>req("/api/featured/clear")); confirmBtn($("resetAll"), "💥 全域重置", ()=>req("/reset")); confirmBtn($("btn-clear-logs"), "清除日誌", ()=>req("/api/logs/clear")); confirmBtn($("btn-clear-stats"), "🗑️ 清空統計", ()=>req("/api/admin/stats/clear").then(()=>loadStats())); confirmBtn($("btn-reset-line-msg"), "↺ 恢復預設", ()=>req("/api/admin/line-settings/reset").then(d=>{if(d)loadLineSettings();}));
 $("sound-toggle")?.addEventListener("change", e => req("/set-sound-enabled", {enabled:e.target.checked})); $("public-toggle")?.addEventListener("change", e => req("/set-public-status", {isPublic:e.target.checked}));
-
-$$('input[name="systemMode"]').forEach(r => r.addEventListener("change", async (e) => {
-    if(confirm(T.confirm + " Switch Mode?")) {
-        const res = await req("/set-system-mode", {mode: r.value});
-        if(!res) { const old = document.querySelector(`input[name="systemMode"][value="${currentSystemMode}"]`); if(old) old.checked = true; }
-    } else { const old = document.querySelector(`input[name="systemMode"][value="${currentSystemMode}"]`); if(old) old.checked = true; }
-}));
+$$('input[name="systemMode"]').forEach(r => r.addEventListener("change", async (e) => { if(confirm(T.confirm + " Switch Mode?")) { const res = await req("/set-system-mode", {mode: r.value}); if(!res) { const old = document.querySelector(`input[name="systemMode"][value="${currentSystemMode}"]`); if(old) old.checked = true; } } else { const old = document.querySelector(`input[name="systemMode"][value="${currentSystemMode}"]`); if(old) old.checked = true; } }));
 
 $("admin-lang-selector")?.addEventListener("change", e => { curLang=e.target.value; localStorage.setItem('callsys_lang', curLang); updateLangUI(); });
 const modal = $("edit-stats-overlay"); let editHr=null;
@@ -242,13 +240,15 @@ $("btn-save-unlock-pwd")?.addEventListener("click", async()=>{ if(await req("/ap
 $("add-user-btn")?.addEventListener("click", async()=>{ const u=$("new-user-username").value, p=$("new-user-password").value, n=$("new-user-nickname").value, r=$("new-user-role")?.value; if(await req("/api/admin/add-user", {newUsername:u, newPassword:p, newNickname:n, newRole:r})) { toast("Saved","success"); $("new-user-username").value=""; $("new-user-password").value=""; $("new-user-nickname").value=""; loadUsers(); } });
 const lineSettingsConfig = { approach: { label: "快到了", hint: "{current} {target}" }, arrival: { label: "正式到號", hint: "{current} {target}" }, status: { label: "狀態回覆", hint: "{current} {issued}" }, personal: { label: "個人資訊", hint: "{target}" }, passed: { label: "過號回覆", hint: "{list}" }, set_ok: { label: "設定成功", hint: "{target}" }, cancel: { label: "取消成功", hint: "{target}" }, login_hint: { label: "登入提示", hint: "" }, err_passed: { label: "已過號錯誤", hint: "" }, err_no_sub: { label: "無設定錯誤", hint: "" }, set_hint: { label: "設定提示", hint: "" } };
 
-async function loadLineSettings() { const ul = $("line-settings-list-ui"); if (!ul) return; const data = await req("/api/admin/line-settings/get"); if(!data) return; ul.innerHTML=""; if($("line-unlock-pwd")) $("line-unlock-pwd").value = (await req("/api/admin/line-settings/get-unlock-pass"))?.password||""; Object.keys(lineSettingsConfig).forEach(key => { const config = lineSettingsConfig[key], val = data[key] || ""; const li = mk("li"); const view = mk("div", "line-setting-row"); const infoDiv = mk("div", "line-setting-info"); infoDiv.innerHTML = `<span style="font-weight:bold;">${config.label}</span><span class="line-msg-preview">${val||"(未設定)"}</span>`; const btn = mk("button","btn-secondary",T.edit||"Edit",{onclick:()=>{view.style.display="none";edit.style.display="flex"}}); view.append(infoDiv, btn); const edit = mk("div",null,null,{style:"display:none;flex-direction:column;gap:5px;width:100%;"}); const ta = mk("textarea",null,null,{value:val,rows:3}); const save = mk("button","btn-secondary success",T.save||"Save",{onclick:async()=>{if(await req("/api/admin/line-settings/save",{[key]:ta.value})) loadLineSettings();}}); const cancel = mk("button","btn-secondary",T.cancel||"X",{onclick:()=>{edit.style.display="none";view.style.display="flex";ta.value=val;}}); const row = mk("div",null,null,{style:"display:flex;gap:5px;justify-content:flex-end;"}); row.append(cancel,save); edit.append(mk("div",null,config.hint,{style:"font-size:0.8rem;color:#666"}),ta,row); li.append(view,edit); ul.appendChild(li); }); }
+async function loadLineSettings() { const ul = $("line-settings-list-ui"); if (!ul) return; const data = await req("/api/admin/line-settings/get"); if(!data) return; ul.innerHTML=""; if($("line-unlock-pwd")) $("line-unlock-pwd").value = (await req("/api/admin/line-settings/get-unlock-pass"))?.password||""; Object.keys(lineSettingsConfig).forEach(key => { const config = lineSettingsConfig[key], val = data[key] || ""; const li = mk("li"); const view = mk("div", "line-setting-row"); const infoDiv = mk("div", "line-setting-info"); infoDiv.innerHTML = `<span style="font-weight:bold;">${config.label}</span><span class="line-msg-preview">${val||"(未設定)"}</span>`; const btn = mk("button","btn-secondary",T.edit||"Edit",{onclick:()=>{view.style.display="none";edit.style.display="flex"}}); view.append(infoDiv, btn); const edit = mk("div",null,null,{style:"display:none;flex-direction:column;gap:5px;width:100%;"}); const ta = mk("textarea",null,null,{value:val,rows:3}); const save = mk("button","btn-secondary success",T.save||"Save",{onclick:async()=>{if(await req("/api/admin/line-settings/save",{[key]:ta.value})) loadLineSettings();}}); const cancel = mk("button","btn-secondary",T.cancel||"X",{onclick:()=>{edit.style.display="none";view.style.display="flex";ta.value=val;}}); const row = mk("div",null,null,{style:"display:flex;gap:5px;justify-content:flex-end;"}); row.append(cancel,save); edit.append(mk("div",null,config.hint,{style:"font-size:0.8rem;color:var(--text-sub)"}),ta,row); li.append(view,edit); ul.appendChild(li); }); }
 
 document.addEventListener("DOMContentLoaded", () => {
-    $("admin-lang-selector").value = curLang; checkSession();
+    $("admin-lang-selector").value = curLang; checkSession(); applyAdminTheme();
     $$('.nav-btn').forEach(b => b.addEventListener('click', () => { $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); $$('.section-group').forEach(s=>s.classList.remove('active')); $(b.dataset.target)?.classList.add('active'); if(b.dataset.target === 'section-stats') loadStats(); }));
     const enter = (id, btnId) => { $(id)?.addEventListener("keyup", e => { if(e.key==="Enter") $(btnId)?.click(); }); };
     enter("username-input", "login-button"); enter("password-input", "login-button"); enter("manualNumber", "setNumber"); enter("manualIssuedNumber", "setIssuedNumber"); enter("new-passed-number", "add-passed-btn"); enter("broadcast-msg", "btn-broadcast");
     if($("admin-lang-selector-mobile")) { $("admin-lang-selector-mobile").value = curLang; $("admin-lang-selector-mobile").addEventListener("change", e => { curLang = e.target.value; localStorage.setItem('callsys_lang', curLang); $("admin-lang-selector").value = curLang; updateLangUI(); }); }
     $("btn-logout-mobile")?.addEventListener("click", logout);
+    $("admin-theme-toggle")?.addEventListener("click", () => { isDark = !isDark; applyAdminTheme(); });
+    $("admin-theme-toggle-mobile")?.addEventListener("click", () => { isDark = !isDark; applyAdminTheme(); });
 });
