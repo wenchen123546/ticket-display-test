@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v89.0 Fixed
+ * 後台邏輯 (admin.js) - v90.0 Permission Fixed
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => { 
@@ -55,14 +55,22 @@ const checkSession = () => {
 };
 const logout = () => { localStorage.removeItem('callsys_token'); location.reload(); };
 const showLogin = () => { $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); };
+
+// [Fixed] Permission Logic Updated Here
 const showPanel = () => {
     $("login-container").style.display="none"; $("admin-panel").style.display="flex"; $("sidebar-user-info").textContent = username;
-    const isSuper = userRole === 'super';
+    
+    // 修正：同時檢查 'super' 與 'ADMIN'
+    const isSuper = (userRole === 'super' || userRole === 'ADMIN');
+    
     if($("nav-btn-booking")) $("nav-btn-booking").style.display = isSuper ? "flex" : "none";
     if(!isSuper && $("section-booking")) $("section-booking").style.display = "none";
+    
     ["card-user-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group", "role-editor-container"].forEach(id => $(id) && ($(id).style.display = isSuper ? "block" : "none"));
-    ['resetNumber','resetIssued','resetPassed','resetFeaturedContents','btn-clear-logs','btn-clear-stats','btn-reset-line-msg','resetAll'].forEach(id => $(id) && ($(id).style.display = (userRole==='ADMIN'||isSuper)?'block':'none'));
-    if(isSuper) loadRoles(); socket.auth.token = token; socket.connect(); updateLangUI();
+    ['resetNumber','resetIssued','resetPassed','resetFeaturedContents','btn-clear-logs','btn-clear-stats','btn-reset-line-msg','resetAll'].forEach(id => $(id) && ($(id).style.display = isSuper ? 'block' : 'none'));
+    
+    if(isSuper) loadRoles(); 
+    socket.auth.token = token; socket.connect(); updateLangUI();
 };
 
 // --- Socket Events ---
@@ -128,8 +136,9 @@ async function loadUsers() {
                 mk("button","btn-secondary success",T.save,{onclick:async()=>{if(await req("/api/admin/set-nickname",{targetUsername:u.username, nickname:form.children[0].value})) {toast(T.saved,"success"); loadUsers();}}})
             ])
         ]);
-        if(u.username === uniqueUser || userRole === 'super') acts.appendChild(mk("button","btn-secondary",T.edit,{onclick:()=>{view.style.display="none";acts.style.display="none";form.style.display="flex";}}));
-        if(u.username !== 'superadmin' && userRole === 'super') {
+        // 修正：權限檢查增加 ADMIN
+        if(u.username === uniqueUser || userRole === 'super' || userRole === 'ADMIN') acts.appendChild(mk("button","btn-secondary",T.edit,{onclick:()=>{view.style.display="none";acts.style.display="none";form.style.display="flex";}}));
+        if(u.username !== 'superadmin' && (userRole === 'super' || userRole === 'ADMIN')) {
             const sel = mk("select","role-select",null,{onchange:async()=>await req("/api/admin/set-role",{targetUsername:u.username, newRole:sel.value})});
             Object.keys(roles).forEach(k=>sel.add(new Option(roles[k], k, false, u.role===k)));
             const btnDel = mk("button","btn-secondary",T.del); confirmBtn(btnDel, T.del, async()=>{await req("/api/admin/del-user",{delUsername:u.username}); loadUsers();});
@@ -220,12 +229,10 @@ bind("login-button", async () => {
 });
 bind("btn-logout", logout); bind("btn-logout-mobile", logout);
 
-// Fixed: Replaced complex nested ternary operators with clear logical blocks
 ["resetNumber","resetIssued","resetPassed","resetFeaturedContents","resetAll","btn-clear-logs","btn-clear-stats","btn-reset-line-msg"].forEach(id => {
     const el = $(id);
     if(!el) return;
     
-    // Determine API URL
     let url;
     if (id.includes('clear')) {
         url = id.includes('logs') ? "/api/logs/clear" : "/api/admin/stats/clear";
@@ -238,11 +245,8 @@ bind("btn-logout", logout); bind("btn-logout-mobile", logout);
     } else if (id.includes('Featured')) {
         url = "/api/featured/clear";
     } else {
-        // resetNumber or resetIssued
         url = `/api/control/${id==='resetNumber'?'set-call':'set-issue'}`;
     }
-
-    // Determine Data (Only resetNumber and resetIssued need {number: 0})
     const needsZero = id.startsWith('reset') && !['All','Passed','Featured','line'].some(s => id.includes(s));
     const data = needsZero ? {number: 0} : {};
 
