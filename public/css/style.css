@@ -1,34 +1,32 @@
 /* ==========================================
- * 前台樣式 (style.css) - v61.3 High Contrast
+ * 前台樣式 (style.css) - v62.0 Grid Layout Fixed
  * ========================================== */
 :root {
     /* [Light Mode - 配色優化版] */
-    --primary: #4f46e5;       /* 加深一點的靛藍色，更清晰 */
+    --primary: #4f46e5;       
     --primary-dark: #4338ca;  
-    --primary-soft: #eef2ff;  /* 更乾淨的淺藍背景 */
+    --primary-soft: #eef2ff;  
     
-    /* 文字顏色全面加深，提升閱讀性 */
-    --text-main: #0f172a;     /* Slate 900 (接近純黑) */
-    --text-sub: #475569;      /* Slate 600 (深灰，不再是淺灰) */
-    --text-light: #64748b;    /* Slate 500 (原本太淺，現在加深) */
+    --text-main: #0f172a;     
+    --text-sub: #475569;      
+    --text-light: #64748b;    
     
-    --bg-body: #f1f5f9;       /* Slate 100 (稍微深一點的背景，襯托白色卡片) */
-    --surface: rgba(255, 255, 255, 0.95); /* 提高不透明度，減少背景干擾 */
-    --border: #cbd5e1;        /* Slate 300 (實體灰色邊框，不再是看不見的白色) */
+    --bg-body: #f1f5f9;       
+    --surface: rgba(255, 255, 255, 0.95); 
+    --border: #cbd5e1;        
     
-    --accent-red: #e11d48;    /* Rose 600 (更鮮豔的紅色) */
+    --accent-red: #e11d48;    
     --accent-bg-red: #fff1f2;
     
     --radius-lg: 24px; 
     --radius-md: 16px;
-    --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* 更俐落的陰影 */
+    --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     
     --num-gradient-start: #1e293b; 
     --num-gradient-end: #4f46e5;
 }
 
 body.dark-mode {
-    /* Dark Mode (保持原本深色邏輯，但微調對比) */
     --bg-body: #0f172a; 
     --surface: rgba(30, 41, 59, 0.9);
     --text-main: #f8fafc; 
@@ -54,7 +52,7 @@ body {
     transition: background 0.3s;
 }
 
-/* 背景動畫 (淺色模式下稍微調淡，避免干擾文字) */
+/* 背景動畫 */
 .bg-decoration { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
 .orb { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.4; animation: float 20s infinite ease-in-out; }
 .orb-1 { width: 300px; height: 300px; background: radial-gradient(circle, #c7d2fe 0%, transparent 70%); top: -50px; left: -50px; }
@@ -73,7 +71,7 @@ body {
 .glass { 
     background: var(--surface); 
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); 
-    border: 1px solid var(--border); /* 使用加深的邊框顏色 */
+    border: 1px solid var(--border); 
     border-radius: var(--radius-lg); 
     box-shadow: var(--shadow-card); 
     width: 100%;
@@ -86,7 +84,7 @@ body {
 .btn-icon, .lang-switch { background: rgba(255,255,255,0.8); border: 1px solid var(--border); border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); font-size: 1.1rem; }
 .lang-switch { width: auto; border-radius: 20px; padding: 0 12px; font-size: 0.85rem; font-weight: 700; }
 
-/* Hero Section (大號碼區) */
+/* Hero Section */
 .hero-section { 
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     padding: 24px 16px; text-align: center; flex-shrink: 0; 
@@ -100,7 +98,7 @@ body {
     background: linear-gradient(180deg, var(--num-gradient-start) 0%, var(--num-gradient-end) 100%); 
     -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
     color: var(--primary);
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); /* 增加一點陰影讓數字更立體 */
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); 
 }
 @keyframes pop-in { 0% { transform: scale(0.9); opacity: 0.8; } 60% { transform: scale(1.05); } 100% { transform: scale(1); opacity: 1; } }
 .number-change-anim { animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
@@ -108,7 +106,7 @@ body {
 .hero-stats-grid { 
     display: flex; gap: 15px; width: 100%; justify-content: center; 
     background: var(--primary-soft); padding: 12px; border-radius: 16px;
-    border: 1px solid rgba(0,0,0,0.05); /* 微弱邊框增加定義 */
+    border: 1px solid rgba(0,0,0,0.05);
 }
 .stat-item { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
 .s-label { font-size: 0.75rem; color: var(--text-sub); font-weight: 700; text-transform: uppercase; }
@@ -121,7 +119,7 @@ body {
     width: 100%; min-width: 0; 
 }
 
-/* Controls (取號區) */
+/* Controls */
 .control-section { padding: 20px; }
 .action-header h3 { font-size: 1.1rem; margin: 0 0 4px 0; color: var(--text-main); font-weight: 800; }
 .func-desc { font-size: 0.85rem; color: var(--text-sub); margin: 0 0 16px 0; font-weight: 500; }
@@ -130,7 +128,7 @@ body {
     width: 100%; height: 56px; border: none; border-radius: 16px; 
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); 
     color: white; font-size: 1.1rem; font-weight: 700; cursor: pointer; 
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); /* 陰影優化 */
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); 
     display: flex; align-items: center; justify-content: center; gap: 10px;
     transition: transform 0.1s;
 }
@@ -139,16 +137,15 @@ body {
 .input-wrapper { display: flex; gap: 8px; margin-top: 10px; }
 .fancy-input { 
     flex: 1; height: 48px; 
-    border: 2px solid var(--border); /* 使用加深的邊框 */
+    border: 2px solid var(--border); 
     border-radius: 12px; 
     text-align: center; font-size: 1.2rem; font-weight: 700;
-    background: #ffffff; /* 純白背景，對比更強 */
+    background: #ffffff; 
     color: var(--text-main); 
     min-width: 0;
 }
 .fancy-input:focus { border-color: var(--primary); outline: none; }
 body.dark-mode .fancy-input { background: #1e293b; border-color: #475569; }
-
 .btn-track { height: 48px; padding: 0 16px; border: none; border-radius: 12px; background: var(--text-main); color: white; font-weight: 700; white-space: nowrap; }
 
 /* My Ticket Card */
@@ -163,7 +160,9 @@ body.dark-mode .my-num { color: white; }
 .w-val { font-size: 1.6rem; font-weight: 800; }
 .ticket-row.footer { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 0.85rem; opacity: 0.9; }
 
-/* Lists & Chips */
+/* * [關鍵修復] List Section & Tag List (Grid Layout)
+ * 解決過號列表垂直排列浪費空間的問題
+ */
 .list-section { 
     padding: 14px 16px; 
     display: flex; flex-direction: column; 
@@ -178,15 +177,25 @@ body.dark-mode .my-num { color: white; }
 
 .scroll-view { overflow-y: auto; max-height: 150px; -webkit-overflow-scrolling: touch; }
 
-.tag-list { display: flex; flex-wrap: wrap; gap: 4px; list-style: none; padding: 0; margin: 0; }
+/* [Grid 修正] 強制使用網格佈局自動填滿 */
+.tag-list { 
+    display: grid; 
+    /* 自動計算每列能放幾個，每個最小寬度 50px，自動填滿剩餘空間 */
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr)); 
+    gap: 8px; /* 標籤之間的間距 */
+    list-style: none; padding: 0; margin: 0; 
+}
+
 .tag-list li { 
     font-size: 0.85rem; font-weight: 700; color: var(--accent-red); 
     background: var(--accent-bg-red); 
-    padding: 3px 10px; 
+    padding: 6px 4px; /* 調整內距讓文字置中 */
     border-radius: 12px; 
     border: 1px solid rgba(225, 29, 72, 0.2);
-    max-width: 80px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
-    flex-shrink: 0;
+    /* 確保內容居中且佔滿網格單元 */
+    width: 100%; 
+    display: flex; justify-content: center; align-items: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .empty-state { color: var(--text-light); font-size: 0.85rem; text-align: center; padding: 5px; font-style: italic; }
 
@@ -196,10 +205,8 @@ body.dark-mode .my-num { color: white; }
 #featured-container { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .link-chip { 
     display: inline-block; font-size: 0.8rem; padding: 6px 12px; 
-    background: #ffffff; /* 純白背景 */
-    border: 1px solid var(--border); 
-    border-radius: 10px; 
-    text-decoration: none; color: var(--primary); font-weight: 600;
+    background: #ffffff; border: 1px solid var(--border); 
+    border-radius: 10px; text-decoration: none; color: var(--primary); font-weight: 600;
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
