@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v70.0 UI Fixed
+ * 後台邏輯 (admin.js) - v71.0 UI Fix
  * ========================================== */
 const $ = i => document.getElementById(i);
 const $$ = s => document.querySelectorAll(s);
