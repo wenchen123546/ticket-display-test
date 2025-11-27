@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v59.2 Stable
+ * 後台邏輯 (admin.js) - v60.0 Stable
  * ========================================== */
 const $ = i => document.getElementById(i);
 const $$ = s => document.querySelectorAll(s);
@@ -19,12 +19,17 @@ const socket = io({ autoConnect: false, auth: { token: "" } });
 
 // --- Theme Logic ---
 function applyAdminTheme() {
-    if (isDark) { document.body.classList.add('dark-mode'); $('admin-theme-toggle').textContent = '☀️'; $('admin-theme-toggle-mobile').textContent = '☀️ Light'; }
-    else { document.body.classList.remove('dark-mode'); $('admin-theme-toggle').textContent = '🌙'; $('admin-theme-toggle-mobile').textContent = '🌙 Dark'; }
+    if (isDark) { document.body.classList.add('dark-mode'); if($('admin-theme-toggle')) $('admin-theme-toggle').textContent = '☀️'; if($('admin-theme-toggle-mobile')) $('admin-theme-toggle-mobile').textContent = '☀️ Light'; }
+    else { document.body.classList.remove('dark-mode'); if($('admin-theme-toggle')) $('admin-theme-toggle').textContent = '🌙'; if($('admin-theme-toggle-mobile')) $('admin-theme-toggle-mobile').textContent = '🌙 Dark'; }
     localStorage.setItem('callsys_admin_theme', isDark ? 'dark' : 'light');
 }
 
-function toast(msg, type='info') { const t = $("toast-notification"); if(!t) return; t.textContent = msg; t.className = `${type} show`; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3000); }
+function toast(msg, type='info') { 
+    const t = $("toast-notification"); if(!t) return; 
+    t.textContent = msg; t.className = ""; t.classList.add(type === 'success' ? 'success' : (type === 'error' ? 'error' : 'info'));
+    t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 3000); 
+}
 
 function updateLangUI() {
     T = i18n[curLang] || i18n["zh-TW"];
@@ -40,7 +45,13 @@ async function req(url, data={}, lockBtn=null, delay=300) {
     try {
         const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, token }) });
         const res = await r.json();
-        if(!r.ok) { if(r.status===403) { toast(res.error?.includes("權限")?T.denied:T.expired, "error"); if(!res.error?.includes("權限")) logout(); } else toast(`❌ ${res.error||'Error'}`, "error"); return null; }
+        if(!r.ok) { 
+            if(r.status===403) { 
+                toast(res.error?.includes("權限")?T.denied:T.expired, "error"); 
+                if(!res.error?.includes("權限")) logout(); 
+            } else toast(`❌ ${res.error||'Error'}`, "error"); 
+            return null; 
+        }
         return res;
     } catch(e) { toast(`❌ ${e.message}`, "error"); return null; } finally { if(lockBtn) setTimeout(()=>lockBtn.disabled=false, delay); }
 }
@@ -77,8 +88,13 @@ $("login-button").onclick = async () => {
 // --- Socket Events ---
 socket.on("connect", () => { $("status-bar").classList.remove("visible"); toast(`${T.status_conn} (${username})`, "success"); });
 socket.on("disconnect", () => { $("status-bar").classList.add("visible"); });
-socket.on("updateQueue", d => { $("number").textContent=d.current; $("issued-number").textContent=d.issued; $("waiting-count").textContent=Math.max(0, d.issued-d.current); loadStats(); });
-socket.on("update", n => { $("number").textContent=n; loadStats(); });
+socket.on("updateQueue", d => { 
+    if($("number")) $("number").textContent=d.current; 
+    if($("issued-number")) $("issued-number").textContent=d.issued; 
+    if($("waiting-count")) $("waiting-count").textContent=Math.max(0, d.issued-d.current); 
+    loadStats(); 
+});
+socket.on("update", n => { if($("number")) $("number").textContent=n; loadStats(); });
 socket.on("initAdminLogs", l => renderLogs(l, true));
 socket.on("newAdminLog", l => renderLogs([l], false));
 socket.on("updatePublicStatus", b => { if($("public-toggle")) $("public-toggle").checked = b; });
@@ -87,6 +103,7 @@ socket.on("updateSystemMode", m => { currentSystemMode = m; $$('input[name="syst
 
 socket.on("updateFeaturedContents", list => {
     const ul = $("featured-list-ui"); if(!ul) return; ul.innerHTML="";
+    if(!list) return;
     list.forEach(item => {
         const li = mk("li"), view = mk("div", null, null, {style:"display:flex; justify-content:space-between; width:100%; align-items:center;"});
         const info = mk("div", null, null, {style:"display:flex; flex-direction:column; width:100%;"});
@@ -106,6 +123,7 @@ socket.on("updateOnlineAdmins", list => {
 });
 socket.on("updatePassed", list => {
     const ul = $("passed-list-ui"); if(!ul) return; ul.innerHTML="";
+    if(!list) return;
     list.forEach(n => {
         const li = mk("li"), div = mk("div", null, null, {style:"display:flex; gap:10px; align-items:center;"});
         div.append(mk("span", null, n, {style:"font-weight:bold"}), mk("button", "btn-secondary", T.recall, {onclick:()=>{ if(confirm(`Recall ${n}?`)) req("/api/control/recall-passed",{number:n}); }}));
@@ -142,7 +160,8 @@ async function loadUsers() {
 async function loadRoles() {
     const rolesConfig = await req("/api/admin/roles/get");
     if(!rolesConfig) return;
-    const container = $("role-editor-content"); container.innerHTML = "";
+    const container = $("role-editor-content"); if(!container) return; container.innerHTML = "";
+    const wrapper = mk("div", "role-table-wrapper"); // Fix horizontal scroll
     const table = mk("table", "role-table"), thead = mk("thead"), trHead = mk("tr");
     trHead.appendChild(mk("th", null, "Role")); [{key:'call',label:'叫號'},{key:'pass',label:'過號'},{key:'recall',label:'重呼'},{key:'issue',label:'發號'},{key:'settings',label:'設定'},{key:'appointment',label:'預約'}].forEach(p => trHead.appendChild(mk("th", null, p.label)));
     thead.appendChild(trHead); table.appendChild(thead); const tbody = mk("tbody");
@@ -152,7 +171,7 @@ async function loadRoles() {
         [{key:'call'},{key:'pass'},{key:'recall'},{key:'issue'},{key:'settings'},{key:'appointment'}].forEach(p => { const td = mk("td"); td.appendChild(mk("input", "role-chk", null, { type: "checkbox", dataset: { role: role, perm: p.key }, checked: config.can.includes(p.key) })); tr.appendChild(td); });
         tbody.appendChild(tr);
     });
-    table.appendChild(tbody); container.appendChild(table);
+    table.appendChild(tbody); wrapper.appendChild(table); container.appendChild(wrapper);
 }
 
 $("btn-save-roles")?.addEventListener("click", async () => {
