@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v56.0 Roles & Fixes
+ * 後台邏輯 (admin.js) - v56.1 Mobile Fix
  * ========================================== */
 const $ = i => document.getElementById(i);
 const $$ = s => document.querySelectorAll(s);
@@ -13,7 +13,6 @@ const i18n = {
 let curLang = localStorage.getItem('callsys_lang')||'zh-TW', T = i18n[curLang];
 let token="", userRole="normal", username="", uniqueUser="", toastTimer;
 let currentSystemMode = 'ticketing'; 
-// [新增] 權限列表定義
 const PERMISSIONS_LIST = [
     { key: 'call', label: '叫號' },
     { key: 'pass', label: '過號' },
@@ -68,7 +67,6 @@ async function showPanel() {
     ["card-user-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group"].forEach(id => { if($(id)) $(id).style.display = isSuper ? "block" : "none"; });
     if($('button[data-target="section-line"]')) $('button[data-target="section-line"]').style.display = isSuper?"flex":"none";
     
-    // [新增] 只有超級管理員顯示權限編輯區塊
     if(isSuper) {
         $("role-editor-container").style.display = "block";
         loadRoles();
@@ -154,7 +152,6 @@ async function loadUsers() {
     });
 }
 
-// [新增] 載入並渲染權限表格
 async function loadRoles() {
     const rolesConfig = await req("/api/admin/roles/get");
     if(!rolesConfig) return;
@@ -170,7 +167,6 @@ async function loadRoles() {
     table.appendChild(thead);
     
     const tbody = mk("tbody");
-    // 定義要顯示的角色 (排除 ADMIN 因為全開，或可以顯示但禁用)
     const rolesToShow = ['VIEWER', 'OPERATOR', 'MANAGER'];
     
     rolesToShow.forEach(role => {
@@ -194,13 +190,12 @@ async function loadRoles() {
     container.appendChild(table);
 }
 
-// [新增] 儲存權限
 $("btn-save-roles")?.addEventListener("click", async () => {
     const newConfig = {
         VIEWER: { level: 0, can: [] },
         OPERATOR: { level: 1, can: [] },
         MANAGER: { level: 2, can: [] },
-        ADMIN: { level: 9, can: ['*'] } // Admin 保持預設
+        ADMIN: { level: 9, can: ['*'] } 
     };
     
     $$(".role-chk").forEach(chk => {
@@ -286,7 +281,9 @@ $("btn-export-csv")?.addEventListener("click", async()=>{ const d=await req("/ap
 $("btn-save-unlock-pwd")?.addEventListener("click", async()=>{ if(await req("/api/admin/line-settings/set-unlock-pass", {password:$("line-unlock-pwd").value})) toast("Saved","success"); });
 $("add-user-btn")?.addEventListener("click", async()=>{ const u=$("new-user-username").value, p=$("new-user-password").value, n=$("new-user-nickname").value, r=$("new-user-role")?.value; if(await req("/api/admin/add-user", {newUsername:u, newPassword:p, newNickname:n, newRole:r})) { toast("Saved","success"); $("new-user-username").value=""; $("new-user-password").value=""; $("new-user-nickname").value=""; loadUsers(); } });
 const lineSettingsConfig = { approach: { label: "快到了", hint: "{current} {target}" }, arrival: { label: "正式到號", hint: "{current} {target}" }, status: { label: "狀態回覆", hint: "{current} {issued}" }, personal: { label: "個人資訊", hint: "{target}" }, passed: { label: "過號回覆", hint: "{list}" }, set_ok: { label: "設定成功", hint: "{target}" }, cancel: { label: "取消成功", hint: "{target}" }, login_hint: { label: "登入提示", hint: "" }, err_passed: { label: "已過號錯誤", hint: "" }, err_no_sub: { label: "無設定錯誤", hint: "" }, set_hint: { label: "設定提示", hint: "" } };
-async function loadLineSettings() { const ul = $("line-settings-list-ui"); if (!ul) return; const data = await req("/api/admin/line-settings/get"); if(!data) return; ul.innerHTML=""; if($("line-unlock-pwd")) $("line-unlock-pwd").value = (await req("/api/admin/line-settings/get-unlock-pass"))?.password||""; Object.keys(lineSettingsConfig).forEach(key => { const config = lineSettingsConfig[key], val = data[key] || ""; const li = mk("li"), view = mk("div", null, null, {style:"display:flex;justify-content:space-between;padding:5px 0;"}); view.innerHTML = `<div style="width:85%;"><span style="font-weight:bold;">${config.label}</span><span class="line-msg-preview">${val||"(未設定)"}</span></div>`; const btn = mk("button","btn-secondary",T.edit||"Edit",{onclick:()=>{view.style.display="none";edit.style.display="flex"}}); view.appendChild(btn); const edit = mk("div",null,null,{style:"display:none;flex-direction:column;gap:5px;width:100%;"}); const ta = mk("textarea",null,null,{value:val,rows:3}); const save = mk("button","btn-secondary success",T.save||"Save",{onclick:async()=>{if(await req("/api/admin/line-settings/save",{[key]:ta.value})) loadLineSettings();}}); const cancel = mk("button","btn-secondary",T.cancel||"X",{onclick:()=>{edit.style.display="none";view.style.display="flex";ta.value=val;}}); const row = mk("div",null,null,{style:"display:flex;gap:5px;justify-content:flex-end;"}); row.append(cancel,save); edit.append(mk("div",null,config.hint,{style:"font-size:0.8rem;color:#666"}),ta,row); li.append(view,edit); ul.appendChild(li); }); }
+
+// [修正] 改用 CSS class 控制 LINE 設定的列表項佈局，解決寬度問題
+async function loadLineSettings() { const ul = $("line-settings-list-ui"); if (!ul) return; const data = await req("/api/admin/line-settings/get"); if(!data) return; ul.innerHTML=""; if($("line-unlock-pwd")) $("line-unlock-pwd").value = (await req("/api/admin/line-settings/get-unlock-pass"))?.password||""; Object.keys(lineSettingsConfig).forEach(key => { const config = lineSettingsConfig[key], val = data[key] || ""; const li = mk("li"); const view = mk("div", "line-setting-row"); const infoDiv = mk("div", "line-setting-info"); infoDiv.innerHTML = `<span style="font-weight:bold;">${config.label}</span><span class="line-msg-preview">${val||"(未設定)"}</span>`; const btn = mk("button","btn-secondary",T.edit||"Edit",{onclick:()=>{view.style.display="none";edit.style.display="flex"}}); view.append(infoDiv, btn); const edit = mk("div",null,null,{style:"display:none;flex-direction:column;gap:5px;width:100%;"}); const ta = mk("textarea",null,null,{value:val,rows:3}); const save = mk("button","btn-secondary success",T.save||"Save",{onclick:async()=>{if(await req("/api/admin/line-settings/save",{[key]:ta.value})) loadLineSettings();}}); const cancel = mk("button","btn-secondary",T.cancel||"X",{onclick:()=>{edit.style.display="none";view.style.display="flex";ta.value=val;}}); const row = mk("div",null,null,{style:"display:flex;gap:5px;justify-content:flex-end;"}); row.append(cancel,save); edit.append(mk("div",null,config.hint,{style:"font-size:0.8rem;color:#666"}),ta,row); li.append(view,edit); ul.appendChild(li); }); }
 
 document.addEventListener("DOMContentLoaded", () => {
     $("admin-lang-selector").value = curLang; checkSession();
