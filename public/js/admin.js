@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v59.0 Command Center
+ * 後台邏輯 (admin.js) - v59.2 Stable
  * ========================================== */
 const $ = i => document.getElementById(i);
 const $$ = s => document.querySelectorAll(s);
@@ -194,7 +194,6 @@ function renderLogs(logs, init) {
     logs.forEach(msg => { const li=mk("li", null, msg); init ? ul.appendChild(li) : ul.insertBefore(li, ul.firstChild); });
 }
 
-// Optimistic UI
 const act = (id, api, data={}) => $(id)?.addEventListener("click", async () => {
     const numEl = $("number");
     if(api.includes('call') && numEl) {
@@ -211,7 +210,6 @@ act("btn-mark-passed", "/api/control/pass-current");
 act("btn-issue-prev", "/api/control/issue", {direction:"prev"}); 
 act("btn-issue-next", "/api/control/issue", {direction:"next"});
 
-// Keyboard Shortcuts
 document.addEventListener("keydown", (e) => {
     if(["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
     if(e.key === "ArrowRight") $("btn-call-next")?.click();
