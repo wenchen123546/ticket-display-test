@@ -221,7 +221,7 @@ bind("login-button", async () => {
 bind("btn-logout", logout); bind("btn-logout-mobile", logout);
 
 ["resetNumber","resetIssued","resetPassed","resetFeaturedContents","resetAll","btn-clear-logs","btn-clear-stats","btn-reset-line-msg"].forEach(id => {
-    confirmBtn($(id), $(id)?.textContent, () => req(id.includes('clear') ? (id.includes('logs') ? "/api/logs/clear" : "/api/admin/stats/clear") : (id==='resetAll' ? "/reset" : (id.includes('line') ? "/api/admin/line-settings/reset" : (id.includes('Passed') ? "/api/passed/clear" : (id.includes('Featured') ? "/api/featured/clear" : `/api/control/${id==='resetNumber'?'set-call':'set-issue'}`))))), id.startsWith('reset') && !id.includes('All') && !id.includes('Passed') && !id.includes('Featured') && !id.includes('line') ? {number:0} : {} });
+    confirmBtn($(id), $(id)?.textContent, () => req(id.includes('clear') ? (id.includes('logs') ? "/api/logs/clear" : "/api/admin/stats/clear") : (id==='resetAll' ? "/reset" : (id.includes('line') ? "/api/admin/line-settings/reset" : (id.includes('Passed') ? "/api/passed/clear" : (id.includes('Featured') ? "/api/featured/clear" : `/api/control/${id==='resetNumber'?'set-call':'set-issue'}`))))), id.startsWith('reset') && !id.includes('All') && !id.includes('Passed') && !id.includes('Featured') && !id.includes('line') ? {number:0} : {}));
 });
 
 // Misc UI Handlers
