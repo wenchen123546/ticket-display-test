@@ -1,10 +1,10 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v9.0 Responsive Grid Optimized
+ * 後台樣式 (admin.css) - v8.0 Strict Grid & Alignment
  * ========================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
 
 :root {
-    /* [色彩系統] */
+    /* [色彩系統 - 企業級潔淨感] */
     --bg-body: #f1f5f9;          /* Slate-100 */
     --bg-surface: #ffffff;
     --bg-sidebar: #ffffff;
@@ -15,25 +15,23 @@
     
     --border-color: #e2e8f0;     /* Slate-200 */
     
-    --primary: #3b82f6;          /* Blue-500 */
-    --primary-hover: #2563eb;
+    --primary: #3b82f6;          /* Blue-500 (更通用的藍色) */
+    --primary-hover: #2563eb;    /* Blue-600 */
     --primary-soft: #eff6ff;
     
     --success: #10b981; --success-bg: #ecfdf5;
     --warning: #f59e0b; --warning-bg: #fffbeb;
     --danger: #ef4444;  --danger-bg: #fef2f2;
 
-    /* [排版參數] */
-    --max-width: 1800px;         /* 最大寬度限制 */
+    /* [排版幾何] */
+    --max-width: 1600px;         /* 內容最大寬度，防止過散 */
     --sidebar-w: 240px;
     --header-h: 60px;
-    --radius-lg: 12px;
-    --radius-md: 6px;
-    --input-h: 40px;             /* 統一高度 40px */
+    --card-radius: 8px;          /* 方正一點的圓角，看起來更整齊 */
+    --input-h: 42px;             /* 統一所有元件高度 */
     
     /* [陰影] */
     --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
-    --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 body.dark-mode {
@@ -57,10 +55,11 @@ body {
 }
 
 /* ==========================================
-   1. 結構 (Structure)
+   1. 結構佈局 (Structure)
    ========================================== */
 #admin-panel { display: flex; width: 100%; min-height: 100vh; }
 
+/* 側邊欄 */
 .sidebar { 
     width: var(--sidebar-w); 
     background: var(--bg-sidebar); 
@@ -71,160 +70,150 @@ body {
 
 .sidebar-header { 
     height: var(--header-h); padding: 0 20px; 
-    display: flex; align-items: center; font-weight: 700; color: var(--text-main); 
+    display: flex; align-items: center; font-weight: 700; color: var(--text-main); font-size: 1rem;
     border-bottom: 1px solid var(--border-color);
 }
 
-.sidebar-nav { flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.sidebar-nav { flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 
 .nav-btn { 
     width: 100%; padding: 10px 12px; 
     display: flex; align-items: center; gap: 12px; 
-    background: transparent; border: none; border-radius: var(--radius-md); 
+    background: transparent; border: none; border-radius: 4px; 
     color: var(--text-sub); font-weight: 500; font-size: 0.9rem; text-align: left;
-    transition: all 0.2s;
+    transition: all 0.1s;
 }
 .nav-btn:hover { background: var(--bg-body); color: var(--text-main); }
-.nav-btn.active { background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+.nav-btn.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; border-left: 3px solid var(--primary); }
 
 .sidebar-footer { padding: 16px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 8px; }
 
+/* 主內容區 */
 .content-area { 
     flex: 1; 
     padding: 32px; 
     width: 0; min-width: 0; 
-    display: flex; flex-direction: column; align-items: center;
+    display: flex; flex-direction: column; align-items: center; /* 居中對齊 */
 }
 
 .section-group { 
-    width: 100%; max-width: var(--max-width); 
-    display: none; animation: fadeIn 0.3s ease-out; 
+    width: 100%; 
+    max-width: var(--max-width); 
+    display: none; 
 }
-.section-group.active { display: block; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.section-group.active { display: block; animation: fade 0.2s; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ==========================================
-   2. 儀表板 (Dashboard)
+   2. 儀表板數據 (Dashboard Stats)
    ========================================== */
 .dashboard-header { 
     display: grid; 
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
-    gap: 20px; margin-bottom: 32px; 
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+    gap: 20px; margin-bottom: 24px; 
 }
 
 .dashboard-item { 
-    background: var(--bg-surface); padding: 24px; 
-    border-radius: var(--radius-lg); 
+    background: var(--bg-surface); 
+    padding: 20px 24px; 
+    border-radius: var(--card-radius); 
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-card);
     display: flex; flex-direction: column;
-    position: relative; overflow: hidden;
 }
 .dashboard-item.main-stat { border-top: 4px solid var(--primary); }
 
 .label { font-size: 0.75rem; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-.big-number { font-size: 2.8rem; font-weight: 800; color: var(--text-main); line-height: 1; letter-spacing: -1px; }
-.sub-number { font-size: 2rem; font-weight: 700; color: var(--text-main); line-height: 1; }
+.big-number { font-size: 2.5rem; font-weight: 700; color: var(--text-main); line-height: 1.1; }
+.sub-number { font-size: 1.8rem; font-weight: 700; color: var(--text-main); }
 
 /* ==========================================
-   3. 響應式卡片網格 (Responsive Grid)
+   3. 嚴格網格卡片系統 (Strict Grid Cards)
    ========================================== */
 .card-container { 
     display: grid; 
     gap: 24px; 
-    
-    /* [預設] 手機: 1 欄 */
-    grid-template-columns: 1fr; 
-    
-    /* 強制卡片等高 */
+    /* 自動填滿，但最小寬度 350px */
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    /* [重點] 強制所有列的高度一致 */
     grid-auto-rows: 1fr; 
     align-items: stretch;
 }
 
-/* [平板] >= 768px: 2 欄 */
-@media (min-width: 768px) {
-    .card-container { grid-template-columns: repeat(2, 1fr); }
-}
-
-/* [桌機] >= 1200px: 3 欄 (標準後台視野) */
-@media (min-width: 1200px) {
-    .card-container { grid-template-columns: repeat(3, 1fr); }
-}
-
-/* [超大螢幕] >= 1600px: 4 欄 (防止卡片過寬) */
-@media (min-width: 1600px) {
-    .card-container { grid-template-columns: repeat(4, 1fr); }
-}
-
-/* 跨欄卡片 (如操作日誌、統計圖表) */
+/* 針對列表類卡片，如果需要佔滿整行 */
 .full-width-card { grid-column: 1 / -1 !important; }
 
-/* 卡片本體 */
 .admin-card { 
     background: var(--bg-surface); 
-    border-radius: var(--radius-lg); 
+    border-radius: var(--card-radius); 
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-card); 
     padding: 24px;
     display: flex; flex-direction: column; 
-    height: 100%; /* 撐滿格子高度 */
+    height: 100%; /* 填滿格子 */
+    position: relative;
 }
 
 .admin-card h3 { 
-    margin: 0 0 20px 0; padding-bottom: 12px; 
+    margin: 0 0 16px 0; padding-bottom: 12px; 
     border-bottom: 1px solid var(--border-color); 
     font-size: 1rem; color: var(--text-main); font-weight: 700;
     display: flex; align-items: center; gap: 8px;
 }
 
-/* 讓操作區自動推到最底 */
-.admin-card .control-group:last-of-type { margin-top: auto; }
+/* [關鍵] 讓操作區域 (control-group) 自動推擠，確保底部按鈕永遠在最下方對齊 */
+.admin-card > button:last-child,
+.admin-card > .control-group:last-of-type { 
+    margin-top: auto; 
+}
 
 /* ==========================================
-   4. 輸入框與按鈕排版 (Controls)
+   4. 輸入框與按鈕 (Inputs & Buttons)
    ========================================== */
-.control-group { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+.control-group { margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; }
 .control-group label { font-size: 0.85rem; font-weight: 600; color: var(--text-sub); }
 
-/* 統一高度 */
-input, select, textarea, button { height: var(--input-h); font-size: 0.9rem; font-family: inherit; }
+/* 統一元件高度 */
+input, select, textarea, button { 
+    height: var(--input-h); 
+    font-size: 0.9rem; font-family: inherit;
+}
 
 input, select, textarea { 
     border: 1px solid var(--border-color); 
-    border-radius: var(--radius-md); padding: 0 12px; 
+    border-radius: 4px; padding: 0 12px; 
     background: var(--bg-body); color: var(--text-main); width: 100%;
     transition: 0.2s;
 }
-input:focus { border-color: var(--primary); background: var(--bg-surface); box-shadow: 0 0 0 3px var(--primary-soft); }
+input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); background: var(--bg-surface); }
 
-/* [嚴格對齊] 輸入框群組 */
-.input-group { display: flex; gap: 8px; width: 100%; align-items: center; }
-.input-group input { flex: 1; min-width: 0; width: auto; } /* 自動伸縮 */
+/* [嚴格排版] 輸入框組 */
+.input-group { display: flex; gap: 8px; width: 100%; }
+.input-group input { flex: 1; min-width: 0; } 
 .input-group button { flex-shrink: 0; white-space: nowrap; padding: 0 16px; }
 
 .quick-actions { display: flex; gap: 6px; margin-bottom: 6px; }
 .quick-actions button { padding: 0 12px; font-size: 0.8rem; }
 
 /* 按鈕樣式 */
-button { cursor: pointer; border: none; border-radius: var(--radius-md); font-weight: 600; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+button { cursor: pointer; border: none; border-radius: 4px; font-weight: 600; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
 
 .btn-hero { 
-    width: 100%; height: 52px; margin-bottom: 12px;
+    width: 100%; height: 56px; margin-bottom: 12px;
     background: var(--primary); color: white; 
-    font-size: 1.1rem; font-weight: 700; 
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    font-size: 1.2rem; font-weight: 700; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 .btn-hero:hover { background: var(--primary-hover); transform: translateY(-1px); }
-.btn-hero:active { transform: translateY(0); }
 
 .btn-secondary { background: var(--bg-body); border: 1px solid var(--border-color); color: var(--text-sub); }
-.btn-secondary:hover { background: #e2e8f0; color: var(--text-main); border-color: #cbd5e1; }
+.btn-secondary:hover { background: #e2e8f0; color: var(--text-main); }
 
 .btn-secondary.success { background: var(--primary); color: white; border: none; }
-.btn-secondary.success:hover { background: var(--primary-hover); opacity: 1; }
+.btn-secondary.success:hover { opacity: 0.9; }
 
-.btn-warn { background: var(--danger-bg); color: var(--danger); border: 1px solid transparent; }
-.btn-warn:hover { border-color: var(--danger); }
+.btn-warn { background: var(--danger-bg); color: var(--danger); }
+.btn-warn:hover { background: #fee2e2; }
 
 .btn-add { width: var(--input-h); padding: 0; background: var(--primary); color: white; font-size: 1.2rem; }
 
@@ -232,22 +221,22 @@ button { cursor: pointer; border: none; border-radius: var(--radius-md); font-we
 .big-action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 
 .btn-reset-single { 
-    width: 100%; margin-top: 16px; padding: 8px;
+    width: 100%; margin-top: 16px; 
     background: transparent; color: var(--text-light); 
-    font-size: 0.8rem; text-decoration: none; height: auto; 
+    font-size: 0.8rem; text-decoration: none; height: auto; padding: 8px;
 }
 .btn-reset-single:hover { color: var(--danger); text-decoration: underline; }
 
 /* ==========================================
-   5. 表格式列表 (Tabular Lists)
+   5. 列表整理 (Clean & Tidy Lists)
    ========================================== */
 .list-container { 
     flex: 1; 
     border: 1px solid var(--border-color); 
-    border-radius: var(--radius-md); 
+    border-radius: 4px; overflow: hidden; 
     background: var(--bg-body); 
-    display: flex; flex-direction: column; overflow: hidden;
-    min-height: 200px;
+    display: flex; flex-direction: column;
+    min-height: 200px; /* 確保所有列表高度一致 */
 }
 
 .scroll-list { 
@@ -255,37 +244,32 @@ button { cursor: pointer; border: none; border-radius: var(--radius-md); font-we
     margin: 0; padding: 0; list-style: none; 
 }
 
+/* 斑馬紋列表項 - [表格化對齊] */
 .list-item { 
     display: grid; 
-    grid-template-columns: 1fr auto; /* 左側內容 | 右側按鈕 */
-    align-items: center; gap: 12px;
-    padding: 10px 16px; 
+    grid-template-columns: 1fr auto; /* 左邊資訊，右邊按鈕 */
+    align-items: center; 
+    padding: 8px 12px; 
     border-bottom: 1px solid var(--border-color);
     background: var(--bg-surface);
+    gap: 12px;
 }
 .list-item:nth-child(even) { background: #f8fafc; } /* 斑馬紋 */
 body.dark-mode .list-item:nth-child(even) { background: #182333; }
-.list-item:hover { background: #eff6ff; } /* Hover 高亮 */
-body.dark-mode .list-item:hover { background: #1e3a8a; }
 
 .list-info { display: flex; flex-direction: column; overflow: hidden; }
 .list-main-text { font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.list-sub-text { font-size: 0.8rem; color: var(--text-sub); }
+.list-sub-text { font-size: 0.75rem; color: var(--text-sub); }
 
-.list-actions { display: flex; gap: 6px; }
-.list-actions button { height: 28px; padding: 0 10px; font-size: 0.75rem; border: 1px solid var(--border-color); }
-
-.role-table-wrapper { overflow-x: auto; margin-top: 10px; border: 1px solid var(--border-color); border-radius: var(--radius-md); }
-.role-table { width: 100%; border-collapse: collapse; white-space: nowrap; }
-.role-table th, .role-table td { padding: 10px 16px; border: 1px solid var(--border-color); text-align: center; }
-.role-table th { background: var(--bg-body); color: var(--text-sub); font-weight: 600; }
+.list-actions { display: flex; gap: 4px; }
+.list-actions button { height: 28px; padding: 0 8px; font-size: 0.75rem; border: 1px solid var(--border-color); }
 
 /* ==========================================
    6. 圖表 (Charts)
    ========================================== */
 .chart-container { 
     display: flex; align-items: flex-end; 
-    height: 160px; gap: 3px; padding: 12px 0 0; 
+    height: 160px; gap: 2px; padding: 12px 0 0; 
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 12px;
 }
@@ -294,38 +278,20 @@ body.dark-mode .list-item:hover { background: #1e3a8a; }
     align-items: center; justify-content: flex-end; 
     height: 100%; cursor: pointer; position: relative;
 }
-.chart-col:hover { background: rgba(0,0,0,0.03); }
+.chart-col:hover { background: rgba(0,0,0,0.05); }
 .chart-bar { 
-    width: 80%; min-height: 2px; border-radius: 3px 3px 0 0;
+    width: 90%; min-height: 2px; border-radius: 2px 2px 0 0;
     background: var(--primary); opacity: 0.6; transition: 0.2s; 
 }
 .chart-col.current .chart-bar { background: var(--warning); opacity: 1; }
 .chart-col:hover .chart-bar { opacity: 1; height: 100%; }
-.chart-val { font-size: 0.7rem; margin-bottom: 4px; color: var(--text-main); font-weight: 700; visibility: hidden; }
+.chart-val { font-size: 0.7rem; margin-bottom: 2px; color: var(--text-main); font-weight: 700; visibility: hidden; }
 .chart-col:hover .chart-val { visibility: visible; }
 .chart-label { font-size: 0.65rem; margin-top: 4px; color: var(--text-light); }
 
 /* ==========================================
-   7. 其他 & 手機版 (Misc & Mobile)
+   7. 手機版適配 (Mobile)
    ========================================== */
-#login-container { background: var(--bg-surface); padding: 32px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: var(--shadow-card); }
-#login-container:not([style*="display: none"]) ~ #status-bar { display: none !important; }
-
-#status-bar { position: fixed; top: 0; width: 100%; z-index: 9999; background: var(--danger); color: white; text-align: center; padding: 6px; font-weight: 600; transform: translateY(-100%); transition: 0.3s; }
-#status-bar.visible { transform: translateY(0); }
-
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 5000; display: none; justify-content: center; align-items: center; }
-.modal-content { background: var(--bg-surface); padding: 24px; border-radius: 12px; width: 300px; text-align: center; box-shadow: var(--shadow-card); }
-.btn-circle { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
-
-/* Settings */
-.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-.setting-card { padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-body); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: 0.2s; }
-.setting-card:hover { border-color: var(--primary); background: var(--bg-surface); }
-.segmented-control { background: var(--bg-body); padding: 4px; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; margin-bottom: 12px; }
-.segmented-option { padding: 6px 12px; font-size: 0.85rem; border-radius: 4px; text-align: center; flex: 1; cursor: pointer; }
-.segmented-option.active { background: var(--bg-surface); color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.1); font-weight: 600; }
-
 @media (max-width: 768px) {
     #admin-panel { flex-direction: column; }
     .sidebar { 
@@ -346,3 +312,23 @@ body.dark-mode .list-item:hover { background: #1e3a8a; }
     .mobile-only-settings { display: block; margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--border-color); }
     .lang-select { width: 100%; border: 1px solid var(--border-color); padding: 8px; }
 }
+
+/* ==========================================
+   8. 其他 (Misc)
+   ========================================== */
+#login-container { background: var(--bg-surface); padding: 32px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: var(--shadow-card); }
+#login-container:not([style*="display: none"]) ~ #status-bar { display: none !important; }
+#status-bar { position: fixed; top: 0; width: 100%; z-index: 9999; background: var(--danger); color: white; text-align: center; padding: 6px; font-weight: 600; transform: translateY(-100%); transition: 0.3s; }
+#status-bar.visible { transform: translateY(0); }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 5000; display: none; justify-content: center; align-items: center; }
+.modal-content { background: var(--bg-surface); padding: 24px; border-radius: 12px; width: 300px; text-align: center; box-shadow: var(--shadow-card); }
+.btn-circle { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+
+/* Settings */
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.setting-card { padding: 12px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-body); display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: 0.2s; }
+.setting-card:hover { border-color: var(--primary); background: var(--bg-surface); }
+.segmented-control { background: var(--bg-body); padding: 4px; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; margin-bottom: 12px; }
+.segmented-option { padding: 6px 12px; font-size: 0.85rem; border-radius: 4px; text-align: center; flex: 1; cursor: pointer; }
+.segmented-option.active { background: var(--bg-surface); color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.1); font-weight: 600; }
