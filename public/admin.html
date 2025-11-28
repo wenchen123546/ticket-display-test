@@ -284,14 +284,18 @@
                                 </div>
                             </div>
                         </div>
-                        
-                        <div id="role-editor-container" style="margin-top:20px; border-top:1px dashed var(--border-color); padding-top:15px; display:none;">
-                            <label style="font-weight:bold; color:var(--text-main);">權限設定 (Super Admin)</label>
-                            <div id="role-editor-content">Loading...</div>
-                            <button id="btn-save-roles" class="btn-secondary success" style="width:100%; margin-top:10px;">儲存權限變更</button>
-                        </div>
                     </div>
                 </div>
+
+                <div class="card-wrapper" id="card-role-management" style="display:none;">
+                    <div class="admin-card">
+                        <h3><span class="card-icon">🛡️</span> <span data-i18n="card_roles">權限設定</span></h3>
+                        <p style="color:var(--text-sub); font-size:0.85rem; margin-bottom:10px;">定義各角色可執行的操作 (Super Admin Only)</p>
+                        <div id="role-editor-content">Loading...</div>
+                        <button id="btn-save-roles" class="btn-secondary success" style="width:100%; margin-top:auto;" data-i18n="btn_save_roles">儲存權限變更</button>
+                    </div>
+                </div>
+
             </div>
         </div>
 
