@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v2.2 Chart Fixed
+ * 後台樣式 (admin.css) - v3.0 Final Fixed
  * ========================================== */
 :root {
     /* [Light Mode] */
@@ -61,7 +61,7 @@ body { margin: 0; width: 100%; min-height: 100vh; font-family: 'Inter', system-u
 .section-group.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Dashboard Headers (Compact) */
+/* Dashboard Headers */
 .dashboard-header { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
 .dashboard-item { background: var(--bg-surface); border-radius: var(--radius-lg); padding: 12px 16px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; border: 1px solid var(--border-color); min-height: 80px; position: relative; }
 .dashboard-item.main-stat { background: var(--bg-surface); border-left: 4px solid var(--primary); }
@@ -84,7 +84,7 @@ body { margin: 0; width: 100%; min-height: 100vh; font-family: 'Inter', system-u
 .admin-card h3 { margin: 0; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text-main); font-weight: 600; height: 32px; }
 .admin-card h3 .card-icon { font-size: 1rem; opacity: 0.8; }
 
-/* Inputs & Buttons (Compact) */
+/* Inputs & Buttons - [FIXED Layout Issues Here] */
 .control-group { margin-bottom: 0; display: flex; flex-direction: column; gap: 4px; }
 .control-group label { font-size: 0.75rem; font-weight: 600; color: var(--text-sub); }
 .control-group.compact-group { margin-top: 4px; }
@@ -97,9 +97,13 @@ input, textarea, select {
 }
 input:focus, textarea:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1); }
 
-.input-group { display: flex; gap: 6px; width: 100%; }
-.quick-actions { display: flex; gap: 4px; }
-.quick-actions button { padding: 0 8px; font-size: 0.8rem; height: var(--input-h); }
+.input-group { display: flex; gap: 6px; width: 100%; align-items: center; }
+/* [Critical Fix] Prevent inputs from squashing buttons */
+.input-group input { width: auto; flex: 1; min-width: 0; }
+.input-group button { flex-shrink: 0; white-space: nowrap; }
+
+.quick-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.quick-actions button { padding: 0 8px; font-size: 0.8rem; height: var(--input-h); white-space: nowrap; }
 
 /* Buttons & Hero */
 .hero-control-row { margin-bottom: 4px; }
@@ -107,7 +111,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 .btn-hero:hover { background: #4338ca; }
 .secondary-actions-row, .big-action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0; }
 
-.btn-glass, .btn-warn, .btn-success, .btn-secondary, .btn-big, .btn-add { height: var(--input-h); border-radius: var(--radius-md); font-weight: 600; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; transition: 0.1s; border: 1px solid var(--border-color); gap: 6px; padding: 0 12px; background: var(--bg-body); color: var(--text-main); }
+.btn-glass, .btn-warn, .btn-success, .btn-secondary, .btn-big, .btn-add { height: var(--input-h); border-radius: var(--radius-md); font-weight: 600; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; transition: 0.1s; border: 1px solid var(--border-color); gap: 6px; padding: 0 12px; background: var(--bg-body); color: var(--text-main); white-space: nowrap; }
 .btn-glass:hover, .btn-secondary:hover { background: #f1f5f9; border-color: #cbd5e1; } body.dark-mode .btn-glass:hover { background: #1e293b; border-color: #334155; }
 .btn-warn { color: var(--danger); background: #fef2f2; border-color: #fee2e2; } .btn-warn:hover { background: #fee2e2; }
 .btn-success { color: var(--success); background: #f0fdf4; border-color: #dcfce7; } .btn-success:hover { background: #dcfce7; }
@@ -123,8 +127,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 .list-info { display: flex; flex-direction: row; align-items: center; gap: 10px; flex: 1; overflow: hidden; }
 .list-main-text { font-weight: 600; font-size: 0.85rem; color: var(--text-main); white-space: nowrap; }
 .list-sub-text { font-size: 0.75rem; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.list-actions { display: flex; gap: 4px; margin-left: auto; }
-.list-actions button { height: 26px; padding: 0 8px; font-size: 0.75rem; }
+.list-actions { display: flex; gap: 4px; margin-left: auto; flex-shrink: 0; }
+.list-actions button { height: 26px; padding: 0 8px; font-size: 0.75rem; white-space: nowrap; }
 
 /* Edit Forms inside List */
 .edit-form-wrapper { display: flex; width: 100%; gap: 4px; padding: 4px 0; }
@@ -142,34 +146,11 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 .role-chk { width: 16px; height: 16px; margin: 0 auto; display: block; accent-color: var(--primary); }
 
 /* Stats Chart (Fixed) */
-.chart-container { 
-    display: flex;             /* [Fixed] Added flex display */
-    align-items: flex-end;     /* [Fixed] Align bars to bottom */
-    height: 160px; 
-    min-height: 160px; 
-    gap: 2px; 
-    padding: 10px 0 0; 
-}
-.chart-col {
-    flex: 1;                   /* [Fixed] Added column layout */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-    height: 100%;
-    cursor: pointer;
-    min-width: 0;
-}
+.chart-container { display: flex; align-items: flex-end; height: 160px; min-height: 160px; gap: 2px; padding: 10px 0 0; }
+.chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; cursor: pointer; min-width: 0; }
 .chart-col:hover { background: rgba(0,0,0,0.03); border-radius: 4px; }
 .chart-col.current .chart-label { font-weight: bold; color: var(--primary); }
-
-.chart-bar { 
-    width: 100%;
-    border-radius: 2px; 
-    min-height: 2px; 
-    background: var(--primary); /* [Fixed] Added default color */
-    transition: height 0.3s ease;
-}
+.chart-bar { width: 100%; border-radius: 2px; min-height: 2px; background: var(--primary); transition: height 0.3s ease; }
 .chart-val { font-size: 0.65rem; margin-bottom: 2px; }
 .chart-label { font-size: 0.6rem; margin-top: 2px; color: var(--text-sub); }
 
