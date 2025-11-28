@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v99.0 Calibrate & Compact
+ * 後台邏輯 (admin.js) - v100.0 Final Fixes
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => { 
@@ -254,6 +254,17 @@ const act = (id, api, data={}) => $(id)?.addEventListener("click", async () => {
 });
 const bind = (id, fn) => $(id)?.addEventListener("click", fn);
 
+// [Fix] Add handlers for +1 and +5 in Command Center
+async function adjustCurrent(delta) {
+    const c = parseInt($("number").textContent) || 0;
+    const target = c + delta;
+    if(target > 0) {
+        if(await req("/api/control/set-call", {number: target})) toast(`Jumped to ${target}`, "success");
+    }
+}
+bind("btn-call-add-1", () => adjustCurrent(1));
+bind("btn-call-add-5", () => adjustCurrent(5));
+
 act("btn-call-prev", "/api/control/call", {direction:"prev"}); 
 act("btn-call-next", "/api/control/call", {direction:"next"});
 act("btn-mark-passed", "/api/control/pass-current"); 
@@ -312,13 +323,7 @@ bind("btn-logout", logout); bind("btn-logout-mobile", logout);
 });
 
 bind("btn-refresh-stats", loadStats);
-// [New] Calibrate Button Action
-bind("btn-calibrate-stats", async () => {
-    if(confirm(T.confirm + " Recalculate stats?")) {
-        const r = await req("/api/admin/stats/calibrate");
-        if(r && r.success) { toast(`校正完成 (Diff: ${r.diff})`, "success"); loadStats(); }
-    }
-});
+bind("btn-calibrate-stats", async () => { if(confirm(T.confirm + " Recalculate stats?")) { const r = await req("/api/admin/stats/calibrate"); if(r && r.success) { toast(`校正完成 (Diff: ${r.diff})`, "success"); loadStats(); } } });
 
 let editHr=null; const modal=$("edit-stats-overlay");
 bind("btn-modal-close", ()=>modal.style.display="none");
