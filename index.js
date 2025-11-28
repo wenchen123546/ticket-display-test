@@ -1,5 +1,5 @@
 /* ==========================================
- * 伺服器 (index.js) - v106.0 Optimized
+ * 伺服器 (index.js) - v91.0 Stats & DB Optimized
  * ========================================== */
 require('dotenv').config();
 const { Server } = require("http"), express = require("express"), socketio = require("socket.io");
@@ -12,15 +12,13 @@ const { PORT = 3000, UPSTASH_REDIS_URL: REDIS_URL, ADMIN_TOKEN, LINE_ACCESS_TOKE
 if (!ADMIN_TOKEN || !REDIS_URL) { console.error("❌ Missing ADMIN_TOKEN or REDIS_URL"); process.exit(1); }
 
 // --- Config & Consts ---
-// [Fix] 營業時間預設值，實際運作優先讀取 Redis
-const DEFAULT_BUSINESS_HOURS = { start: 8, end: 22, enabled: false };
-
+const BUSINESS_HOURS = { start: 8, end: 22, enabled: false };
 const DEFAULT_ROLES = { VIEWER: { level: 0, can: [] }, OPERATOR: { level: 1, can: ['call', 'pass', 'recall', 'issue'] }, MANAGER: { level: 2, can: ['call', 'pass', 'recall', 'issue', 'settings', 'appointment'] }, ADMIN: { level: 9, can: ['*'] } };
 const KEYS = { 
     CURRENT: 'callsys:number', ISSUED: 'callsys:issued', MODE: 'callsys:mode', PASSED: 'callsys:passed', 
     FEATURED: 'callsys:featured', LOGS: 'callsys:admin-log', USERS: 'callsys:users', NICKS: 'callsys:nicknames', 
     USER_ROLES: 'callsys:user_roles', SESSION: 'callsys:session:', HISTORY: 'callsys:stats:history', 
-    HOURLY: 'callsys:stats:hourly:', ROLES: 'callsys:config:roles', BIZ_HOURS: 'callsys:config:biz_hours',
+    HOURLY: 'callsys:stats:hourly:', ROLES: 'callsys:config:roles', 
     LINE: { SUB: 'callsys:line:notify:', USER: 'callsys:line:user:', PWD: 'callsys:line:unlock_pwd', ADMIN: 'callsys:line:admin_session:', CTX: 'callsys:line:context:', ACTIVE: 'callsys:line:active_subs_set', CFG_TOKEN: 'callsys:line:cfg:token', CFG_SECRET: 'callsys:line:cfg:secret' } 
 };
 
@@ -42,10 +40,11 @@ const initLine = async () => {
 initLine();
 
 try { if (!fs.existsSync(path.join(__dirname, 'user_logs'))) fs.mkdirSync(path.join(__dirname, 'user_logs')); } catch(e) {}
+
 const db = new sqlite3.Database(path.join(__dirname, 'callsys.db'), (err) => { if(!err) {
     db.run(`CREATE TABLE IF NOT EXISTS history (id INTEGER PRIMARY KEY, date_str TEXT, timestamp INTEGER, number INTEGER, action TEXT, operator TEXT, wait_time_min REAL)`);
     db.run(`CREATE TABLE IF NOT EXISTS appointments (id INTEGER PRIMARY KEY, number INTEGER, scheduled_time INTEGER, status TEXT DEFAULT 'pending')`);
-    // [Fix] 建立索引優化查詢
+    // [Optimization] Add Indexes for performance
     db.run(`CREATE INDEX IF NOT EXISTS idx_history_date ON history(date_str)`);
     db.run(`CREATE INDEX IF NOT EXISTS idx_history_ts ON history(timestamp)`);
 }});
@@ -54,37 +53,11 @@ const [run, all, get] = ['run', 'all', 'get'].map(m => (s, p) => dbQuery(m, s, p
 
 redis.defineCommand("safeNextNumber", { numberOfKeys: 2, lua: `return (tonumber(redis.call("GET",KEYS[1]))or 0) < (tonumber(redis.call("GET",KEYS[2]))or 0) and redis.call("INCR",KEYS[1]) or -1` });
 redis.defineCommand("decrIfPositive", { numberOfKeys: 1, lua: `local v=tonumber(redis.call("GET",KEYS[1])) return (v and v>0) and redis.call("DECR",KEYS[1]) or (v or 0)` });
-
-// [Fix] 災難復原：啟動時檢查 Redis 狀態，若丟失則從 DB 恢復
-(async() => { 
-    if (!(await redis.exists(KEYS.ROLES))) await redis.set(KEYS.ROLES, JSON.stringify(DEFAULT_ROLES));
-    
-    // Recovery Logic
-    const { dateStr } = getTWTime();
-    const redisNum = parseInt(await redis.get(KEYS.CURRENT)) || 0;
-    if (redisNum === 0) {
-        try {
-            const row = await get("SELECT MAX(number) as maxNum FROM history WHERE date_str = ?", [dateStr]);
-            if (row && row.maxNum > 0) {
-                console.log(`🔄 Recovery: Syncing Redis (${redisNum}) to DB Last Issued (${row.maxNum})`);
-                await redis.mset(KEYS.CURRENT, 0, KEYS.ISSUED, row.maxNum);
-            }
-        } catch(e) { console.error("Recovery failed:", e); }
-    }
-})();
+(async() => { if (!(await redis.exists(KEYS.ROLES))) await redis.set(KEYS.ROLES, JSON.stringify(DEFAULT_ROLES)); })();
 
 // --- Helpers ---
 const getTWTime = () => { const p = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',hour12:false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit'}).formatToParts(new Date()); return { dateStr: `${p[0].value}-${p[2].value}-${p[4].value}`, hour: parseInt(p[6].value)%24 }; };
 const addLog = async (nick, msg) => { const t = new Date().toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}); await redis.lpush(KEYS.LOGS, `[${t}] [${nick}] ${msg}`); await redis.ltrim(KEYS.LOGS, 0, 99); io.to("admin").emit("newAdminLog", `[${t}] [${nick}] ${msg}`); };
-const checkBizHours = async () => {
-    const raw = await redis.get(KEYS.BIZ_HOURS);
-    const cfg = raw ? JSON.parse(raw) : DEFAULT_BUSINESS_HOURS;
-    if (!cfg.enabled) return true;
-    const h = new Date().getHours(); // Server local time (Note: Ensure server is TZ correct or adjust logic)
-    // Simple logic: Assuming server is in correct TZ or using getTWTime().hour
-    const { hour } = getTWTime();
-    return hour >= cfg.start && hour < cfg.end;
-};
 
 let bCastT = null, cacheWait = 0, lastWaitCalc = 0;
 const broadcastQueue = async () => {
@@ -138,7 +111,7 @@ app.post("/login", rateLimit({windowMs:9e5,max:100}), H(async req => {
 app.post("/api/ticket/take", rateLimit({windowMs:36e5,max:20}), H(async req => {
     if(await redis.get(KEYS.MODE)==='input') throw new Error("手動模式");
     const { dateStr, hour } = getTWTime();
-    if(!(await checkBizHours())) throw new Error("非營業時間");
+    if(BUSINESS_HOURS.enabled) { const h=new Date().getHours(); if(h<BUSINESS_HOURS.start||h>=BUSINESS_HOURS.end) throw new Error("非營業時間"); }
     const t = await redis.incr(KEYS.ISSUED); 
     await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, `${hour}_i`, 1); // Stats: +Issued
     await redis.expire(`${KEYS.HOURLY}${dateStr}`, 172800);
@@ -151,9 +124,7 @@ async function ctl(type, {body, user}) {
     const { direction: dir, number: num } = body, { dateStr, hour } = getTWTime();
     const curr = parseInt(await redis.get(KEYS.CURRENT))||0;
     let issued = parseInt(await redis.get(KEYS.ISSUED))||0, newNum=0, msg='';
-    
-    // [Fix] Dynamic Business Hours Check for Actions
-    if(['call','issue'].includes(type) && !(await checkBizHours())) return { error: "非營業時間" };
+    if(['call','issue'].includes(type) && BUSINESS_HOURS.enabled) { const h=new Date().getHours(); if(h<BUSINESS_HOURS.start||h>=BUSINESS_HOURS.end) return { error: "非營業時間" }; }
 
     if(type === 'call') {
         if(dir==='next') {
@@ -264,11 +235,14 @@ app.post("/api/admin/stats", auth, H(async req => {
 app.post("/api/admin/stats/clear", auth, perm('settings'), H(async r => { const {dateStr} = getTWTime(); await redis.del(`${KEYS.HOURLY}${dateStr}`); await run("DELETE FROM history WHERE date_str=?", [dateStr]); addLog(r.user.nickname, "🗑️ 清空今日統計"); }));
 app.post("/api/admin/stats/adjust", auth, perm('settings'), H(async r => { const {dateStr} = getTWTime(); await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, `${r.body.hour}_i`, r.body.delta); }));
 app.post("/api/admin/stats/calibrate", auth, perm('settings'), H(async r => {
+    // FORCE SYNC: Calculates Total Target (Issued - PassedCount) and adjusts the current hour's stats to match.
     const {dateStr, hour} = getTWTime();
     const [issuedStr, passedList] = await Promise.all([redis.get(KEYS.ISSUED), redis.zrange(KEYS.PASSED, 0, -1)]);
-    const issued = parseInt(issuedStr) || 0, passed = passedList ? passedList.length : 0;
+    const issued = parseInt(issuedStr) || 0;
+    const passed = passedList ? passedList.length : 0;
     const targetTotal = Math.max(0, issued - passed);
 
+    // Get current total from stats
     const hData = await redis.hgetall(`${KEYS.HOURLY}${dateStr}`);
     let currentStatsTotal = 0;
     if(hData) {
@@ -279,20 +253,22 @@ app.post("/api/admin/stats/calibrate", auth, perm('settings'), H(async r => {
             currentStatsTotal += Math.max(0, iss - p);
         }
     }
+    
     const diff = targetTotal - currentStatsTotal;
-    if(diff !== 0) { await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, `${hour}_i`, diff); addLog(r.user.nickname, `⚖️ 校正統計 (${diff > 0 ? '+' : ''}${diff})`); }
+    if(diff !== 0) {
+        await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, `${hour}_i`, diff);
+        addLog(r.user.nickname, `⚖️ 校正統計 (${diff > 0 ? '+' : ''}${diff})`);
+    }
     return { success: true, diff };
 }));
-
-// [Fix] CSV Export: 支援依日期匯出，預設今日，不再限制 2000 筆
 app.post("/api/admin/export-csv", auth, perm('settings'), H(async r => {
+    // [Optimization] Export logic improved: Defaults to current day to avoid massive dumps.
     const { dateStr } = getTWTime();
-    const targetDate = r.body.date || dateStr; 
+    const targetDate = r.body.date || dateStr;
     const rows = await all("SELECT * FROM history WHERE date_str = ? ORDER BY id ASC", [targetDate]);
     const csv = "\uFEFFDate,Time,Number,Action,Operator,Wait(min)\n" + rows.map(d => `${d.date_str},${new Date(d.timestamp).toLocaleTimeString('zh-TW')},${d.number},${d.action},${d.operator},${d.wait_time_min}`).join("\n");
     return { csvData: csv, fileName: `export_${targetDate}.csv` };
 }));
-
 app.post("/api/logs/clear", auth, perm('settings'), H(async r => { await redis.del(KEYS.LOGS); io.to("admin").emit("initAdminLogs", []); }));
 
 // Features
@@ -357,4 +333,4 @@ io.on("connection", async s => {
     s.emit("update",Number(c)); s.emit("updateQueue",{current:Number(c),issued:Number(i)}); s.emit("updatePassed",p.map(Number)); s.emit("updateFeaturedContents",f.map(JSON.parse));
     s.emit("updateSoundSetting",snd==="1"); s.emit("updatePublicStatus",pub!=="0"); s.emit("updateSystemMode",m||'ticketing'); s.emit("updateWaitTime",await calcWaitTime());
 });
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v106.0 running on ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v91.0 running on ${PORT}`));
