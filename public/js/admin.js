@@ -9,7 +9,6 @@ const mk = (t, c, txt, ev={}, ch=[]) => {
 };
 const toast = (m, t='info') => { const el=$("toast-notification"); el.textContent=m; el.className=`show ${t}`; setTimeout(()=>el.className="", 3000); };
 
-// --- Config & State ---
 const i18n = {
     "zh-TW": { 
         status_conn:"✅ 已連線", status_dis:"⚠️ 連線中斷...", saved:"✅ 已儲存", denied:"❌ 權限不足", 
@@ -68,7 +67,6 @@ const i18n = {
 let curLang = localStorage.getItem('callsys_lang')||'zh-TW', T = i18n[curLang], token="", userRole="normal", username="", uniqueUser="", cachedLine=null, isDark = localStorage.getItem('callsys_admin_theme') === 'dark';
 const socket = io({ autoConnect: false, auth: { token: "" } });
 
-// --- Core Functions ---
 async function req(url, data={}, btn=null) {
     if(btn) btn.disabled=true;
     try {
@@ -99,7 +97,6 @@ function applyTheme() {
     if($('admin-theme-toggle')) $('admin-theme-toggle').textContent = isDark ? '☀️' : '🌙';
 }
 
-// --- Logic & UI ---
 const checkSession = () => {
     token = localStorage.getItem('callsys_token'); 
     uniqueUser = localStorage.getItem('callsys_user');
@@ -118,13 +115,10 @@ const showPanel = () => {
     const setFlex = (id, show) => { if($(id)) $(id).style.display = show ? "flex" : "none"; };
     const setBlock = (id, show) => { if($(id)) $(id).style.display = show ? "block" : "none"; };
     
-    // [Updated] Nav Line removed (only for super)
     const lineBtn = document.querySelector('button[data-target="section-line"]');
     if(lineBtn) lineBtn.style.display = isSuper ? "flex" : "none";
 
-    // Toggle role management card
     ["card-user-management", "card-role-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group"].forEach(id => setBlock(id, isSuper));
-    
     ['resetNumber','resetIssued','resetPassed','resetFeaturedContents','btn-clear-logs','btn-clear-stats','btn-reset-line-msg','resetAll'].forEach(id => setBlock(id, isSuper));
     socket.auth.token = token; socket.connect(); 
     updateLangUI();
@@ -156,7 +150,6 @@ function updateSegmentedVisuals(wrapper) {
     radios.forEach((r, i) => { if(labels[i]) labels[i].classList.toggle('active', r.checked); });
 }
 
-// --- Socket Events ---
 socket.on("connect", () => { $("status-bar").classList.remove("visible"); toast(`${T.status_conn} (${username})`, "success"); });
 socket.on("disconnect", () => $("status-bar").classList.add("visible"));
 socket.on("updateQueue", d => { $("number").textContent=d.current; $("issued-number").textContent=d.issued; $("waiting-count").textContent=Math.max(0, d.issued-d.current); loadStats(); });
@@ -191,7 +184,6 @@ socket.on("updateFeaturedContents", l => renderList("featured-list-ui", l, item 
     return mk("li", "list-item", null, {}, [view, acts, form]);
 }));
 
-// --- Data Loading & Rendering ---
 async function loadAppointments() { try { renderAppointments((await req("/api/appointment/list"))?.appointments); } catch(e){} }
 function renderAppointments(list) {
     renderList("appointment-list-ui", list, a => {
@@ -276,14 +268,12 @@ function renderLogs(logs, init) {
     while(ul.children.length > 50) ul.removeChild(ul.lastChild);
 }
 
-// --- Interactions ---
 const act = (id, api, data={}) => $(id)?.addEventListener("click", async () => {
     const num = $("number"); if(api.includes('call') && num && data.direction) num.textContent = parseInt(num.textContent||0) + (data.direction==='next'?1:-1);
     await req(api, data, $(id));
 });
 const bind = (id, fn) => $(id)?.addEventListener("click", fn);
 
-// Command Center +1/+5 Helpers
 async function adjustCurrent(delta) {
     const c = parseInt($("number").textContent) || 0;
     const target = c + delta;
@@ -367,7 +357,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if($("admin-lang-selector")) $("admin-lang-selector").value = curLang;
     if($("appt-time")) flatpickr("#appt-time", { enableTime:true, dateFormat:"Y-m-d H:i", time_24hr:true, locale:"zh_tw", minDate:"today", disableMobile:"true" });
     
-    // 導航邏輯優化
     $$('.nav-btn').forEach(b => b.onclick = () => {
         $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active');
         $$('.section-group').forEach(s=>s.classList.remove('active')); 
@@ -375,7 +364,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if(target) target.classList.add('active');
         
         if(b.dataset.target === 'section-stats') loadStats();
-        // [Merged] 載入預約資料與使用者列表
         if(b.dataset.target === 'section-settings') { loadAppointments(); loadUsers(); }
     });
     $("admin-lang-selector")?.addEventListener("change", e => { curLang=e.target.value; localStorage.setItem('callsys_lang', curLang); updateLangUI(); });
