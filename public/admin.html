@@ -36,10 +36,18 @@
             <div id="sidebar-user-info" style="font-size:0.85rem; color:var(--text-sub);">Admin</div>
         </div>
         <nav class="sidebar-nav">
-            <button class="nav-btn active" data-target="section-live"><span class="nav-icon">🎮</span> <span data-i18n="nav_live">現場控台</span></button>
-            <button class="nav-btn" data-target="section-stats"><span class="nav-icon">📈</span> <span data-i18n="nav_stats">數據報表</span></button>
-            <button class="nav-btn" data-target="section-settings"><span class="nav-icon">⚙️</span> <span data-i18n="nav_settings">系統設定</span></button>
-            <button class="nav-btn" data-target="section-line"><span class="nav-icon">💬</span> <span data-i18n="nav_line">LINE設定</span></button>
+            <button class="nav-btn active" data-target="section-live" data-perm="call">
+                <span class="nav-icon">🎮</span> <span data-i18n="nav_live">現場控台</span>
+            </button>
+            <button class="nav-btn" data-target="section-stats" data-perm="stats">
+                <span class="nav-icon">📈</span> <span data-i18n="nav_stats">數據報表</span>
+            </button>
+            <button class="nav-btn" data-target="section-settings" data-perm="settings">
+                <span class="nav-icon">⚙️</span> <span data-i18n="nav_settings">系統設定</span>
+            </button>
+            <button class="nav-btn" data-target="section-line" data-perm="line">
+                <span class="nav-icon">💬</span> <span data-i18n="nav_line">LINE設定</span>
+            </button>
         </nav>
         <div class="sidebar-footer">
             <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -69,7 +77,7 @@
             </div>
 
             <div class="card-container">
-                <div class="card-wrapper">
+                <div class="card-wrapper" data-perm="call">
                     <div class="admin-card control-deck">
                         <h3><span class="card-icon">📢</span> <span data-i18n="card_call">指揮中心</span></h3>
                         <div class="hero-control-row">
@@ -94,7 +102,7 @@
                     </div>
                 </div>
 
-                <div class="card-wrapper">
+                <div class="card-wrapper" data-perm="issue">
                     <div class="admin-card">
                         <h3><span class="card-icon">🎟️</span> <span data-i18n="card_issue">發號管理</span></h3>
                         <div class="big-action-row">
@@ -112,7 +120,7 @@
                     </div>
                 </div>
 
-                <div class="card-wrapper">
+                <div class="card-wrapper" data-perm="call">
                     <div class="admin-card">
                         <h3><span class="card-icon">📝</span> <span data-i18n="card_passed">過號名單</span></h3>
                         <div class="list-container">
@@ -133,7 +141,7 @@
 
         <div id="section-stats" class="section-group">
             <div class="card-container">
-                <div class="card-wrapper">
+                <div class="card-wrapper" data-perm="stats">
                     <div class="admin-card">
                         <h3><span class="card-icon">📊</span> <span data-i18n="card_stats">流量分析</span></h3>
                         <div class="dashboard-header" style="margin-bottom:10px; grid-template-columns: 1fr auto;">
@@ -143,6 +151,7 @@
                             </div>
                             <div class="quick-actions">
                                 <button id="btn-refresh-stats" class="btn-secondary" data-i18n="btn_refresh">重整</button>
+                                <button id="btn-calibrate-stats" class="btn-secondary success" data-i18n="btn_calibrate">校正</button>
                                 <button id="btn-export-csv" class="btn-secondary success" style="display:none;">CSV</button>
                             </div>
                         </div>
@@ -151,7 +160,7 @@
                     </div>
                 </div>
                 
-                <div class="card-wrapper">
+                <div class="card-wrapper" data-perm="stats">
                     <div class="admin-card">
                         <h3><span class="card-icon">📋</span> <span data-i18n="card_logs">操作日誌</span></h3>
                         <div class="list-container">
@@ -165,7 +174,7 @@
 
         <div id="section-settings" class="section-group">
             <div class="card-container">
-                <div class="card-wrapper">
+                <div class="card-wrapper" data-perm="settings">
                     <div class="admin-card" id="card-sys">
                         <h3><span class="card-icon">⚙️</span> <span data-i18n="card_sys">系統</span></h3>
                         <div class="settings-grid">
@@ -204,7 +213,7 @@
                     </div>
                 </div>
 
-                <div class="card-wrapper" id="card-booking-merged">
+                <div class="card-wrapper" id="card-booking-merged" data-perm="appointment">
                     <div class="admin-card">
                         <h3><span class="card-icon">📅</span> <span data-i18n="card_booking">預約管理</span></h3>
                         <p style="color:var(--text-sub); margin-bottom:10px; font-size:0.85rem;">叫號時自動優先處理到期預約</p>
@@ -218,14 +227,14 @@
                             <label data-i18n="lbl_add_appt">新增預約</label>
                             <div class="input-group">
                                 <input type="number" id="appt-number" placeholder="號碼" style="flex:0.5;">
-                                <input type="text" id="appt-time" placeholder="時間" style="flex:1; background-color: var(--bg-body);">
+                                <input type="text" id="appt-time" placeholder="時間" style="flex:1; background-color: var(--bg-input);">
                                 <button id="btn-add-appt" class="btn-add">+</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="card-wrapper">
+                <div class="card-wrapper" data-perm="settings">
                     <div class="admin-card">
                         <h3><span class="card-icon">🔗</span> <span data-i18n="card_links">連結管理</span></h3>
                         <div class="list-container">
@@ -245,7 +254,7 @@
                     </div>
                 </div>
 
-                <div class="card-wrapper">
+                <div class="card-wrapper" data-perm="users">
                     <div class="admin-card">
                         <h3><span class="card-icon">🟢</span> <span data-i18n="card_online">在線管理</span></h3>
                         <div class="list-container">
@@ -254,7 +263,7 @@
                     </div>
                 </div>
 
-                <div class="card-wrapper" id="card-user-management" style="display:none;">
+                <div class="card-wrapper" id="card-user-management" style="display:none;" data-perm="users">
                     <div class="admin-card">
                         <h3><span class="card-icon">👥</span> <span data-i18n="card_users">帳號管理</span></h3>
                         <div class="list-container">
@@ -280,7 +289,7 @@
                     </div>
                 </div>
 
-                <div class="card-wrapper" id="card-role-management" style="display:none;">
+                <div class="card-wrapper" id="card-role-management" style="display:none;" data-perm="roles">
                     <div class="admin-card">
                         <h3><span class="card-icon">🛡️</span> <span data-i18n="card_roles">權限設定</span></h3>
                         <div id="role-editor-content">Loading...</div>
@@ -292,7 +301,7 @@
 
         <div id="section-line" class="section-group">
             <div class="card-container">
-                <div class="card-wrapper full-width-card">
+                <div class="card-wrapper full-width-card" data-perm="line">
                     <div class="admin-card">
                         <h3><span class="card-icon">💬</span> LINE 設定</h3>
                         <div class="control-group" id="unlock-pwd-group" style="display:none;">
