@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v94.0 Force Visibility Fix
+ * 後台邏輯 (admin.js) - v95.0 Fixed Bindings
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => { 
@@ -114,8 +114,6 @@ const checkSession = () => {
 };
 const logout = () => { localStorage.removeItem('callsys_token'); location.reload(); };
 const showLogin = () => { $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); };
-
-// [CRITICAL FIX] 權限判斷終極修正
 const isSuperAdmin = () => (uniqueUser === 'superadmin' || userRole === 'super' || userRole === 'ADMIN');
 
 const showPanel = () => {
@@ -145,7 +143,7 @@ const showPanel = () => {
     // 5. 確保資料載入
     socket.auth.token = token; socket.connect(); 
     updateLangUI();
-    if(isSuper) { loadRoles(); loadUsers(); } // 強制重載用戶列表以顯示編輯按鈕
+    if(isSuper) { loadRoles(); loadUsers(); } 
 };
 
 // --- Socket Events ---
@@ -298,6 +296,7 @@ bind("btn-save-roles", async()=>{
     $$(".role-chk:checked").forEach(k => c[k.dataset.role].can.push(k.dataset.perm));
     if(await req("/api/admin/roles/update", {rolesConfig:c})) toast(T.saved,"success");
 });
+bind("btn-save-unlock-pwd", async()=>{ const p=$("line-unlock-pwd").value; if(await req("/api/admin/line-settings/save-pass", {password:p})) toast(T.saved,"success"); });
 bind("btn-export-csv", async()=>{ const d=await req("/api/admin/export-csv"); if(d?.csvData) { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\uFEFF"+d.csvData],{type:'text/csv'})); a.download=d.fileName; a.click(); }});
 bind("add-user-btn", async()=>{ const u=$("new-user-username").value, p=$("new-user-password").value, n=$("new-user-nickname").value, r=$("new-user-role")?.value; if(await req("/api/admin/add-user", {newUsername:u, newPassword:p, newNickname:n, newRole:r})) { toast(T.saved,"success"); loadUsers(); } });
 bind("admin-theme-toggle", ()=>{ isDark = !isDark; applyTheme(); });
@@ -348,6 +347,10 @@ document.addEventListener("DOMContentLoaded", () => {
     checkSession(); applyTheme();
     if($("admin-lang-selector")) $("admin-lang-selector").value = curLang;
     if($("appt-time")) flatpickr("#appt-time", { enableTime:true, dateFormat:"Y-m-d H:i", time_24hr:true, locale:"zh_tw", minDate:"today", disableMobile:"true" });
+    
+    // [Fix] Bind Refresh Button
+    bind("btn-refresh-stats", loadStats);
+
     $$('.nav-btn').forEach(b => b.onclick = () => {
         $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active');
         $$('.section-group').forEach(s=>s.classList.remove('active')); $(b.dataset.target)?.classList.add('active');
