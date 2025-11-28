@@ -1,304 +1,368 @@
 /* ==========================================
- * 伺服器 (index.js) - v77.0 Stats Logic Fix
+ * 後台邏輯 (admin.js) - v96.0 Final Fix
  * ========================================== */
-require('dotenv').config();
-const { Server } = require("http"), express = require("express"), socketio = require("socket.io");
-const Redis = require("ioredis"), helmet = require('helmet'), rateLimit = require('express-rate-limit');
-const { v4: uuidv4 } = require('uuid'), bcrypt = require('bcrypt'), line = require('@line/bot-sdk');
-const cron = require('node-cron'), fs = require("fs"), path = require("path"), sqlite3 = require('sqlite3').verbose();
-
-// --- Env Variables ---
-const { PORT = 3000, UPSTASH_REDIS_URL: REDIS_URL, ADMIN_TOKEN, LINE_ACCESS_TOKEN, LINE_CHANNEL_SECRET } = process.env;
-if (!ADMIN_TOKEN || !REDIS_URL) process.exit(1);
-
-// --- Config & Consts ---
-const BUSINESS_HOURS = { start: 8, end: 22, enabled: false };
-const DEFAULT_ROLES = { VIEWER: { level: 0, can: [] }, OPERATOR: { level: 1, can: ['call', 'pass', 'recall', 'issue'] }, MANAGER: { level: 2, can: ['call', 'pass', 'recall', 'issue', 'settings', 'appointment'] }, ADMIN: { level: 9, can: ['*'] } };
-const KEYS = { 
-    CURRENT: 'callsys:number', ISSUED: 'callsys:issued', MODE: 'callsys:mode', PASSED: 'callsys:passed', 
-    FEATURED: 'callsys:featured', LOGS: 'callsys:admin-log', USERS: 'callsys:users', NICKS: 'callsys:nicknames', 
-    USER_ROLES: 'callsys:user_roles', SESSION: 'callsys:session:', HISTORY: 'callsys:stats:history', 
-    HOURLY: 'callsys:stats:hourly:', ROLES: 'callsys:config:roles', 
-    LINE: { SUB: 'callsys:line:notify:', USER: 'callsys:line:user:', PWD: 'callsys:line:unlock_pwd', ADMIN: 'callsys:line:admin_session:', CTX: 'callsys:line:context:', ACTIVE: 'callsys:line:active_subs_set', CFG_TOKEN: 'callsys:line:cfg:token', CFG_SECRET: 'callsys:line:cfg:secret' } 
+const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
+const mk = (t, c, txt, ev={}, ch=[]) => { 
+    const e = document.createElement(t); if(c) e.className=c; if(txt) e.textContent=txt; 
+    Object.entries(ev).forEach(([k,v])=>e[k.startsWith('on')?k.toLowerCase():k]=v); 
+    ch.forEach(x=>x&&e.appendChild(x)); return e; 
 };
+const toast = (m, t='info') => { const el=$("toast-notification"); el.textContent=m; el.className=`show ${t}`; setTimeout(()=>el.className="", 3000); };
 
-// --- Setup ---
-const app = express(); app.disable('x-powered-by');
-const server = Server(app), io = socketio(server, { cors: { origin: "*" }, pingTimeout: 60000 });
-const redis = new Redis(REDIS_URL, { tls: { rejectUnauthorized: false }, retryStrategy: t => Math.min(t * 50, 2000) });
-
-// Line Client Init
-let lineClient = null;
-const initLine = async () => {
-    const [dbToken, dbSecret] = await redis.mget(KEYS.LINE.CFG_TOKEN, KEYS.LINE.CFG_SECRET);
-    const token = dbToken || LINE_ACCESS_TOKEN;
-    const secret = dbSecret || LINE_CHANNEL_SECRET;
-    if (token && secret) {
-        try { lineClient = new line.Client({ channelAccessToken: token, channelSecret: secret }); } catch(e) { console.error("Line Init Error", e); }
+// --- Config & State ---
+const i18n = {
+    "zh-TW": { 
+        status_conn:"✅ 已連線", status_dis:"⚠️ 連線中斷...", saved:"✅ 已儲存", denied:"❌ 權限不足", 
+        expired:"Session 過期", login_fail:"登入失敗", confirm:"⚠️ 確認", recall:"↩️ 重呼", 
+        edit:"✎", del:"✕", save:"✓", cancel:"✕",
+        login_title: "請登入管理系統", ph_account: "帳號", ph_password: "密碼", login_btn: "登入",
+        admin_panel: "管理後台", nav_live: "現場控台", nav_stats: "數據報表", nav_booking: "預約管理",
+        nav_settings: "系統設定", nav_line: "LINE設定", logout: "登出",
+        dash_curr: "目前叫號", dash_issued: "已發號至", dash_wait: "等待組數",
+        card_call: "指揮中心", btn_next: "下一號 ▶", btn_prev: "◀ 上一號", btn_pass: "過號", 
+        lbl_assign: "指定 / 插隊", btn_exec: "GO", btn_reset_call: "↺ 重置叫號",
+        card_issue: "發號管理", btn_recall: "➖ 收回", btn_issue: "發號 ➕", 
+        lbl_fix_issue: "修正發號數", btn_fix: "修正", btn_reset_issue: "↺ 重置發號",
+        card_passed: "過號名單", btn_clear_passed: "清空過號",
+        card_stats: "流量分析", lbl_today: "今日人次", btn_refresh: "重整", btn_clear_stats: "🗑️ 清空統計",
+        card_logs: "操作日誌", btn_clear_logs: "清除日誌",
+        card_sys: "系統", lbl_public: "開放前台", lbl_sound: "提示音效", 
+        lbl_tts: "TTS 語音廣播", btn_play: "播放", 
+        lbl_mode: "取號模式", mode_online: "線上取號", mode_manual: "手動輸入", btn_reset_all: "💥 全域重置",
+        card_online: "在線管理", card_links: "連結管理", ph_link_name: "名稱", btn_clear_links: "清空連結",
+        card_users: "帳號管理", lbl_add_user: "新增帳號", ph_nick: "暱稱",
+        btn_save: "儲存", btn_restore: "恢復預設值",
+        modal_edit: "編輯數據", btn_done: "完成",
+        card_booking: "預約管理", lbl_add_appt: "新增預約",
+        wait: "等待"
+    },
+    "en": { 
+        status_conn:"✅ Connected", status_dis:"⚠️ Disconnected...", saved:"✅ Saved", denied:"❌ Denied", 
+        expired:"Session Expired", login_fail:"Login Failed", confirm:"⚠️ Confirm", recall:"↩️ Recall", 
+        edit:"Edit", del:"Del", save:"Save", cancel:"Cancel",
+        login_title: "Login to Admin Panel", ph_account: "Username", ph_password: "Password", login_btn: "Login",
+        admin_panel: "Admin Panel", nav_live: "Live Console", nav_stats: "Statistics", nav_booking: "Booking",
+        nav_settings: "Settings", nav_line: "Line Config", logout: "Logout",
+        dash_curr: "Current Serving", dash_issued: "Last Issued", dash_wait: "Waiting",
+        card_call: "Command Center", btn_next: "Next ▶", btn_prev: "◀ Prev", btn_pass: "Pass", 
+        lbl_assign: "Assign / Jump", btn_exec: "GO", btn_reset_call: "↺ Reset Call",
+        card_issue: "Ticketing", btn_recall: "➖ Recall", btn_issue: "Issue ➕", 
+        lbl_fix_issue: "Fix Issued #", btn_fix: "Fix", btn_reset_issue: "↺ Reset Issue",
+        card_passed: "Passed List", btn_clear_passed: "Clear Passed",
+        card_stats: "Analytics", lbl_today: "Today's Count", btn_refresh: "Refresh", btn_clear_stats: "🗑️ Clear Stats",
+        card_logs: "Action Logs", btn_clear_logs: "Clear Logs",
+        card_sys: "System", lbl_public: "Public Access", lbl_sound: "Sound FX", 
+        lbl_tts: "TTS Broadcast", btn_play: "Play", 
+        lbl_mode: "Mode", mode_online: "Online Ticket", mode_manual: "Manual Input", btn_reset_all: "💥 Factory Reset",
+        card_online: "Online Users", card_links: "Links Manager", ph_link_name: "Name", btn_clear_links: "Clear Links",
+        card_users: "User Manager", lbl_add_user: "Add User", ph_nick: "Nickname",
+        btn_save: "Save", btn_restore: "Restore Defaults",
+        modal_edit: "Edit Data", btn_done: "Done",
+        card_booking: "Booking Manager", lbl_add_appt: "Add Booking",
+        wait: "Waiting"
     }
 };
-initLine();
 
-try { if (!fs.existsSync(path.join(__dirname, 'user_logs'))) fs.mkdirSync(path.join(__dirname, 'user_logs')); } catch(e) {}
-const db = new sqlite3.Database(path.join(__dirname, 'callsys.db'), (err) => { if(!err) {
-    db.run(`CREATE TABLE IF NOT EXISTS history (id INTEGER PRIMARY KEY, date_str TEXT, timestamp INTEGER, number INTEGER, action TEXT, operator TEXT, wait_time_min REAL)`);
-    db.run(`CREATE TABLE IF NOT EXISTS appointments (id INTEGER PRIMARY KEY, number INTEGER, scheduled_time INTEGER, status TEXT DEFAULT 'pending')`);
-}});
-const dbQuery = (m, s, p=[]) => new Promise((res, rej) => db[m](s, p, function(e, r){ e ? rej(e) : res(m==='run'?this:r) }));
-const [run, all, get] = ['run', 'all', 'get'].map(m => (s, p) => dbQuery(m, s, p));
+let curLang = localStorage.getItem('callsys_lang')||'zh-TW', T = i18n[curLang], token="", userRole="normal", username="", uniqueUser="", cachedLine=null, isDark = localStorage.getItem('callsys_admin_theme') === 'dark';
+const socket = io({ autoConnect: false, auth: { token: "" } });
 
-redis.defineCommand("safeNextNumber", { numberOfKeys: 2, lua: `return (tonumber(redis.call("GET",KEYS[1]))or 0) < (tonumber(redis.call("GET",KEYS[2]))or 0) and redis.call("INCR",KEYS[1]) or -1` });
-redis.defineCommand("decrIfPositive", { numberOfKeys: 1, lua: `local v=tonumber(redis.call("GET",KEYS[1])) return (v and v>0) and redis.call("DECR",KEYS[1]) or (v or 0)` });
-(async() => { if (!(await redis.exists(KEYS.ROLES))) await redis.set(KEYS.ROLES, JSON.stringify(DEFAULT_ROLES)); })();
-
-// --- Helpers ---
-const sanitize = s => typeof s==='string'?s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"): '';
-const getTWTime = () => { const p = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',hour12:false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit'}).formatToParts(new Date()); return { dateStr: `${p[0].value}-${p[2].value}-${p[4].value}`, hour: parseInt(p[6].value)%24 }; };
-const addLog = async (nick, msg) => { const t = new Date().toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}); await redis.lpush(KEYS.LOGS, `[${t}] [${nick}] ${msg}`); await redis.ltrim(KEYS.LOGS, 0, 99); io.to("admin").emit("newAdminLog", `[${t}] [${nick}] ${msg}`); };
-
-let bCastT = null, cacheWait = 0, lastWaitCalc = 0;
-const broadcastQueue = async () => {
-    if (bCastT) clearTimeout(bCastT);
-    bCastT = setTimeout(async () => {
-        let [c, i] = (await redis.mget(KEYS.CURRENT, KEYS.ISSUED)).map(v => parseInt(v)||0);
-        if(i < c) { i = c; await redis.set(KEYS.ISSUED, i); }
-        io.emit("update", c); io.emit("updateQueue", { current: c, issued: i });
-        io.emit("updateWaitTime", await calcWaitTime()); io.emit("updateTimestamp", new Date().toISOString());
-    }, 50);
-};
-const broadcastAppts = async () => io.to("admin").emit("updateAppointments", await all("SELECT * FROM appointments WHERE status='pending' ORDER BY scheduled_time ASC"));
-const calcWaitTime = async (force) => {
-    if(!force && Date.now()-lastWaitCalc<60000) return cacheWait;
-    const rows = await all(`SELECT timestamp FROM history WHERE action='call' ORDER BY timestamp DESC LIMIT 20`);
-    if(!rows || rows.length < 2) return (cacheWait=0);
-    let total = 0; for(let i=0; i<rows.length-1; i++) total += (rows[i].timestamp - rows[i+1].timestamp);
-    return (lastWaitCalc=Date.now(), cacheWait = Math.ceil((total / (rows.length - 1) / 60000) * 10) / 10);
-};
-
-// --- Middleware & Auth ---
-app.use(helmet({ contentSecurityPolicy: false })); app.use(express.static(path.join(__dirname, "public"))); app.use(express.json()); app.set('trust proxy', 1);
-const H = fn => async(req, res, next) => { try { const r = await fn(req, res); if(r!==false) res.json(r||{success:true}); } catch(e){ res.status(500).json({error:e.message}); } };
-const auth = async(req, res, next) => {
+// --- Core Functions ---
+async function req(url, data={}, btn=null) {
+    if(btn) btn.disabled=true;
     try {
-        const u = req.body.token ? JSON.parse(await redis.get(`${KEYS.SESSION}${req.body.token}`)) : null;
-        if(!u) throw 0; req.user = u; await redis.expire(`${KEYS.SESSION}${req.body.token}`, 28800); next();
-    } catch(e) { res.status(403).json({error:"權限/Session失效"}); }
-};
-const perm = (act) => async (req, res, next) => {
-    const rKey = req.user.role === 'super' ? 'ADMIN' : (req.user.userRole || 'OPERATOR');
-    const role = (JSON.parse(await redis.get(KEYS.ROLES)) || DEFAULT_ROLES)[rKey];
-    if(role.level >= 9 || role.can.includes(act) || role.can.includes('*')) return next();
-    res.status(403).json({ error: "權限不足" });
-};
-
-// --- Routes ---
-app.post("/login", rateLimit({windowMs:9e5,max:100}), H(async req => {
-    const { username: u, password: p } = req.body;
-    let valid = (u==='superadmin' && p===ADMIN_TOKEN);
-    if(!valid && await redis.hexists(KEYS.USERS, u)) valid = await bcrypt.compare(p, await redis.hget(KEYS.USERS, u));
-    if(!valid) throw new Error("帳密錯誤");
-    const token = uuidv4(), nick = await redis.hget(KEYS.NICKS, u) || u, userRole = (u==='superadmin'?'ADMIN':(await redis.hget(KEYS.USER_ROLES, u)||'OPERATOR'));
-    await redis.set(`${KEYS.SESSION}${token}`, JSON.stringify({username:u, role:u==='superadmin'?'super':'normal', userRole, nickname:nick}), "EX", 28800);
-    return { token, role: u==='superadmin'?'super':'normal', userRole, username: u, nickname: nick };
-}));
-
-app.post("/api/ticket/take", rateLimit({windowMs:36e5,max:20}), H(async req => {
-    if(await redis.get(KEYS.MODE)==='input') throw new Error("手動模式");
-    const { dateStr, hour } = getTWTime();
-    if(BUSINESS_HOURS.enabled) { const h=new Date().getHours(); if(h<BUSINESS_HOURS.start||h>=BUSINESS_HOURS.end) throw new Error("非營業時間"); }
-    const t = await redis.incr(KEYS.ISSUED); 
-    // [Stats] Issue = +1
-    await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, hour, 1); 
-    await redis.expire(`${KEYS.HOURLY}${dateStr}`, 172800);
-    await run(`INSERT INTO history (date_str, timestamp, number, action, operator, wait_time_min) VALUES (?, ?, ?, ?, ?, ?)`, [dateStr, Date.now(), t, 'online_take', 'User', await calcWaitTime()]);
-    await broadcastQueue(); return { ticket: t };
-}));
-
-// Core Logic Wrapper
-async function ctl(type, {body, user}) {
-    const { direction: dir, number: num } = body, { dateStr, hour } = getTWTime();
-    const curr = parseInt(await redis.get(KEYS.CURRENT))||0;
-    let issued = parseInt(await redis.get(KEYS.ISSUED))||0, newNum=0, msg='';
-
-    if(['call','issue'].includes(type) && BUSINESS_HOURS.enabled) { const h=new Date().getHours(); if(h<BUSINESS_HOURS.start||h>=BUSINESS_HOURS.end) return { error: "非營業時間" }; }
-
-    if(type === 'call') {
-        if(dir==='next') {
-            const appt = await get("SELECT number FROM appointments WHERE status='pending' AND scheduled_time <= ? ORDER BY scheduled_time ASC LIMIT 1", [Date.now()]);
-            if(appt) { newNum = appt.number; await redis.set(KEYS.CURRENT, newNum); await run("UPDATE appointments SET status='called' WHERE number=?", [newNum]); msg=`🔔 呼叫預約 ${newNum}`; broadcastAppts(); }
-            else { if((newNum = await redis.safeNextNumber(KEYS.CURRENT, KEYS.ISSUED)) === -1) return { error: "已無等待" }; msg=`號碼增加為 ${newNum}`; }
-        } else { newNum = await redis.decrIfPositive(KEYS.CURRENT); msg=`號碼回退為 ${newNum}`; }
-        checkLine(newNum);
-    } else if(type === 'issue') {
-        if(dir==='next') { 
-            newNum = await redis.incr(KEYS.ISSUED); 
-            msg=`手動發號 ${newNum}`; 
-            // [Stats] Issue = +1
-            await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, hour, 1); 
-        }
-        else if(issued > curr) { 
-            newNum = await redis.decr(KEYS.ISSUED); 
-            msg=`手動回退 ${newNum}`; 
-            // [Stats] Undo Issue = -1
-            await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, hour, -1); 
-        }
-        else return { error: "錯誤" };
-        await redis.expire(`${KEYS.HOURLY}${dateStr}`, 172800);
-    } else if(type.startsWith('set')) {
-        newNum = parseInt(num); if(isNaN(newNum)||newNum<0) return { error: "無效" };
-        if(type==='set_issue' && newNum===0) return resetSys(user.nickname);
-        const diff = newNum - (type==='set_issue'?issued:curr);
-        if(diff!==0) await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, hour, diff);
-        if(type==='set_issue') { await redis.set(KEYS.ISSUED, newNum); msg=`修正發號 ${newNum}`; }
-        else { await redis.mset(KEYS.CURRENT, newNum, ...(newNum>issued?[KEYS.ISSUED, newNum]:[])); msg=`設定叫號 ${newNum}`; checkLine(newNum); }
-    }
-    if(msg) { addLog(user.nickname, msg); await run(`INSERT INTO history (date_str, timestamp, number, action, operator, wait_time_min) VALUES (?, ?, ?, ?, ?, ?)`, [dateStr, Date.now(), newNum||curr, type, user.nickname, await calcWaitTime()]); }
-    await broadcastQueue(); return { number: newNum };
+        const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...data, token }) });
+        const res = await r.json();
+        if(!r.ok) { if(r.status===403 && !res.error?.includes("權限")) logout(); toast(`❌ ${res.error||'Error'}`, "error"); return null; }
+        return res;
+    } catch(e) { toast(`❌ ${e.message}`, "error"); return null; } finally { if(btn) setTimeout(()=>btn.disabled=false, 300); }
 }
-async function resetSys(by) {
-    await redis.mset(KEYS.CURRENT,0,KEYS.ISSUED,0); await redis.del(KEYS.PASSED, KEYS.LINE.ACTIVE);
-    await run("UPDATE appointments SET status='cancelled' WHERE status='pending'");
-    addLog(by, "💥 全域重置"); cacheWait=0; await broadcastQueue(); broadcastAppts(); io.emit("updatePassed",[]); return {};
+const confirmBtn = (el, txt, action) => {
+    if(!el) return; let t, c=5;
+    el.onclick = (e) => { e.stopPropagation(); if(el.classList.contains("is-confirming")) { action(); reset(); } else { el.classList.add("is-confirming"); el.textContent = `${T.confirm} (${c})`; t = setInterval(() => { c--; el.textContent = `${T.confirm} (${c})`; if(c<=0) reset(); }, 1000); } };
+    const reset = () => { clearInterval(t); el.classList.remove("is-confirming"); el.textContent = txt; c=5; };
+};
+const updateLangUI = () => {
+    T = i18n[curLang]||i18n["zh-TW"]; 
+    $$('[data-i18n]').forEach(e => { const k = e.getAttribute('data-i18n'); if(T[k]) e.textContent = T[k]; });
+    $$('[data-i18n-ph]').forEach(e => e.placeholder = T[e.getAttribute('data-i18n-ph')]||"");
+    loadUsers(); loadStats(); loadAppointments(); if(cachedLine) renderLineSettings(); else loadLineSettings();
+};
+function renderList(ulId, list, fn, emptyMsg="[ Empty ]") {
+    const ul = $(ulId); if(!ul) return; ul.innerHTML = "";
+    if(!list?.length) return ul.innerHTML=`<li style="text-align:center;padding:15px;color:var(--text-sub);">${emptyMsg}</li>`;
+    list.forEach(x => ul.appendChild(fn(x)));
+}
+function applyTheme() {
+    document.body.classList.toggle('dark-mode', isDark); localStorage.setItem('callsys_admin_theme', isDark?'dark':'light');
+    if($('admin-theme-toggle')) $('admin-theme-toggle').textContent = isDark ? '☀️' : '🌙';
 }
 
-['call','issue','set-call','set-issue'].forEach(c => app.post(`/api/control/${c}`, auth, perm(c.startsWith('set')?'settings':c.split('-')[0]), H(async r => { const res = await ctl(c.replace('-','_'), r); if(res.error) throw new Error(res.error); return res; })));
-
-app.post("/api/control/pass-current", auth, perm('pass'), H(async req => {
-    const c = parseInt(await redis.get(KEYS.CURRENT))||0; if(!c) throw new Error("無叫號");
-    await redis.zadd(KEYS.PASSED, c, c); const next = (await redis.safeNextNumber(KEYS.CURRENT, KEYS.ISSUED)===-1 ? c : await redis.get(KEYS.CURRENT));
-    const {dateStr, hour} = getTWTime(); 
-    // [Stats] Pass = -1 (Remove from stats)
-    await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, hour, -1);
-    await run(`INSERT INTO history (date_str, timestamp, number, action, operator, wait_time_min) VALUES (?, ?, ?, ?, ?, ?)`, [dateStr, Date.now(), c, 'pass', req.user.nickname, await calcWaitTime()]);
-    checkLine(next); await broadcastQueue(); io.emit("updatePassed", (await redis.zrange(KEYS.PASSED,0,-1)).map(Number)); return { next };
-}));
-
-app.post("/api/control/recall-passed", auth, perm('recall'), H(async req => {
-    await redis.zrem(KEYS.PASSED, req.body.number); 
-    await redis.set(KEYS.CURRENT, req.body.number);
+// --- Logic & UI ---
+const checkSession = () => {
+    token = localStorage.getItem('callsys_token'); 
+    uniqueUser = localStorage.getItem('callsys_user');
+    userRole = localStorage.getItem('callsys_role'); 
+    username = localStorage.getItem('callsys_nick');
     
-    // [Stats: Fixed] Recall = +1 (Add back to stats)
-    const {dateStr, hour} = getTWTime();
-    await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, hour, 1);
-
-    addLog(req.user.nickname, `↩️ 重呼 ${req.body.number}`); 
-    await broadcastQueue(); 
-    io.emit("updatePassed", (await redis.zrange(KEYS.PASSED,0,-1)).map(Number));
-}));
-
-app.post("/api/passed/add", auth, perm('pass'), H(async r => {
-    const n = parseInt(r.body.number);
-    if(n > 0) {
-        await redis.zadd(KEYS.PASSED, n, n);
-        io.emit("updatePassed", (await redis.zrange(KEYS.PASSED,0,-1)).map(Number));
-        addLog(r.user.nickname, `➕ 手動過號 ${n}`);
+    // [Fix] 強制修正 superadmin 的角色，防止快取導致權限遺失
+    if (uniqueUser === 'superadmin' && userRole !== 'ADMIN') {
+        userRole = 'ADMIN';
+        localStorage.setItem('callsys_role', 'ADMIN');
     }
+
+    if(token && uniqueUser) showPanel(); else showLogin();
+};
+const logout = () => { localStorage.removeItem('callsys_token'); location.reload(); };
+const showLogin = () => { $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); };
+const isSuperAdmin = () => (uniqueUser === 'superadmin' || userRole === 'super' || userRole === 'ADMIN');
+
+const showPanel = () => {
+    $("login-container").style.display="none"; 
+    $("admin-panel").style.display="flex"; 
+    $("sidebar-user-info").textContent = username;
+    
+    const isSuper = isSuperAdmin();
+    
+    // 1. 導覽列按鈕 (使用 Flex 以防跑版)
+    const setFlex = (id, show) => { if($(id)) $(id).style.display = show ? "flex" : "none"; };
+    const setBlock = (id, show) => { if($(id)) $(id).style.display = show ? "block" : "none"; };
+
+    setFlex("nav-btn-booking", isSuper);
+    const lineBtn = document.querySelector('button[data-target="section-line"]');
+    if(lineBtn) lineBtn.style.display = isSuper ? "flex" : "none";
+    
+    // 2. 區塊顯示控制
+    if(!isSuper && $("section-booking")) $("section-booking").style.display = "none";
+    
+    // 3. 超級管理員專屬功能 (強制顯示)
+    ["card-user-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group", "role-editor-container"].forEach(id => setBlock(id, isSuper));
+
+    // 4. 危險按鈕
+    ['resetNumber','resetIssued','resetPassed','resetFeaturedContents','btn-clear-logs','btn-clear-stats','btn-reset-line-msg','resetAll'].forEach(id => setBlock(id, isSuper));
+    
+    // 5. 確保資料載入
+    socket.auth.token = token; socket.connect(); 
+    updateLangUI();
+    if(isSuper) { loadRoles(); loadUsers(); } 
+};
+
+// --- Socket Events ---
+socket.on("connect", () => { $("status-bar").classList.remove("visible"); toast(`${T.status_conn} (${username})`, "success"); });
+socket.on("disconnect", () => $("status-bar").classList.add("visible"));
+socket.on("updateQueue", d => { $("number").textContent=d.current; $("issued-number").textContent=d.issued; $("waiting-count").textContent=Math.max(0, d.issued-d.current); loadStats(); });
+socket.on("update", n => { $("number").textContent=n; loadStats(); });
+socket.on("initAdminLogs", l => renderLogs(l, true));
+socket.on("newAdminLog", l => renderLogs([l], false));
+socket.on("updatePublicStatus", b => $("public-toggle").checked = b);
+socket.on("updateSoundSetting", b => $("sound-toggle").checked = b);
+socket.on("updateSystemMode", m => $$('input[name="systemMode"]').forEach(r => r.checked = (r.value === m)));
+socket.on("updateAppointments", l => renderAppointments(l));
+socket.on("updateOnlineAdmins", l => renderList("online-users-list", (l||[]).sort((a,b)=>(a.role==='super'?-1:1)), u => mk("li","list-item",null,{},[mk("span","list-main-text",`🟢 ${u.nickname}`), mk("span","list-sub-text",u.username)]), "Wait..."));
+socket.on("updatePassed", l => renderList("passed-list-ui", l, n => {
+    const li = mk("li", "list-item");
+    const acts = mk("div", "list-actions", null, {}, [
+        mk("button", "btn-secondary", T.recall, {onclick:()=>{ if(confirm(`Recall ${n}?`)) req("/api/control/recall-passed",{number:n}); }}),
+        (b => { confirmBtn(b, T.del, ()=>req("/api/passed/remove",{number:n})); return b; })(mk("button", "btn-secondary", T.del))
+    ]);
+    return mk("li", "list-item", null, {}, [mk("span","list-main-text",`${n} 號`,{style:"font-size:1.2rem;color:var(--primary);"}), acts]);
+}, T.wait));
+socket.on("updateFeaturedContents", l => renderList("featured-list-ui", l, item => {
+    const view = mk("div", "list-info", null, {}, [mk("span","list-main-text",item.linkText), mk("span","list-sub-text",item.linkUrl)]);
+    const form = mk("div", "edit-form-wrapper", null, {style:"display:none;"}, [
+        mk("input",null,null,{value:item.linkText, placeholder:"Name"}), mk("input",null,null,{value:item.linkUrl, placeholder:"URL"}),
+        mk("div","edit-form-actions",null,{},[
+            mk("button","btn-secondary",T.cancel,{onclick:()=>{form.style.display="none";view.style.display="flex";acts.style.display="flex";}}),
+            mk("button","btn-secondary success",T.save,{onclick:async()=>{if(await req("/api/featured/edit",{oldLinkText:item.linkText,oldLinkUrl:item.linkUrl,newLinkText:form.children[0].value,newLinkUrl:form.children[1].value})) toast(T.saved,"success");}})
+        ])
+    ]);
+    const acts = mk("div", "list-actions", null, {}, [
+        mk("button", "btn-secondary", T.edit, {onclick:()=>{form.style.display="flex";view.style.display="none";acts.style.display="none";}}),
+        mk("button", "btn-secondary", T.del, {onclick:()=>req("/api/featured/remove", item)})
+    ]);
+    return mk("li", "list-item", null, {}, [view, acts, form]);
 }));
 
-// Admin & Settings (User)
-app.post("/api/admin/users", auth, H(async r => {
-    const rawUsers = [{username:'superadmin',nickname:await redis.hget(KEYS.NICKS,'superadmin')||'Super',role:'ADMIN'}, ...(await redis.hkeys(KEYS.USERS)).map(x=>({username:x, nickname:null, role:null}))];
-    const resolvedUsers = await Promise.all(rawUsers.map(async u=>{ 
-        if(u.username!=='superadmin'){
-            u.nickname=await redis.hget(KEYS.NICKS,u.username)||u.username; 
-            u.role=await redis.hget(KEYS.USER_ROLES,u.username)||'OPERATOR';
-        } 
-        return u; 
-    }));
-    return { users: resolvedUsers };
-}));
-app.post("/api/admin/add-user", auth, perm('settings'), H(async r=>{ if(await redis.hexists(KEYS.USERS, r.body.newUsername)) throw new Error("已存在"); await redis.hset(KEYS.USERS, r.body.newUsername, await bcrypt.hash(r.body.newPassword,10)); await redis.hset(KEYS.NICKS, r.body.newUsername, r.body.newNickname); await redis.hset(KEYS.USER_ROLES, r.body.newUsername, r.body.newRole||'OPERATOR'); }));
-app.post("/api/admin/del-user", auth, perm('settings'), H(async r=>{ if(r.body.delUsername==='superadmin') throw new Error("不可刪除"); await redis.hdel(KEYS.USERS, r.body.delUsername); await redis.hdel(KEYS.NICKS, r.body.delUsername); await redis.hdel(KEYS.USER_ROLES, r.body.delUsername); }));
-app.post("/api/admin/set-nickname", auth, H(async r => { if(r.user.role!=='super' && r.user.username!==r.body.targetUsername) throw new Error("權限不足"); await redis.hset(KEYS.NICKS, r.body.targetUsername, r.body.nickname); }));
-app.post("/api/admin/set-role", auth, perm('settings'), H(async r => { if(r.user.role!=='super') throw new Error("僅限超級管理員"); await redis.hset(KEYS.USER_ROLES, r.body.targetUsername, r.body.newRole); }));
-app.post("/api/admin/roles/get", auth, H(async r => JSON.parse(await redis.get(KEYS.ROLES)) || DEFAULT_ROLES));
-app.post("/api/admin/roles/update", auth, perm('settings'), H(async r => { if(r.user.role!=='super') throw new Error("僅超級管理員"); await redis.set(KEYS.ROLES, JSON.stringify(r.body.rolesConfig)); addLog(r.user.nickname, "🔧 修改權限"); }));
+// --- Data Loading & Rendering ---
+async function loadAppointments() {
+    try { renderAppointments((await req("/api/appointment/list"))?.appointments); } catch(e){}
+}
+function renderAppointments(list) {
+    renderList("appointment-list-ui", list, a => {
+        const dt = new Date(a.scheduled_time), dateStr = dt.toLocaleDateString()+" "+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+        const btnDel = mk("button", "btn-secondary", T.del); confirmBtn(btnDel, T.del, async()=>await req("/api/appointment/remove",{id:a.id}));
+        return mk("li", "list-item", null, {}, [
+            mk("div", "list-info", null, {}, [mk("span","list-main-text",`${a.number} 號`,{style:"color:var(--primary);font-size:1.1rem;"}), mk("span","list-sub-text",`📅 ${dateStr}`)]),
+            mk("div", "list-actions", null, {}, [btnDel])
+        ]);
+    }, "暫無預約");
+}
+async function loadUsers() {
+    const d = await req("/api/admin/users"); if(!d?.users) return;
+    const roles = { 'VIEWER':'Viewer', 'OPERATOR':'Operator', 'MANAGER':'Manager', 'ADMIN':'Admin' };
+    const isSuper = isSuperAdmin(); 
 
-// Admin & Settings (Features)
-app.post("/api/admin/stats", auth, H(async req => {
-    const {dateStr, hour} = getTWTime(), hData = await redis.hgetall(`${KEYS.HOURLY}${dateStr}`), counts = new Array(24).fill(0);
-    let total=0; 
-    if(hData) {
-        for(const [h,c] of Object.entries(hData)) { 
-            const val = parseInt(c) || 0;
-            if(!isNaN(parseInt(h))) counts[parseInt(h)] = val;
-            total += val;
+    renderList("user-list-ui", d.users, u => {
+        const view = mk("div", "list-info", null, {}, [mk("span","list-main-text",`${u.role==='ADMIN'?'👑':(u.role==='MANAGER'?'🛡️':'👤')} ${u.nickname}`), mk("span","list-sub-text",`${u.username} (${roles[u.role]||u.role})`)]);
+        const acts = mk("div", "list-actions");
+        const form = mk("div", "edit-form-wrapper", null, {style:"display:none;"}, [
+            mk("input",null,null,{value:u.nickname, placeholder:"Nickname"}),
+            mk("div","edit-form-actions",null,{},[
+                mk("button","btn-secondary",T.cancel,{onclick:()=>{form.style.display="none";view.style.display="flex";acts.style.display="flex";}}),
+                mk("button","btn-secondary success",T.save,{onclick:async()=>{if(await req("/api/admin/set-nickname",{targetUsername:u.username, nickname:form.children[0].value})) {toast(T.saved,"success"); loadUsers();}}})
+            ])
+        ]);
+        
+        if(u.username === uniqueUser || isSuper) {
+            acts.appendChild(mk("button","btn-secondary",T.edit,{onclick:()=>{view.style.display="none";acts.style.display="none";form.style.display="flex";}}));
         }
+        if(u.username !== 'superadmin' && isSuper) {
+            const sel = mk("select","role-select",null,{onchange:async()=>await req("/api/admin/set-role",{targetUsername:u.username, newRole:sel.value})});
+            Object.keys(roles).forEach(k=>sel.add(new Option(roles[k], k, false, u.role===k)));
+            const btnDel = mk("button","btn-secondary",T.del); confirmBtn(btnDel, T.del, async()=>{await req("/api/admin/del-user",{delUsername:u.username}); loadUsers();});
+            acts.append(sel, btnDel);
+        }
+        return mk("li", "list-item", null, {}, [view, acts, form]);
+    }, "Wait...");
+}
+async function loadRoles() {
+    const cfg = await req("/api/admin/roles/get"), ctr = $("role-editor-content"); if(!cfg || !ctr) return; ctr.innerHTML="";
+    const tbl = mk("table", "role-table"), th = mk("tr");
+    ['Role', '叫號', '過號', '重呼', '發號', '設定', '預約'].forEach(t => th.appendChild(mk("th", null, t)));
+    tbl.appendChild(mk("thead", null, null, {}, [th]));
+    const tb = mk("tbody");
+    ['VIEWER', 'OPERATOR', 'MANAGER'].forEach(r => {
+        const tr = mk("tr", null, null, {}, [mk("td", null, r, {style:"font-weight:bold"})]);
+        ['call','pass','recall','issue','settings','appointment'].forEach(k => tr.appendChild(mk("td", null, null, {}, [mk("input", "role-chk", null, {type:"checkbox", dataset:{role:r, perm:k}, checked:(cfg[r]?.can||[]).includes(k)})])));
+        tb.appendChild(tr);
+    });
+    tbl.appendChild(tb); ctr.appendChild(mk("div", "role-table-wrapper", null, {}, [tbl]));
+}
+async function loadStats() {
+    try {
+        const d = await req("/api/admin/stats");
+        if(d?.hourlyCounts) {
+            if($("stats-today-count")) $("stats-today-count").textContent = d.todayCount||0;
+            const chart = $("hourly-chart"); chart.innerHTML=""; const max = Math.max(...d.hourlyCounts, 1);
+            d.hourlyCounts.forEach((v, i) => chart.appendChild(mk("div", `chart-col ${i===d.serverHour?'current':''}`, null, {onclick:()=>openStatModal(i,v)}, [
+                mk("div","chart-val",v||""), mk("div","chart-bar",null,{style:`height:${Math.max(v/max*100,2)}%;background:${v===0?'var(--border-color)':''}`}), mk("div","chart-label",String(i).padStart(2,'0'))
+            ])));
+            renderList("stats-list-ui", d.history||[], h => mk("li",null,null,{},[mk("span",null,null,{innerHTML:`${new Date(h.timestamp).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})} - <b style="color:var(--primary)">${h.number}</b> <small style="color:var(--text-sub)">(${h.operator})</small>`})]), "本日尚無紀錄");
+        }
+    } catch(e){}
+}
+async function loadLineSettings() { cachedLine = await req("/api/admin/line-settings/get"); renderLineSettings(); }
+function renderLineSettings() {
+    renderList("line-settings-list-ui", Object.keys(cachedLine||{}), k => {
+        const val = cachedLine[k]||"", row = mk("div", "line-setting-row");
+        const edit = mk("div", "line-edit-box", null, {style:"display:none;"}, [
+            mk("textarea", null, null, {value:val, placeholder:"Content..."}),
+            mk("div", null, null, {style:"display:flex;gap:8px;justify-content:flex-end;"}, [
+                mk("button","btn-secondary",T.cancel,{onclick:()=>{edit.style.display="none";row.style.display="flex";}}),
+                mk("button","btn-secondary success",T.save,{onclick:async()=>{if(await req("/api/admin/line-settings/save",{[k]:edit.children[0].value})){cachedLine[k]=edit.children[0].value;toast(T.saved,"success");renderLineSettings();}}})
+            ])
+        ]);
+        row.append(mk("div","line-setting-info",null,{},[mk("span","line-setting-label",k.split(':').pop()), mk("code","line-setting-preview",val||"(未設定)",{style:val?"":"opacity:0.5"})]), mk("button","btn-secondary",T.edit,{onclick:()=>{row.style.display="none";edit.style.display="flex";}}));
+        return mk("li", "list-item", null, {}, [row, edit]);
+    });
+    req("/api/admin/line-settings/get-unlock-pass").then(r=>{ if($("line-unlock-pwd") && r) $("line-unlock-pwd").value=r.password||""; });
+}
+function renderLogs(logs, init) {
+    const ul = $("admin-log-ui"); if(!ul) return; if(init) ul.innerHTML=""; 
+    if(!logs?.length && init) return ul.innerHTML="<li>[No Logs]</li>";
+    logs.forEach(m => { const li = mk("li", null, m); init ? ul.appendChild(li) : ul.insertBefore(li, ul.firstChild); });
+}
+
+// --- Interactions ---
+const act = (id, api, data={}) => $(id)?.addEventListener("click", async () => {
+    const num = $("number"); if(api.includes('call') && num && data.direction) num.textContent = parseInt(num.textContent||0) + (data.direction==='next'?1:-1);
+    await req(api, data, $(id));
+});
+const bind = (id, fn) => $(id)?.addEventListener("click", fn);
+
+// Bindings
+act("btn-call-prev", "/api/control/call", {direction:"prev"}); 
+act("btn-call-next", "/api/control/call", {direction:"next"});
+act("btn-mark-passed", "/api/control/pass-current"); 
+act("btn-issue-prev", "/api/control/issue", {direction:"prev"}); 
+act("btn-issue-next", "/api/control/issue", {direction:"next"});
+bind("setNumber", async()=>{ const n=$("manualNumber").value; if(n>0 && await req("/api/control/set-call",{number:n})) { $("manualNumber").value=""; toast(T.saved,"success"); }});
+bind("setIssuedNumber", async()=>{ const n=$("manualIssuedNumber").value; if(n>=0 && await req("/api/control/set-issue",{number:n})) { $("manualIssuedNumber").value=""; toast(T.saved,"success"); }});
+bind("add-passed-btn", async()=>{ const n=$("new-passed-number").value; if(n>0 && await req("/api/passed/add",{number:n})) $("new-passed-number").value=""; });
+bind("add-featured-btn", async()=>{ const t=$("new-link-text").value, u=$("new-link-url").value; if(t&&u && await req("/api/featured/add",{linkText:t, linkUrl:u})) { $("new-link-text").value=""; $("new-link-url").value=""; }});
+bind("btn-broadcast", async()=>{ const m=$("broadcast-msg").value; if(m && await req("/api/admin/broadcast",{message:m})) { toast("📢 Sent","success"); $("broadcast-msg").value=""; }});
+bind("btn-add-appt", async()=>{ const n=$("appt-number").value, t=$("appt-time").value; if(n&&t && await req("/api/appointment/add",{number:parseInt(n), timeStr:t})) { toast(T.saved,"success"); $("appt-number").value=""; $("appt-time")._flatpickr?.clear(); }});
+bind("btn-save-roles", async()=>{ 
+    const c={ VIEWER:{level:0,can:[]}, OPERATOR:{level:1,can:[]}, MANAGER:{level:2,can:[]}, ADMIN:{level:9,can:['*']} };
+    $$(".role-chk:checked").forEach(k => c[k.dataset.role].can.push(k.dataset.perm));
+    if(await req("/api/admin/roles/update", {rolesConfig:c})) toast(T.saved,"success");
+});
+bind("btn-save-unlock-pwd", async()=>{ const p=$("line-unlock-pwd").value; if(await req("/api/admin/line-settings/save-pass", {password:p})) toast(T.saved,"success"); });
+bind("btn-export-csv", async()=>{ const d=await req("/api/admin/export-csv"); if(d?.csvData) { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\uFEFF"+d.csvData],{type:'text/csv'})); a.download=d.fileName; a.click(); }});
+bind("add-user-btn", async()=>{ const u=$("new-user-username").value, p=$("new-user-password").value, n=$("new-user-nickname").value, r=$("new-user-role")?.value; if(await req("/api/admin/add-user", {newUsername:u, newPassword:p, newNickname:n, newRole:r})) { toast(T.saved,"success"); loadUsers(); } });
+bind("admin-theme-toggle", ()=>{ isDark = !isDark; applyTheme(); });
+bind("admin-theme-toggle-mobile", ()=>{ isDark = !isDark; applyTheme(); });
+bind("login-button", async () => {
+    const res = await fetch("/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username:$("username-input").value, password:$("password-input").value})}).then(r=>r.json()).catch(()=>({error:T.login_fail}));
+    if(res.token) { 
+        localStorage.setItem('callsys_token', res.token); 
+        localStorage.setItem('callsys_user', res.username); 
+        localStorage.setItem('callsys_role', res.userRole); 
+        localStorage.setItem('callsys_nick', res.nickname); 
+        checkSession(); 
+    } else $("login-error").textContent=res.error||T.login_fail;
+});
+bind("btn-logout", logout); bind("btn-logout-mobile", logout);
+
+["resetNumber","resetIssued","resetPassed","resetFeaturedContents","resetAll","btn-clear-logs","btn-clear-stats","btn-reset-line-msg"].forEach(id => {
+    const el = $(id);
+    if(!el) return;
+    
+    let url;
+    if (id.includes('clear')) {
+        url = id.includes('logs') ? "/api/logs/clear" : "/api/admin/stats/clear";
+    } else if (id === 'resetAll') {
+        url = "/reset";
+    } else if (id.includes('line')) {
+        url = "/api/admin/line-settings/reset";
+    } else if (id.includes('Passed')) {
+        url = "/api/passed/clear";
+    } else if (id.includes('Featured')) {
+        url = "/api/featured/clear";
+    } else {
+        url = `/api/control/${id==='resetNumber'?'set-call':'set-issue'}`;
     }
-    return { history: await all("SELECT * FROM history ORDER BY id DESC LIMIT 50"), hourlyCounts: counts, todayCount: Math.max(0, total), serverHour: hour };
-}));
-app.post("/api/admin/stats/clear", auth, perm('settings'), H(async r => { const {dateStr} = getTWTime(); await redis.del(`${KEYS.HOURLY}${dateStr}`); await run("DELETE FROM history WHERE date_str=?", [dateStr]); addLog(r.user.nickname, "🗑️ 清空今日統計"); }));
-app.post("/api/admin/stats/adjust", auth, perm('settings'), H(async r => { const {dateStr} = getTWTime(); await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, r.body.hour, r.body.delta); }));
-app.post("/api/admin/export-csv", auth, perm('settings'), H(async r => {
-    const rows = await all("SELECT * FROM history ORDER BY id DESC LIMIT 2000");
-    const csv = "Date,Time,Number,Action,Operator,Wait(min)\n" + rows.map(d => `${d.date_str},${new Date(d.timestamp).toLocaleTimeString('zh-TW')},${d.number},${d.action},${d.operator},${d.wait_time_min}`).join("\n");
-    return { csvData: csv, fileName: `export_${getTWTime().dateStr}.csv` };
-}));
-app.post("/api/logs/clear", auth, perm('settings'), H(async r => { await redis.del(KEYS.LOGS); io.to("admin").emit("initAdminLogs", []); }));
+    const needsZero = id.startsWith('reset') && !['All','Passed','Featured','line'].some(s => id.includes(s));
+    const data = needsZero ? {number: 0} : {};
 
-app.post("/api/featured/add", auth, perm('settings'), H(async r=>{ await redis.rpush(KEYS.FEATURED, JSON.stringify(r.body)); io.emit("updateFeaturedContents", (await redis.lrange(KEYS.FEATURED,0,-1)).map(JSON.parse)); }));
-app.post("/api/featured/get", auth, H(async r => (await redis.lrange(KEYS.FEATURED,0,-1)).map(JSON.parse)));
-app.post("/api/featured/remove", auth, perm('settings'), H(async r => { const l=await redis.lrange(KEYS.FEATURED,0,-1); const t=l.find(x=>x.includes(r.body.linkUrl)); if(t) await redis.lrem(KEYS.FEATURED, 1, t); io.emit("updateFeaturedContents", (await redis.lrange(KEYS.FEATURED,0,-1)).map(JSON.parse)); }));
-app.post("/api/featured/edit", auth, perm('settings'), H(async r => { const l=await redis.lrange(KEYS.FEATURED,0,-1); const idx=l.findIndex(x=>x.includes(r.body.oldLinkUrl)); if(idx>=0) await redis.lset(KEYS.FEATURED, idx, JSON.stringify({linkText:r.body.newLinkText, linkUrl:r.body.newLinkUrl})); io.emit("updateFeaturedContents", (await redis.lrange(KEYS.FEATURED,0,-1)).map(JSON.parse)); }));
-app.post("/api/featured/clear", auth, perm('settings'), H(async r => { await redis.del(KEYS.FEATURED); io.emit("updateFeaturedContents", []); }));
-
-app.post("/api/appointment/add", auth, perm('appointment'), H(async r => { await run("INSERT INTO appointments (number, scheduled_time) VALUES (?, ?)", [r.body.number, new Date(r.body.timeStr).getTime()]); addLog(r.user.nickname, `📅 預約: ${r.body.number}`); broadcastAppts(); }));
-app.post("/api/appointment/list", auth, perm('appointment'), H(async r => ({ appointments: await all("SELECT * FROM appointments WHERE status='pending' ORDER BY scheduled_time ASC") })));
-app.post("/api/appointment/remove", auth, perm('appointment'), H(async r => { await run("DELETE FROM appointments WHERE id=?", [r.body.id]); broadcastAppts(); }));
-
-// System Toggles & Line Settings
-app.post("/set-sound-enabled", auth, perm('settings'), H(async r=>{ await redis.set("callsys:soundEnabled", r.body.enabled?"1":"0"); io.emit("updateSoundSetting", r.body.enabled); }));
-app.post("/set-public-status", auth, perm('settings'), H(async r=>{ await redis.set("callsys:isPublic", r.body.isPublic?"1":"0"); io.emit("updatePublicStatus", r.body.isPublic); }));
-app.post("/set-system-mode", auth, perm('settings'), H(async r=>{ await redis.set(KEYS.MODE, r.body.mode); io.emit("updateSystemMode", r.body.mode); }));
-app.post("/reset", auth, perm('settings'), H(async r => resetSys(r.user.nickname)));
-app.post("/api/admin/broadcast", auth, H(async r => { io.emit("adminBroadcast", r.body.message); addLog(r.user.nickname, `📢 廣播: ${r.body.message}`); }));
-
-app.post("/api/admin/line-settings/get", auth, perm('settings'), H(async r => ({ 
-    "LINE Access Token": await redis.get(KEYS.LINE.CFG_TOKEN) || (LINE_ACCESS_TOKEN ? "(Using Env Var)" : ""),
-    "LINE Channel Secret": await redis.get(KEYS.LINE.CFG_SECRET) || (LINE_CHANNEL_SECRET ? "(Using Env Var)" : "")
-})));
-app.post("/api/admin/line-settings/save", auth, perm('settings'), H(async r => {
-    if(r.body["LINE Access Token"]) await redis.set(KEYS.LINE.CFG_TOKEN, r.body["LINE Access Token"]);
-    if(r.body["LINE Channel Secret"]) await redis.set(KEYS.LINE.CFG_SECRET, r.body["LINE Channel Secret"]);
-    initLine(); addLog(r.user.nickname, "🔧 更新 LINE 設定");
-}));
-app.post("/api/admin/line-settings/reset", auth, perm('settings'), H(async r => { await redis.del(KEYS.LINE.CFG_TOKEN, KEYS.LINE.CFG_SECRET); initLine(); }));
-app.post("/api/admin/line-settings/get-unlock-pass", auth, perm('settings'), H(async r => ({ password: await redis.get(KEYS.LINE.PWD) })));
-app.post("/api/admin/line-settings/save-pass", auth, perm('settings'), H(async r => { await redis.set(KEYS.LINE.PWD, r.body.password); }));
-
-// --- Line Bot Logic ---
-async function checkLine(curr) {
-    if(!lineClient) return;
-    const t = curr+5, [appr, arr, sub5, sub0] = await Promise.all([redis.get('callsys:line:msg:approach'), redis.get('callsys:line:msg:arrival'), redis.smembers(`${KEYS.LINE.SUB}${t}`), redis.smembers(`${KEYS.LINE.SUB}${curr}`)]);
-    const send = (ids, txt) => { while(ids.length) lineClient.multicast(ids.splice(0, 500), [{type:'text', text:txt}]).catch(console.error); };
-    if(sub5.length) send(sub5, (appr||'🔔 快到了').replace('{current}',curr).replace('{target}',t).replace('{diff}',5));
-    if(sub0.length) { send(sub0, (arr||'🎉 到您了').replace('{current}',curr)); const p=redis.multi().del(`${KEYS.LINE.SUB}${curr}`).srem(KEYS.LINE.ACTIVE,curr); sub0.forEach(u=>p.del(`${KEYS.LINE.USER}${u}`)); await p.exec(); }
-}
-
-if(LINE_ACCESS_TOKEN) {
-    app.post('/callback', (req, res, next) => {
-        if (!lineClient) return res.status(500).end();
-        line.middleware({ channelAccessToken: lineClient.config.channelAccessToken, channelSecret: lineClient.config.channelSecret })(req, res, next);
-    }, (req,res)=>Promise.all(req.body.events.map(async e => {
-        if(e.type!=='message'||e.message.type!=='text') return;
-        const t=e.message.text.trim(), u=e.source.userId, rp=x=>lineClient.replyMessage(e.replyToken,{type:'text',text:x});
-        if(t==='後台登入') return rp((await redis.get(`${KEYS.LINE.ADMIN}${u}`)) ? `🔗 ${process.env.RENDER_EXTERNAL_URL}/admin.html` : (await redis.set(`${KEYS.LINE.CTX}${u}`,'WAIT_PWD','EX',120),"請輸入密碼"));
-        if((await redis.get(`${KEYS.LINE.CTX}${u}`))==='WAIT_PWD' && t===(await redis.get(KEYS.LINE.PWD)||`unlock${ADMIN_TOKEN}`)) { await redis.set(`${KEYS.LINE.ADMIN}${u}`,"1","EX",600); await redis.del(`${KEYS.LINE.CTX}${u}`); return rp("🔓 驗證成功"); }
-        if(['?','status'].includes(t.toLowerCase())) { const [n,i,my]=await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.get(`${KEYS.LINE.USER}${u}`)]); return rp(`叫號:${n||0} / 發號:${i||0}${my?`\n您的:${my}`:''}`); }
-        if(/^\d+$/.test(t)) { const n=parseInt(t), c=parseInt(await redis.get(KEYS.CURRENT))||0; if(n<=c) return rp("已過號"); await redis.multi().set(`${KEYS.LINE.USER}${u}`,n,'EX',43200).sadd(`${KEYS.LINE.SUB}${n}`,u).expire(`${KEYS.LINE.SUB}${n}`,43200).sadd(KEYS.LINE.ACTIVE,n).exec(); return rp(`設定成功: ${n}號`); }
-        if(['cancel'].includes(t.toLowerCase())) { const n=await redis.get(`${KEYS.LINE.USER}${u}`); if(n){await redis.multi().del(`${KEYS.LINE.USER}${u}`).srem(`${KEYS.LINE.SUB}${n}`,u).exec(); return rp("已取消");} }
-    })).then(()=>res.json({})).catch(e=>res.status(500).end()));
-}
-
-// --- Cron & Socket ---
-cron.schedule('0 4 * * *', () => { resetSys('系統自動'); run("DELETE FROM history WHERE timestamp < ?", [Date.now()-(30*86400000)]); }, { timezone: "Asia/Taipei" });
-
-io.on("connection", async s => {
-    if(s.handshake.auth.token) { try { const u=JSON.parse(await redis.get(`${KEYS.SESSION}${s.handshake.auth.token}`)); if(u) { s.join("admin"); const socks = await io.in("admin").fetchSockets(); io.to("admin").emit("updateOnlineAdmins", [...new Map(socks.map(x=>x.handshake.auth.token).filter(Boolean).map(t=>[t,u])).values()]); s.emit("initAdminLogs", await redis.lrange(KEYS.LOGS,0,99)); broadcastAppts(); } } catch(e){} }
-    s.join('public');
-    const [c,i,p,f,snd,pub,m] = await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.zrange(KEYS.PASSED,0,-1),redis.lrange(KEYS.FEATURED,0,-1),redis.get("callsys:soundEnabled"),redis.get("callsys:isPublic"),redis.get(KEYS.MODE)]);
-    s.emit("update",Number(c)); s.emit("updateQueue",{current:Number(c),issued:Number(i)}); s.emit("updatePassed",p.map(Number)); s.emit("updateFeaturedContents",f.map(JSON.parse));
-    s.emit("updateSoundSetting",snd==="1"); s.emit("updatePublicStatus",pub!=="0"); s.emit("updateSystemMode",m||'ticketing'); s.emit("updateWaitTime",await calcWaitTime());
+    confirmBtn(el, el.textContent, () => req(url, data));
 });
 
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v77.0 running on ${PORT}`));
+// Misc UI Handlers
+let editHr=null; const modal=$("edit-stats-overlay");
+bind("btn-modal-close", ()=>modal.style.display="none");
+window.openStatModal = (h,v) => { $("modal-current-count").textContent=v; editHr=h; modal.style.display="flex"; };
+["btn-stats-minus", "btn-stats-plus"].forEach((id, i) => bind(id, async()=>{ if(editHr!==null) { await req("/api/admin/stats/adjust", {hour:editHr, delta:i?1:-1}); $("modal-current-count").textContent = Math.max(0, parseInt($("modal-current-count").textContent)+(i?1:-1)); loadStats(); }}));
+
+document.addEventListener("DOMContentLoaded", () => {
+    checkSession(); applyTheme();
+    if($("admin-lang-selector")) $("admin-lang-selector").value = curLang;
+    if($("appt-time")) flatpickr("#appt-time", { enableTime:true, dateFormat:"Y-m-d H:i", time_24hr:true, locale:"zh_tw", minDate:"today", disableMobile:"true" });
+    
+    // [Fix] Bind Refresh Button
+    bind("btn-refresh-stats", loadStats);
+
+    $$('.nav-btn').forEach(b => b.onclick = () => {
+        $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+        $$('.section-group').forEach(s=>s.classList.remove('active')); $(b.dataset.target)?.classList.add('active');
+        if(b.dataset.target === 'section-stats') loadStats();
+        if(b.dataset.target === 'section-booking') loadAppointments();
+    });
+    $("admin-lang-selector")?.addEventListener("change", e => { curLang=e.target.value; localStorage.setItem('callsys_lang', curLang); updateLangUI(); });
+    $("sound-toggle")?.addEventListener("change", e => req("/set-sound-enabled", {enabled:e.target.checked})); 
+    $("public-toggle")?.addEventListener("change", e => req("/set-public-status", {isPublic:e.target.checked}));
+    $$('input[name="systemMode"]').forEach(r => r.onchange = () => confirm(T.confirm+" Switch Mode?") ? req("/set-system-mode", {mode:r.value}) : (r.checked=!r.checked));
+    document.addEventListener("keydown", e => {
+        if(["INPUT","TEXTAREA"].includes(document.activeElement.tagName)) { if(e.key==="Enter" && !e.shiftKey) { const map={"username-input":"login-button","manualNumber":"setNumber","manualIssuedNumber":"setIssuedNumber","new-passed-number":"add-passed-btn"}; if(map[document.activeElement.id]) $(map[document.activeElement.id])?.click(); } return; }
+        if(e.key==="ArrowRight") $("btn-call-next")?.click(); if(e.key==="ArrowLeft") $("btn-call-prev")?.click(); if(e.key.toLowerCase()==="p") $("btn-mark-passed")?.click();
+    });
+});
