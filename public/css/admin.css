@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v92.0 Compact Fixes
+ * 後台樣式 (admin.css) - v93.0 Whitespace Fix
  * ========================================== */
 :root {
     /* [Light Mode] */
@@ -139,25 +139,38 @@ body.dark-mode .btn-secondary { background: rgba(99, 102, 241, 0.15); color: #a5
 .edit-form-wrapper input, .edit-form-wrapper select { flex: 1 1 120px; height: 32px; }
 .edit-form-actions { display: flex; gap: 6px; justify-content: flex-end; flex: 1 1 100%; margin-top: 4px; }
 
-/* Compact User List */
-#user-list-ui .list-item { padding: 4px 8px; min-height: 36px; gap: 4px; align-items: center; }
-#user-list-ui .list-info { flex-direction: row; align-items: baseline; gap: 8px; width: auto; flex: 1 1 auto; margin-right: auto; }
-#user-list-ui .list-main-text { font-size: 0.9rem; margin-bottom: 0; }
+/* [Fix] Compact User List (Extra Tight) */
+#user-list-ui .list-item { 
+    padding: 3px 8px; 
+    min-height: 32px; 
+    gap: 4px; 
+    align-items: center; 
+}
+#user-list-ui .list-info { 
+    flex-direction: row; 
+    align-items: center; 
+    gap: 8px; 
+    width: auto; 
+    flex: 1 1 auto; 
+    margin-right: auto; 
+}
+#user-list-ui .list-main-text { font-size: 0.85rem; margin-bottom: 0; }
 #user-list-ui .list-sub-text { margin-top: 0; font-size: 0.75rem; opacity: 0.7; white-space: nowrap; }
-#user-list-ui .list-actions { gap: 4px; }
-#user-list-ui .list-actions button, #user-list-ui .list-actions select { height: 28px; font-size: 0.8rem; padding: 0 8px; }
+#user-list-ui .list-actions { gap: 4px; transform: scale(0.95); }
+#user-list-ui .list-actions button, #user-list-ui .list-actions select { height: 26px; font-size: 0.75rem; padding: 0 6px; }
 
-/* Role Table (Fix: Whitespace) */
+/* Role Table */
 .role-table-wrapper { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; margin-bottom: 0; padding-bottom: 0; } 
 .role-table { width: 100%; border-collapse: collapse; min-width: 450px; margin-bottom: 0; } 
 .role-table th, .role-table td { padding: 4px 2px; border: 1px solid var(--border-color); text-align: center; font-size: 0.8rem; height: 30px; } 
 .role-chk { width: 16px; height: 16px; accent-color: var(--primary); margin: 0; vertical-align: middle; }
 #role-editor-container { padding-bottom: 0; }
 
-/* Log & Chart (Fix: Bottom Whitespace) */
+/* [Fix] Log & Chart - Whitespace Removal */
 .log-list { 
-    height: 220px; /* Reduced from 280px */
-    min-height: 220px; 
+    flex: 1;               /* Allow growing to fill card gap */
+    min-height: 200px;     /* Minimum height */
+    height: auto;          /* Remove fixed height constraint */
     font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; 
     overflow-y: auto; padding: 0; margin: 0; list-style: none; 
     background: var(--bg-body); border: 1px solid var(--border-color); 
