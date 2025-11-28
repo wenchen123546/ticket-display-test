@@ -1,5 +1,5 @@
 /* ==========================================
- * 伺服器 (index.js) - v92.0 Security & Perf
+ * 伺服器 (index.js) - v109.0 Batch & Security
  * ========================================== */
 require('dotenv').config();
 const { Server } = require("http"), express = require("express"), socketio = require("socket.io");
@@ -8,11 +8,12 @@ const { v4: uuidv4 } = require('uuid'), bcrypt = require('bcrypt'), line = requi
 const cron = require('node-cron'), fs = require("fs"), path = require("path"), sqlite3 = require('sqlite3').verbose();
 
 // --- Env Variables ---
-const { PORT = 3000, UPSTASH_REDIS_URL: REDIS_URL, ADMIN_TOKEN, LINE_ACCESS_TOKEN, LINE_CHANNEL_SECRET } = process.env;
+const { PORT = 3000, UPSTASH_REDIS_URL: REDIS_URL, ADMIN_TOKEN, LINE_ACCESS_TOKEN, LINE_CHANNEL_SECRET, ALLOWED_ORIGINS } = process.env;
 if (!ADMIN_TOKEN || !REDIS_URL) { console.error("❌ Missing ADMIN_TOKEN or REDIS_URL"); process.exit(1); }
 
 // --- Config & Consts ---
 const BUSINESS_HOURS = { start: 8, end: 22, enabled: false };
+const DB_FLUSH_INTERVAL = 5000; // [Optimization] 批次寫入間隔 (ms)
 const DEFAULT_ROLES = { VIEWER: { level: 0, can: [] }, OPERATOR: { level: 1, can: ['call', 'pass', 'recall', 'issue'] }, MANAGER: { level: 2, can: ['call', 'pass', 'recall', 'issue', 'settings', 'appointment'] }, ADMIN: { level: 9, can: ['*'] } };
 const KEYS = { 
     CURRENT: 'callsys:number', ISSUED: 'callsys:issued', MODE: 'callsys:mode', PASSED: 'callsys:passed', 
@@ -24,7 +25,12 @@ const KEYS = {
 
 // --- Setup ---
 const app = express(); app.disable('x-powered-by');
-const server = Server(app), io = socketio(server, { cors: { origin: "*" }, pingTimeout: 60000 });
+// [Security] 限制 Socket CORS 來源
+const allowedOrigins = ALLOWED_ORIGINS ? ALLOWED_ORIGINS.split(',') : ["http://localhost:3000"];
+const server = Server(app), io = socketio(server, { 
+    cors: { origin: allowedOrigins, methods: ["GET", "POST"], credentials: true }, 
+    pingTimeout: 60000 
+});
 const redis = new Redis(REDIS_URL, { tls: { rejectUnauthorized: false }, retryStrategy: t => Math.min(t * 50, 2000) });
 
 // Line Client
@@ -41,16 +47,15 @@ initLine();
 
 try { if (!fs.existsSync(path.join(__dirname, 'user_logs'))) fs.mkdirSync(path.join(__dirname, 'user_logs')); } catch(e) {}
 
-// --- Database Setup (Optimized with WAL) ---
+// --- Database Setup (Optimized with WAL & Batch) ---
 const dbPath = path.join(__dirname, 'callsys.db');
 const db = new sqlite3.Database(dbPath);
+const dbQueue = []; // [Optimization] 寫入緩衝區
 
 const initDatabase = () => {
     return new Promise((resolve, reject) => {
         db.serialize(() => {
-            // [Optimization] Enable WAL mode for better concurrency
             db.run(`PRAGMA journal_mode = WAL;`, (err) => { if (err) console.error("WAL Mode Failed:", err); });
-            
             db.run(`CREATE TABLE IF NOT EXISTS history (id INTEGER PRIMARY KEY, date_str TEXT, timestamp INTEGER, number INTEGER, action TEXT, operator TEXT, wait_time_min REAL)`);
             db.run(`CREATE TABLE IF NOT EXISTS appointments (id INTEGER PRIMARY KEY, number INTEGER, scheduled_time INTEGER, status TEXT DEFAULT 'pending')`);
             db.run(`CREATE INDEX IF NOT EXISTS idx_history_date ON history(date_str)`);
@@ -62,6 +67,19 @@ const initDatabase = () => {
     });
 };
 
+// [Optimization] 批次寫入排程
+setInterval(() => {
+    if (dbQueue.length === 0) return;
+    const batch = [...dbQueue]; dbQueue.length = 0;
+    db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+        const stmt = db.prepare("INSERT INTO history (date_str, timestamp, number, action, operator, wait_time_min) VALUES (?, ?, ?, ?, ?, ?)");
+        batch.forEach(r => stmt.run([r.dateStr, r.timestamp, r.number, r.action, r.operator, r.wait_time_min]));
+        stmt.finalize();
+        db.run("COMMIT", (err) => { if(err) console.error("Batch Insert Error:", err); });
+    });
+}, DB_FLUSH_INTERVAL);
+
 const dbQuery = (m, s, p=[]) => new Promise((res, rej) => db[m](s, p, function(e, r){ e ? rej(e) : res(m==='run'?this:r) }));
 const [run, all, get] = ['run', 'all', 'get'].map(m => (s, p) => dbQuery(m, s, p));
 
@@ -72,7 +90,6 @@ redis.defineCommand("decrIfPositive", { numberOfKeys: 1, lua: `local v=tonumber(
 // --- Helpers ---
 const getTWTime = () => { const p = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',hour12:false, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit'}).formatToParts(new Date()); return { dateStr: `${p[0].value}-${p[2].value}-${p[4].value}`, hour: parseInt(p[6].value)%24 }; };
 const addLog = async (nick, msg) => { const t = new Date().toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}); await redis.lpush(KEYS.LOGS, `[${t}] [${nick}] ${msg}`); await redis.ltrim(KEYS.LOGS, 0, 99); io.to("admin").emit("newAdminLog", `[${t}] [${nick}] ${msg}`); };
-// Simple Cookie Parser
 const parseCookie = (str) => str.split(';').reduce((acc, v) => { const [k, val] = v.split('=').map(x=>x.trim()); acc[k] = decodeURIComponent(val); return acc; }, {});
 
 let bCastT = null, cacheWait = 0, lastWaitCalc = 0;
@@ -98,7 +115,6 @@ const calcWaitTime = async (force) => {
 app.use(helmet({ contentSecurityPolicy: false })); app.use(express.static(path.join(__dirname, "public"))); app.use(express.json()); app.set('trust proxy', 1);
 const H = fn => async(req, res, next) => { try { const r = await fn(req, res); if(r!==false) res.json(r||{success:true}); } catch(e){ res.status(500).json({error:e.message}); } };
 
-// [Security] Auth middleware using Cookies
 const auth = async(req, res, next) => {
     try {
         const rawCookies = req.headers.cookie;
@@ -128,10 +144,10 @@ app.post("/login", rateLimit({windowMs:9e5,max:100}), H(async (req, res) => {
     const userRole = (u==='superadmin' ? 'ADMIN' : (await redis.hget(KEYS.USER_ROLES, u) || 'OPERATOR'));
     await redis.set(`${KEYS.SESSION}${token}`, JSON.stringify({username:u, role:u==='superadmin'?'super':'normal', userRole, nickname:nick}), "EX", 28800);
     
-    // [Security] Set HttpOnly Cookie
     const isProd = process.env.NODE_ENV === 'production';
+    // [Security] Add SameSite=Strict
     res.setHeader('Set-Cookie', [
-        `token=${token}; HttpOnly; Path=/; Max-Age=28800; SameSite=Strict${isProd ? '; Secure' : ''}`
+        `token=${token}; HttpOnly; Path=/; Max-Age=28800; SameSite=Strict; ${isProd ? 'Secure' : ''}`
     ]);
     return { success: true, role: u==='superadmin'?'super':'normal', userRole, username: u, nickname: nick };
 }));
@@ -141,14 +157,19 @@ app.post("/api/ticket/take", rateLimit({windowMs:36e5,max:20}), H(async req => {
     const { dateStr, hour } = getTWTime();
     if(BUSINESS_HOURS.enabled) { const h=new Date().getHours(); if(h<BUSINESS_HOURS.start||h>=BUSINESS_HOURS.end) throw new Error("非營業時間"); }
     const t = await redis.incr(KEYS.ISSUED); 
-    await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, `${hour}_i`, 1); // Stats: +Issued
+    await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, `${hour}_i`, 1);
     await redis.expire(`${KEYS.HOURLY}${dateStr}`, 172800);
-    await run(`INSERT INTO history (date_str, timestamp, number, action, operator, wait_time_min) VALUES (?, ?, ?, ?, ?, ?)`, [dateStr, Date.now(), t, 'online_take', 'User', await calcWaitTime()]);
+    // [Optimization] 使用 Queue
+    dbQueue.push({dateStr, timestamp: Date.now(), number: t, action: 'online_take', operator: 'User', wait_time_min: await calcWaitTime()});
     await broadcastQueue(); return { ticket: t };
 }));
 
 // Core Logic Wrapper
 async function ctl(type, {body, user}) {
+    // [Security] Input Validation
+    if(body.number !== undefined) { const n=parseInt(body.number); if(isNaN(n) || n < 0 || n > 9999) return { error: "非法數值" }; }
+    if(body.direction && !['next', 'prev'].includes(body.direction)) return { error: "無效操作" };
+
     const { direction: dir, number: num } = body, { dateStr, hour } = getTWTime();
     const curr = parseInt(await redis.get(KEYS.CURRENT))||0;
     let issued = parseInt(await redis.get(KEYS.ISSUED))||0, newNum=0, msg='';
@@ -163,13 +184,11 @@ async function ctl(type, {body, user}) {
         checkLine(newNum);
     } else if(type === 'issue') {
         if(dir==='next') { 
-            newNum = await redis.incr(KEYS.ISSUED); 
-            msg=`手動發號 ${newNum}`; 
+            newNum = await redis.incr(KEYS.ISSUED); msg=`手動發號 ${newNum}`; 
             await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, `${hour}_i`, 1);
         }
         else if(issued > curr) { 
-            newNum = await redis.decr(KEYS.ISSUED); 
-            msg=`手動回退 ${newNum}`; 
+            newNum = await redis.decr(KEYS.ISSUED); msg=`手動回退 ${newNum}`; 
             await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, `${hour}_i`, -1);
         }
         else return { error: "錯誤" };
@@ -185,7 +204,11 @@ async function ctl(type, {body, user}) {
             await redis.mset(KEYS.CURRENT, newNum, ...(newNum>issued?[KEYS.ISSUED, newNum]:[])); msg=`設定叫號 ${newNum}`; checkLine(newNum); 
         }
     }
-    if(msg) { addLog(user.nickname, msg); await run(`INSERT INTO history (date_str, timestamp, number, action, operator, wait_time_min) VALUES (?, ?, ?, ?, ?, ?)`, [dateStr, Date.now(), newNum||curr, type, user.nickname, await calcWaitTime()]); }
+    if(msg) { 
+        addLog(user.nickname, msg); 
+        // [Optimization] 使用 Queue
+        dbQueue.push({dateStr, timestamp: Date.now(), number: newNum||curr, action: type, operator: user.nickname, wait_time_min: await calcWaitTime()});
+    }
     await broadcastQueue(); return { number: newNum };
 }
 async function resetSys(by) {
@@ -199,8 +222,8 @@ app.post("/api/control/pass-current", auth, perm('pass'), H(async req => {
     const c = parseInt(await redis.get(KEYS.CURRENT))||0; if(!c) throw new Error("無叫號");
     await redis.zadd(KEYS.PASSED, c, c); const next = (await redis.safeNextNumber(KEYS.CURRENT, KEYS.ISSUED)===-1 ? c : await redis.get(KEYS.CURRENT));
     const {dateStr, hour} = getTWTime(); 
-    await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, `${hour}_p`, 1); 
-    await run(`INSERT INTO history (date_str, timestamp, number, action, operator, wait_time_min) VALUES (?, ?, ?, ?, ?, ?)`, [dateStr, Date.now(), c, 'pass', req.user.nickname, await calcWaitTime()]);
+    await redis.hincrby(`${KEYS.HOURLY}${dateStr}`, `${hour}_p`, 1);
+    dbQueue.push({dateStr, timestamp: Date.now(), number: c, action: 'pass', operator: req.user.nickname, wait_time_min: await calcWaitTime()});
     checkLine(next); await broadcastQueue(); io.emit("updatePassed", (await redis.zrange(KEYS.PASSED,0,-1)).map(Number)); return { next };
 }));
 
@@ -340,7 +363,7 @@ io.on("connection", async s => {
 
 // --- Server Start (Wait for DB) ---
 initDatabase().then(() => {
-    server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v92.0 running on ${PORT}`));
+    server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v109.0 running on ${PORT}`));
 }).catch(err => {
     console.error("❌ Failed to start server due to DB error:", err);
     process.exit(1);
