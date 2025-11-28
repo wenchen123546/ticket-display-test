@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v2.0 Compact Redesign
+ * 後台樣式 (admin.css) - v2.1 Compact Redesign
  * ========================================== */
 :root {
     /* [Light Mode] */
@@ -17,9 +17,9 @@
     --primary-grad: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
     --radius-lg: 12px;
     --radius-md: 6px; 
-    --sidebar-w: 220px; /* 稍微縮窄側邊欄 */
+    --sidebar-w: 220px;
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --input-h: 34px; /* 全域輸入框高度縮減 */
+    --input-h: 34px;
 }
 
 body.dark-mode {
@@ -70,7 +70,7 @@ body { margin: 0; width: 100%; min-height: 100vh; font-family: 'Inter', system-u
 .sub-number { font-size: 1.4rem; font-weight: 700; color: var(--text-main); line-height: 1; margin-top: 4px; }
 .label { font-size: 0.7rem; color: var(--text-sub); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
 
-/* Grid Layout (Tighter gaps) */
+/* Grid Layout */
 .card-container { display: grid; gap: 12px; grid-template-columns: repeat(1, minmax(0, 1fr)); align-items: start; }
 @media (min-width: 768px) { .card-container { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 1200px) { 
@@ -79,7 +79,7 @@ body { margin: 0; width: 100%; min-height: 100vh; font-family: 'Inter', system-u
 }
 .full-width-card { grid-column: 1 / -1 !important; }
 
-/* Card Styling (Reduce Whitespace) */
+/* Card Styling */
 .admin-card { background: var(--bg-surface); border-radius: var(--radius-lg); padding: 16px; border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; position: relative; }
 .admin-card h3 { margin: 0; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--text-main); font-weight: 600; height: 32px; }
 .admin-card h3 .card-icon { font-size: 1rem; opacity: 0.8; }
@@ -101,7 +101,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 .quick-actions { display: flex; gap: 4px; }
 .quick-actions button { padding: 0 8px; font-size: 0.8rem; height: var(--input-h); }
 
-/* Buttons & Hero (Less Bulky) */
+/* Buttons & Hero */
 .hero-control-row { margin-bottom: 4px; }
 .btn-hero { width: 100%; padding: 16px; border-radius: var(--radius-lg); border: 1px solid rgba(0,0,0,0.05); background: var(--primary); color: white; font-size: 1.2rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.1s; }
 .btn-hero:hover { background: #4338ca; }
@@ -131,24 +131,31 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
 .edit-form-wrapper input { height: 28px; font-size: 0.8rem; }
 .edit-form-actions button { height: 28px; }
 
-/* Specific: Role Table (Tighter) */
-.role-table th, .role-table td { padding: 4px 6px; height: 28px; font-size: 0.75rem; }
-.role-chk { width: 16px; height: 16px; }
+/* Role Table */
+.role-table-wrapper { overflow-x: auto; width: 100%; margin-top: 8px; border: 1px solid var(--border-color); border-radius: var(--radius-md); max-height: 350px; overflow-y: auto; }
+.role-table { width: 100%; border-collapse: collapse; min-width: 100%; white-space: nowrap; }
+.role-table th, .role-table td { padding: 4px 6px; border: 1px solid var(--border-color); text-align: center; font-size: 0.75rem; height: 28px; }
+.role-table th { background: var(--bg-body); color: var(--text-sub); font-weight: 600; position: sticky; top: 0; z-index: 10; }
+.role-table th:first-child, .role-table td:first-child { position: sticky; left: 0; z-index: 2; border-left: none; background: inherit; }
+.role-table tr:nth-child(odd) td:first-child { background: var(--bg-surface); }
+.role-table tr:nth-child(even) td:first-child { background: var(--bg-body); }
+.role-chk { width: 16px; height: 16px; margin: 0 auto; display: block; accent-color: var(--primary); }
 
-/* Specific: Stats Chart */
+/* Stats Chart */
 .chart-container { height: 160px; min-height: 160px; gap: 2px; padding: 10px 0 0; }
 .chart-bar { border-radius: 2px; min-height: 2px; }
 .chart-val { font-size: 0.65rem; margin-bottom: 2px; }
 .chart-label { font-size: 0.6rem; margin-top: 2px; }
 
-/* Specific: System Settings */
+/* Settings */
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
 .setting-card { padding: 10px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-body); display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.85rem; font-weight: 600; }
 .setting-card:hover { border-color: var(--primary); background: var(--bg-surface); }
 .setting-icon { font-size: 1rem; }
 .segmented-control { background: var(--bg-body); padding: 3px; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; margin-bottom: 12px; }
-.segmented-option { padding: 4px 8px; font-size: 0.8rem; border-radius: 4px; text-align: center; flex: 1; }
-.segmented-option.active { background: var(--bg-surface); color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.segmented-option { padding: 4px 8px; font-size: 0.8rem; border-radius: 4px; text-align: center; flex: 1; cursor: pointer; }
+.segmented-option.active { background: var(--bg-surface); color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.1); font-weight: 600; }
+.toggle-switch { width: 40px; height: 22px; } .toggle-switch::after { width: 18px; height: 18px; top: 2px; left: 2px; } .toggle-switch:checked::after { transform: translateX(18px); }
 
 /* Logs */
 .log-list { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; line-height: 1.4; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-body); padding: 4px; max-height: 150px; overflow-y: auto; }
@@ -171,7 +178,6 @@ input:focus, textarea:focus, select:focus { border-color: var(--primary); box-sh
     .big-number { font-size: 1.8rem; }
     .mobile-only-settings { display: block; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border-color); }
     .admin-card { padding: 14px; }
-    /* Compact List on Mobile */
     .list-info { flex-direction: column; align-items: flex-start; gap: 0; }
     .list-sub-text { opacity: 0.7; }
 }
