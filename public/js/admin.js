@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v105.0 Separate Roles
+ * 後台邏輯 (admin.js) - v106.0 Booking Merged
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => { 
@@ -31,7 +31,7 @@ const i18n = {
         lbl_mode: "取號模式", mode_online: "線上取號", mode_manual: "手動輸入", btn_reset_all: "💥 全域重置",
         card_online: "在線管理", card_links: "連結管理", ph_link_name: "名稱", btn_clear_links: "清空連結",
         card_users: "帳號管理", lbl_add_user: "新增帳號", ph_nick: "暱稱",
-        card_roles: "權限設定", btn_save_roles: "儲存權限變更", // [New]
+        card_roles: "權限設定", btn_save_roles: "儲存權限變更",
         btn_save: "儲存", btn_restore: "恢復預設值",
         modal_edit: "編輯數據", btn_done: "完成",
         card_booking: "預約管理", lbl_add_appt: "新增預約",
@@ -57,7 +57,7 @@ const i18n = {
         lbl_mode: "Mode", mode_online: "Online Ticket", mode_manual: "Manual Input", btn_reset_all: "💥 Factory Reset",
         card_online: "Online Users", card_links: "Links Manager", ph_link_name: "Name", btn_clear_links: "Clear Links",
         card_users: "User Manager", lbl_add_user: "Add User", ph_nick: "Nickname",
-        card_roles: "Role Permissions", btn_save_roles: "Save Permission Changes", // [New]
+        card_roles: "Role Permissions", btn_save_roles: "Save Permission Changes",
         btn_save: "Save", btn_restore: "Restore Defaults",
         modal_edit: "Edit Data", btn_done: "Done",
         card_booking: "Booking Manager", lbl_add_appt: "Add Booking",
@@ -91,7 +91,7 @@ const updateLangUI = () => {
 };
 function renderList(ulId, list, fn, emptyMsg="[ Empty ]") {
     const ul = $(ulId); if(!ul) return; ul.innerHTML = "";
-    if(!list?.length) return ul.innerHTML=`<li style="text-align:center;padding:15px;color:var(--text-sub);">${emptyMsg}</li>`;
+    if(!list?.length) return ul.innerHTML=`<li class="list-item" style="justify-content:center;color:var(--text-sub);">${emptyMsg}</li>`;
     list.forEach(x => ul.appendChild(fn(x)));
 }
 function applyTheme() {
@@ -117,12 +117,12 @@ const showPanel = () => {
     const isSuper = isSuperAdmin();
     const setFlex = (id, show) => { if($(id)) $(id).style.display = show ? "flex" : "none"; };
     const setBlock = (id, show) => { if($(id)) $(id).style.display = show ? "block" : "none"; };
-    setFlex("nav-btn-booking", isSuper);
+    
+    // [Merged] Nav Booking removed
     const lineBtn = document.querySelector('button[data-target="section-line"]');
     if(lineBtn) lineBtn.style.display = isSuper ? "flex" : "none";
-    if(!isSuper && $("section-booking")) $("section-booking").style.display = "none";
-    
-    // [Updated] Toggle role management card instead of embedded container
+
+    // Toggle role management card instead of embedded container
     ["card-user-management", "card-role-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group"].forEach(id => setBlock(id, isSuper));
     
     ['resetNumber','resetIssued','resetPassed','resetFeaturedContents','btn-clear-logs','btn-clear-stats','btn-reset-line-msg','resetAll'].forEach(id => setBlock(id, isSuper));
@@ -168,9 +168,8 @@ socket.on("updatePublicStatus", b => $("public-toggle").checked = b);
 socket.on("updateSoundSetting", b => $("sound-toggle").checked = b);
 socket.on("updateSystemMode", m => { $$('input[name="systemMode"]').forEach(r => r.checked = (r.value === m)); const w = document.querySelector('.segmented-control'); if(w) updateSegmentedVisuals(w); });
 socket.on("updateAppointments", l => renderAppointments(l));
-socket.on("updateOnlineAdmins", l => renderList("online-users-list", (l||[]).sort((a,b)=>(a.role==='super'?-1:1)), u => mk("li","list-item",null,{},[mk("span","list-main-text",`🟢 ${u.nickname}`), mk("span","list-sub-text",u.username)]), "Wait..."));
+socket.on("updateOnlineAdmins", l => renderList("online-users-list", (l||[]).sort((a,b)=>(a.role==='super'?-1:1)), u => mk("li","list-item",null,{},[mk("div","list-info",null,{},[mk("span","list-main-text",`🟢 ${u.nickname}`), mk("span","list-sub-text",u.username)])]), "Wait..."));
 socket.on("updatePassed", l => renderList("passed-list-ui", l, n => {
-    const li = mk("li", "list-item");
     const acts = mk("div", "list-actions", null, {}, [
         mk("button", "btn-secondary", T.recall, {onclick:()=>{ if(confirm(`Recall ${n}?`)) req("/api/control/recall-passed",{number:n}); }}),
         (b => { confirmBtn(b, T.del, ()=>req("/api/passed/remove",{number:n})); return b; })(mk("button", "btn-secondary", T.del))
@@ -251,30 +250,30 @@ async function loadStats() {
             d.hourlyCounts.forEach((v, i) => chart.appendChild(mk("div", `chart-col ${i===d.serverHour?'current':''}`, null, {onclick:()=>openStatModal(i,v)}, [
                 mk("div","chart-val",v||""), mk("div","chart-bar",null,{style:`height:${Math.max(v/max*100,2)}%;background:${v===0?'var(--border-color)':''}`}), mk("div","chart-label",String(i).padStart(2,'0'))
             ])));
-            renderList("stats-list-ui", d.history||[], h => mk("li",null,null,{},[mk("span",null,null,{innerHTML:`${new Date(h.timestamp).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})} - <b style="color:var(--primary)">${h.number}</b> <small style="color:var(--text-sub)">(${h.operator})</small>`})]), "本日尚無紀錄");
+            renderList("stats-list-ui", d.history||[], h => mk("li","list-item",null,{},[mk("span",null,null,{innerHTML:`${new Date(h.timestamp).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})} - <b style="color:var(--primary)">${h.number}</b> <small style="color:var(--text-sub)">(${h.operator})</small>`})]), "本日尚無紀錄");
         }
     } catch(e){}
 }
 async function loadLineSettings() { cachedLine = await req("/api/admin/line-settings/get"); renderLineSettings(); }
 function renderLineSettings() {
     renderList("line-settings-list-ui", Object.keys(cachedLine||{}), k => {
-        const val = cachedLine[k]||"", row = mk("div", "line-setting-row");
-        const edit = mk("div", "line-edit-box", null, {style:"display:none;"}, [
+        const val = cachedLine[k]||"", row = mk("div", "line-setting-row", null, {style:"display:flex;width:100%;align-items:center;justify-content:space-between;"});
+        const edit = mk("div", "line-edit-box", null, {style:"display:none;width:100%;"}, [
             mk("textarea", null, null, {value:val, placeholder:"Content..."}),
-            mk("div", null, null, {style:"display:flex;gap:8px;justify-content:flex-end;"}, [
+            mk("div", null, null, {style:"display:flex;gap:8px;justify-content:flex-end;margin-top:4px;"}, [
                 mk("button","btn-secondary",T.cancel,{onclick:()=>{edit.style.display="none";row.style.display="flex";}}),
                 mk("button","btn-secondary success",T.save,{onclick:async()=>{if(await req("/api/admin/line-settings/save",{[k]:edit.children[0].value})){cachedLine[k]=edit.children[0].value;toast(T.saved,"success");renderLineSettings();}}})
             ])
         ]);
-        row.append(mk("div","line-setting-info",null,{},[mk("span","line-setting-label",k.split(':').pop()), mk("code","line-setting-preview",val||"(未設定)",{style:val?"":"opacity:0.5"})]), mk("button","btn-secondary",T.edit,{onclick:()=>{row.style.display="none";edit.style.display="flex";}}));
+        row.append(mk("div","line-setting-info",null,{},[mk("div","line-setting-label",k.split(':').pop(),{style:"font-weight:600;"}), mk("code","line-setting-preview",val||"(未設定)",{style:val?"color:var(--text-sub);":"opacity:0.5"})]), mk("button","btn-secondary",T.edit,{onclick:()=>{row.style.display="none";edit.style.display="flex";}}));
         return mk("li", "list-item", null, {}, [row, edit]);
     });
     req("/api/admin/line-settings/get-unlock-pass").then(r=>{ if($("line-unlock-pwd") && r) $("line-unlock-pwd").value=r.password||""; });
 }
 function renderLogs(logs, init) {
     const ul = $("admin-log-ui"); if(!ul) return; if(init) ul.innerHTML=""; 
-    if(!logs?.length && init) return ul.innerHTML="<li>[No Logs]</li>";
-    logs.forEach(m => { const li = mk("li", null, m); init ? ul.appendChild(li) : ul.insertBefore(li, ul.firstChild); });
+    if(!logs?.length && init) return ul.innerHTML="<li class='list-item' style='color:var(--text-sub);'>[No Logs]</li>";
+    logs.forEach(m => { const li = mk("li", "list-item", m, {style:"font-family:monospace;font-size:0.8rem;"}); init ? ul.appendChild(li) : ul.insertBefore(li, ul.firstChild); });
     while(ul.children.length > 50) ul.removeChild(ul.lastChild);
 }
 
@@ -314,7 +313,6 @@ bind("btn-save-roles", async()=>{
 });
 bind("btn-save-unlock-pwd", async()=>{ const p=$("line-unlock-pwd").value; if(await req("/api/admin/line-settings/save-pass", {password:p})) toast(T.saved,"success"); });
 bind("btn-export-csv", async()=>{ 
-    // [Updated] Export today by default, or could be extended to date picker
     const d=await req("/api/admin/export-csv", { date: new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Taipei"}) }); 
     if(d?.csvData) { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\uFEFF"+d.csvData],{type:'text/csv'})); a.download=d.fileName; a.click(); }
 });
@@ -374,7 +372,8 @@ document.addEventListener("DOMContentLoaded", () => {
         $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active');
         $$('.section-group').forEach(s=>s.classList.remove('active')); $(b.dataset.target)?.classList.add('active');
         if(b.dataset.target === 'section-stats') loadStats();
-        if(b.dataset.target === 'section-booking') loadAppointments();
+        // [Merged] Load booking when settings is clicked
+        if(b.dataset.target === 'section-settings') loadAppointments();
     });
     $("admin-lang-selector")?.addEventListener("change", e => { curLang=e.target.value; localStorage.setItem('callsys_lang', curLang); updateLangUI(); });
     $("sound-toggle")?.addEventListener("change", e => req("/set-sound-enabled", {enabled:e.target.checked})); 
