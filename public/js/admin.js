@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v104.0 Auto UI Upgrade
+ * 後台邏輯 (admin.js) - v105.0 Separate Roles
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => { 
@@ -31,6 +31,7 @@ const i18n = {
         lbl_mode: "取號模式", mode_online: "線上取號", mode_manual: "手動輸入", btn_reset_all: "💥 全域重置",
         card_online: "在線管理", card_links: "連結管理", ph_link_name: "名稱", btn_clear_links: "清空連結",
         card_users: "帳號管理", lbl_add_user: "新增帳號", ph_nick: "暱稱",
+        card_roles: "權限設定", btn_save_roles: "儲存權限變更", // [New]
         btn_save: "儲存", btn_restore: "恢復預設值",
         modal_edit: "編輯數據", btn_done: "完成",
         card_booking: "預約管理", lbl_add_appt: "新增預約",
@@ -56,6 +57,7 @@ const i18n = {
         lbl_mode: "Mode", mode_online: "Online Ticket", mode_manual: "Manual Input", btn_reset_all: "💥 Factory Reset",
         card_online: "Online Users", card_links: "Links Manager", ph_link_name: "Name", btn_clear_links: "Clear Links",
         card_users: "User Manager", lbl_add_user: "Add User", ph_nick: "Nickname",
+        card_roles: "Role Permissions", btn_save_roles: "Save Permission Changes", // [New]
         btn_save: "Save", btn_restore: "Restore Defaults",
         modal_edit: "Edit Data", btn_done: "Done",
         card_booking: "Booking Manager", lbl_add_appt: "Add Booking",
@@ -119,12 +121,15 @@ const showPanel = () => {
     const lineBtn = document.querySelector('button[data-target="section-line"]');
     if(lineBtn) lineBtn.style.display = isSuper ? "flex" : "none";
     if(!isSuper && $("section-booking")) $("section-booking").style.display = "none";
-    ["card-user-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group", "role-editor-container"].forEach(id => setBlock(id, isSuper));
+    
+    // [Modified] Updated list to include the separate card-role-management instead of role-editor-container
+    ["card-user-management", "card-role-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group"].forEach(id => setBlock(id, isSuper));
+    
     ['resetNumber','resetIssued','resetPassed','resetFeaturedContents','btn-clear-logs','btn-clear-stats','btn-reset-line-msg','resetAll'].forEach(id => setBlock(id, isSuper));
     socket.auth.token = token; socket.connect(); 
     updateLangUI();
     if(isSuper) { loadRoles(); loadUsers(); } 
-    upgradeSystemModeUI(); // [New] Trigger UI Upgrade
+    upgradeSystemModeUI();
 };
 
 // [New] Helper to upgrade Radio Buttons to Segmented Control
