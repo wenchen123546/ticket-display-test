@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v92.0 Ultimate Permission Fix
+ * 後台邏輯 (admin.js) - v93.0 Force SuperAdmin Fix
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => { 
@@ -85,7 +85,7 @@ const updateLangUI = () => {
     T = i18n[curLang]||i18n["zh-TW"]; 
     $$('[data-i18n]').forEach(e => {
         const k = e.getAttribute('data-i18n');
-        if(T[k]) e.textContent = T[k]; 
+        if(T[k]) e.textContent = T[k];
     });
     $$('[data-i18n-ph]').forEach(e => e.placeholder = T[e.getAttribute('data-i18n-ph')]||"");
     loadUsers(); loadStats(); loadAppointments(); if(cachedLine) renderLineSettings(); else loadLineSettings();
@@ -106,31 +106,38 @@ const checkSession = () => {
     uniqueUser = localStorage.getItem('callsys_user');
     userRole = localStorage.getItem('callsys_role'); 
     username = localStorage.getItem('callsys_nick');
+    
+    // [Fix] 強制修正 superadmin 的角色，防止快取導致權限遺失
+    if (uniqueUser === 'superadmin' && userRole !== 'ADMIN') {
+        userRole = 'ADMIN';
+        localStorage.setItem('callsys_role', 'ADMIN');
+    }
+
     if(token && uniqueUser) showPanel(); else showLogin();
 };
 const logout = () => { localStorage.removeItem('callsys_token'); location.reload(); };
 const showLogin = () => { $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); };
 
-// [CRITICAL FIX] 統一檢查權限邏輯
-const isSuperAdmin = () => (userRole === 'super' || userRole === 'ADMIN');
+// [CRITICAL FIX] 權限判斷終極修正：只要帳號是 superadmin 就無條件視為超級管理員
+const isSuperAdmin = () => (uniqueUser === 'superadmin' || userRole === 'super' || userRole === 'ADMIN');
 
 const showPanel = () => {
     $("login-container").style.display="none"; 
     $("admin-panel").style.display="flex"; 
     $("sidebar-user-info").textContent = username;
     
-    const isSuper = isSuperAdmin(); // 使用統一的判斷函數
+    const isSuper = isSuperAdmin(); // 使用修正後的強判斷
     
-    // 1. 導覽列與區塊顯示
+    // 1. 預約按鈕與區塊
     if($("nav-btn-booking")) $("nav-btn-booking").style.display = isSuper ? "flex" : "none";
     if(!isSuper && $("section-booking")) $("section-booking").style.display = "none";
     
-    // 2. 超級管理員專屬區塊 (帳號管理、匯出、取號模式、密碼鎖、權限編輯)
+    // 2. 超級管理員專屬區塊
     ["card-user-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group", "role-editor-container"].forEach(id => {
         if($(id)) $(id).style.display = isSuper ? "block" : "none";
     });
 
-    // 3. 危險操作按鈕 (重置、清空)
+    // 3. 危險操作按鈕
     ['resetNumber','resetIssued','resetPassed','resetFeaturedContents','btn-clear-logs','btn-clear-stats','btn-reset-line-msg','resetAll'].forEach(id => {
         if($(id)) $(id).style.display = isSuper ? 'block' : 'none';
     });
@@ -196,7 +203,7 @@ function renderAppointments(list) {
 async function loadUsers() {
     const d = await req("/api/admin/users"); if(!d?.users) return;
     const roles = { 'VIEWER':'Viewer', 'OPERATOR':'Operator', 'MANAGER':'Manager', 'ADMIN':'Admin' };
-    const isSuper = isSuperAdmin(); // 再次使用統一判斷
+    const isSuper = isSuperAdmin(); // 使用統一強判斷
 
     renderList("user-list-ui", d.users, u => {
         const view = mk("div", "list-info", null, {}, [mk("span","list-main-text",`${u.role==='ADMIN'?'👑':(u.role==='MANAGER'?'🛡️':'👤')} ${u.nickname}`), mk("span","list-sub-text",`${u.username} (${roles[u.role]||u.role})`)]);
@@ -209,11 +216,11 @@ async function loadUsers() {
             ])
         ]);
         
-        // 修正：使用者操作權限判定
+        // 修正：使用者編輯權限
         if(u.username === uniqueUser || isSuper) {
             acts.appendChild(mk("button","btn-secondary",T.edit,{onclick:()=>{view.style.display="none";acts.style.display="none";form.style.display="flex";}}));
         }
-        // 修正：管理員刪除/改權限判定 (不可刪除 superadmin)
+        // 修正：使用者刪除/改權限 (保護 superadmin)
         if(u.username !== 'superadmin' && isSuper) {
             const sel = mk("select","role-select",null,{onchange:async()=>await req("/api/admin/set-role",{targetUsername:u.username, newRole:sel.value})});
             Object.keys(roles).forEach(k=>sel.add(new Option(roles[k], k, false, u.role===k)));
@@ -304,7 +311,7 @@ bind("login-button", async () => {
     if(res.token) { 
         localStorage.setItem('callsys_token', res.token); 
         localStorage.setItem('callsys_user', res.username); 
-        localStorage.setItem('callsys_role', res.userRole); // 確保這裡存的是 DB role 或 'ADMIN'
+        localStorage.setItem('callsys_role', res.userRole); 
         localStorage.setItem('callsys_nick', res.nickname); 
         checkSession(); 
     } else $("login-error").textContent=res.error||T.login_fail;
