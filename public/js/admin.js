@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v106.0 Booking Merged
+ * 後台邏輯 (admin.js) - v107.0 Fixed
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => { 
@@ -118,11 +118,11 @@ const showPanel = () => {
     const setFlex = (id, show) => { if($(id)) $(id).style.display = show ? "flex" : "none"; };
     const setBlock = (id, show) => { if($(id)) $(id).style.display = show ? "block" : "none"; };
     
-    // [Merged] Nav Booking removed
+    // [Updated] Nav Line removed (only for super)
     const lineBtn = document.querySelector('button[data-target="section-line"]');
     if(lineBtn) lineBtn.style.display = isSuper ? "flex" : "none";
 
-    // Toggle role management card instead of embedded container
+    // Toggle role management card
     ["card-user-management", "card-role-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group"].forEach(id => setBlock(id, isSuper));
     
     ['resetNumber','resetIssued','resetPassed','resetFeaturedContents','btn-clear-logs','btn-clear-stats','btn-reset-line-msg','resetAll'].forEach(id => setBlock(id, isSuper));
@@ -132,7 +132,6 @@ const showPanel = () => {
     upgradeSystemModeUI();
 };
 
-// [Helper] Upgrade Radio Buttons to Segmented Control
 function upgradeSystemModeUI() {
     const container = document.querySelector('#card-sys .control-group:nth-of-type(3)');
     if (!container || container.querySelector('.segmented-control')) return;
@@ -368,12 +367,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if($("admin-lang-selector")) $("admin-lang-selector").value = curLang;
     if($("appt-time")) flatpickr("#appt-time", { enableTime:true, dateFormat:"Y-m-d H:i", time_24hr:true, locale:"zh_tw", minDate:"today", disableMobile:"true" });
     
+    // 導航邏輯優化
     $$('.nav-btn').forEach(b => b.onclick = () => {
         $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active');
-        $$('.section-group').forEach(s=>s.classList.remove('active')); $(b.dataset.target)?.classList.add('active');
+        $$('.section-group').forEach(s=>s.classList.remove('active')); 
+        const target = $(b.dataset.target);
+        if(target) target.classList.add('active');
+        
         if(b.dataset.target === 'section-stats') loadStats();
-        // [Merged] Load booking when settings is clicked
-        if(b.dataset.target === 'section-settings') loadAppointments();
+        // [Merged] 載入預約資料與使用者列表
+        if(b.dataset.target === 'section-settings') { loadAppointments(); loadUsers(); }
     });
     $("admin-lang-selector")?.addEventListener("change", e => { curLang=e.target.value; localStorage.setItem('callsys_lang', curLang); updateLangUI(); });
     $("sound-toggle")?.addEventListener("change", e => req("/set-sound-enabled", {enabled:e.target.checked})); 
