@@ -1,5 +1,5 @@
 /* ==========================================
- * 伺服器 (index.js) - v73.0 Fixed & Completed
+ * 伺服器 (index.js) - v75.0 Env Reverted & Fixed
  * ========================================== */
 require('dotenv').config();
 const { Server } = require("http"), express = require("express"), socketio = require("socket.io");
@@ -7,8 +7,8 @@ const Redis = require("ioredis"), helmet = require('helmet'), rateLimit = requir
 const { v4: uuidv4 } = require('uuid'), bcrypt = require('bcrypt'), line = require('@line/bot-sdk');
 const cron = require('node-cron'), fs = require("fs"), path = require("path"), sqlite3 = require('sqlite3').verbose();
 
-// Env Variables
-const { PORT = 3000, UPSTASH_REDIS_URL: REDIS_URL, ADMIN_TOKEN, LINE_ACCESS_TOKEN: ENV_LINE_TOKEN, LINE_CHANNEL_SECRET: ENV_LINE_SECRET } = process.env;
+// --- Env Variables (Reverted to original names) ---
+const { PORT = 3000, UPSTASH_REDIS_URL: REDIS_URL, ADMIN_TOKEN, LINE_ACCESS_TOKEN, LINE_CHANNEL_SECRET } = process.env;
 if (!ADMIN_TOKEN || !REDIS_URL) process.exit(1);
 
 // --- Config & Consts ---
@@ -31,8 +31,9 @@ const redis = new Redis(REDIS_URL, { tls: { rejectUnauthorized: false }, retrySt
 let lineClient = null;
 const initLine = async () => {
     const [dbToken, dbSecret] = await redis.mget(KEYS.LINE.CFG_TOKEN, KEYS.LINE.CFG_SECRET);
-    const token = dbToken || ENV_LINE_TOKEN;
-    const secret = dbSecret || ENV_LINE_SECRET;
+    // 使用 Redis 設定優先，若無則回退使用環境變數
+    const token = dbToken || LINE_ACCESS_TOKEN;
+    const secret = dbSecret || LINE_CHANNEL_SECRET;
     if (token && secret) {
         try { lineClient = new line.Client({ channelAccessToken: token, channelSecret: secret }); } catch(e) { console.error("Line Init Error", e); }
     }
@@ -205,8 +206,8 @@ app.post("/api/admin/broadcast", auth, H(async r => { io.emit("adminBroadcast", 
 
 // Line Settings API (Bridge Redis <-> Logic)
 app.post("/api/admin/line-settings/get", auth, perm('settings'), H(async r => ({ 
-    "LINE Access Token": await redis.get(KEYS.LINE.CFG_TOKEN) || (ENV_LINE_TOKEN?"(Using Env Var)":""),
-    "LINE Channel Secret": await redis.get(KEYS.LINE.CFG_SECRET) || (ENV_LINE_SECRET?"(Using Env Var)":"")
+    "LINE Access Token": await redis.get(KEYS.LINE.CFG_TOKEN) || (LINE_ACCESS_TOKEN?"(Using Env Var)":""),
+    "LINE Channel Secret": await redis.get(KEYS.LINE.CFG_SECRET) || (LINE_CHANNEL_SECRET?"(Using Env Var)":"")
 })));
 app.post("/api/admin/line-settings/save", auth, perm('settings'), H(async r => {
     if(r.body["LINE Access Token"]) await redis.set(KEYS.LINE.CFG_TOKEN, r.body["LINE Access Token"]);
@@ -225,7 +226,9 @@ async function checkLine(curr) {
     if(sub5.length) send(sub5, (appr||'🔔 快到了').replace('{current}',curr).replace('{target}',t).replace('{diff}',5));
     if(sub0.length) { send(sub0, (arr||'🎉 到您了').replace('{current}',curr)); const p=redis.multi().del(`${KEYS.LINE.SUB}${curr}`).srem(KEYS.LINE.ACTIVE,curr); sub0.forEach(u=>p.del(`${KEYS.LINE.USER}${u}`)); await p.exec(); }
 }
-if(LINE_ACCESS_TOKEN || ENV_LINE_TOKEN) {
+
+// [Fixed] Reverted to use LINE_ACCESS_TOKEN directly
+if(LINE_ACCESS_TOKEN) {
     app.post('/callback', (req, res, next) => {
         if (!lineClient) return res.status(500).end();
         line.middleware({ channelAccessToken: lineClient.config.channelAccessToken, channelSecret: lineClient.config.channelSecret })(req, res, next);
@@ -251,4 +254,4 @@ io.on("connection", async s => {
     s.emit("updateSoundSetting",snd==="1"); s.emit("updatePublicStatus",pub!=="0"); s.emit("updateSystemMode",m||'ticketing'); s.emit("updateWaitTime",await calcWaitTime());
 });
 
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v73.0 running on ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v75.0 running on ${PORT}`));
