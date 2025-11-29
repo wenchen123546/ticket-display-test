@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v17.1 Role Cards & Layout Fix
+ * 後台邏輯 (admin.js) - v17.2 Remove Viewer Role
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => { 
@@ -38,7 +38,7 @@ const i18n = {
         modal_edit: "編輯數據", btn_done: "完成",
         card_booking: "預約管理", lbl_add_appt: "新增預約", wait: "等待...",
         loading: "載入中...", empty: "[ 空 ]", no_logs: "[ 無日誌 ]", no_appt: "暫無預約",
-        role_viewer: "檢視者", role_operator: "操作員", role_manager: "經理", role_admin: "管理員",
+        role_operator: "操作員", role_manager: "經理", role_admin: "管理員",
         msg_recall_confirm: "確定要重呼 %s 嗎？", msg_sent: "📢 已發送", msg_calibrated: "校正完成",
         perm_role: "角色權限", perm_call: "叫號/指揮", perm_issue: "發號", perm_stats: "數據/日誌", 
         perm_settings: "系統設定", perm_line: "LINE設定", perm_appointment: "預約管理", perm_users: "帳號管理"
@@ -68,7 +68,7 @@ const i18n = {
         modal_edit: "Edit Data", btn_done: "Done",
         card_booking: "Booking Manager", lbl_add_appt: "Add Booking", wait: "Waiting...",
         loading: "Loading...", empty: "[ Empty ]", no_logs: "[ No Logs ]", no_appt: "No Appointments",
-        role_viewer: "Viewer", role_operator: "Operator", role_manager: "Manager", role_admin: "Admin",
+        role_operator: "Operator", role_manager: "Manager", role_admin: "Admin",
         msg_recall_confirm: "Recall number %s?", msg_sent: "📢 Sent", msg_calibrated: "Calibrated",
         perm_role: "Role", perm_call: "Call/Cmd", perm_issue: "Ticketing", perm_stats: "Stats/Logs", 
         perm_settings: "Settings", perm_line: "Line Config", perm_appointment: "Booking", perm_users: "Users"
@@ -266,7 +266,8 @@ function renderAppointments(list) {
 
 async function loadUsers() {
     const d = await req("/api/admin/users"); if(!d?.users) return;
-    const roleNames = { 'VIEWER': T.role_viewer, 'OPERATOR': T.role_operator, 'MANAGER': T.role_manager, 'ADMIN': T.role_admin };
+    // [Mod] Remove VIEWER
+    const roleNames = { 'OPERATOR': T.role_operator, 'MANAGER': T.role_manager, 'ADMIN': T.role_admin };
     const isSuper = isSuperAdmin(); 
     renderList("user-list-ui", d.users, u => {
         const roleLabel = roleNames[u.role] || u.role;
@@ -291,7 +292,7 @@ async function loadUsers() {
 }
 
 async function loadRoles() {
-    // [Updated: Vertical Cards Layout]
+    // [Updated: Vertical Cards Layout, Removed VIEWER]
     const cfg = globalRoleConfig || await req("/api/admin/roles/get"); 
     const ctr = $("role-editor-content"); if(!cfg || !ctr) return; ctr.innerHTML="";
     
@@ -300,15 +301,16 @@ async function loadRoles() {
         {k:'settings', t:T.perm_settings}, {k:'appointment', t:T.perm_appointment}, 
         {k:'line', t:T.perm_line}, {k:'users', t:T.perm_users}
     ];
+    // [Mod] Remove VIEWER meta
     const roleMeta = {
-        'VIEWER': { icon: '👀', label: T.role_viewer },
         'OPERATOR': { icon: '🎮', label: T.role_operator },
         'MANAGER': { icon: '🛡️', label: T.role_manager }
     };
 
     const container = mk("div", "role-editor-container");
 
-    ['VIEWER', 'OPERATOR', 'MANAGER'].forEach(r => {
+    // [Mod] Loop only OPERATOR and MANAGER
+    ['OPERATOR', 'MANAGER'].forEach(r => {
         const block = mk("div", "role-block");
         const meta = roleMeta[r] || {icon:'👤', label:r};
         const header = mk("div", "role-header", null, {}, [
@@ -400,7 +402,8 @@ bind("add-featured-btn", async()=>{ const t=$("new-link-text").value, u=$("new-l
 bind("btn-broadcast", async()=>{ const m=$("broadcast-msg").value; if(m && await req("/api/admin/broadcast",{message:m})) { toast(T.msg_sent,"success"); $("broadcast-msg").value=""; }});
 bind("btn-add-appt", async()=>{ const n=$("appt-number").value, t=$("appt-time").value; if(n&&t && await req("/api/appointment/add",{number:parseInt(n), timeStr:t})) { toast(T.saved,"success"); $("appt-number").value=""; $("appt-time")._flatpickr?.clear(); }});
 bind("btn-save-roles", async()=>{ 
-    const c={ VIEWER:{level:0,can:[]}, OPERATOR:{level:1,can:[]}, MANAGER:{level:2,can:[]}, ADMIN:{level:9,can:['*']} };
+    // [Mod] Remove VIEWER
+    const c={ OPERATOR:{level:1,can:[]}, MANAGER:{level:2,can:[]}, ADMIN:{level:9,can:['*']} };
     $$(".role-chk:checked").forEach(k => c[k.dataset.role].can.push(k.dataset.perm));
     if(await req("/api/admin/roles/update", {rolesConfig:c})) {
         toast(T.saved,"success");
