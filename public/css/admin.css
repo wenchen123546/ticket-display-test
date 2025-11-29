@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v17.5 UI Polish
+ * 後台樣式 (admin.css) - v17.6 Scroll Fix
  * ========================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
@@ -120,7 +120,7 @@ body {
 .card-container { 
     display: grid; gap: 24px; 
     grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-    align-items: stretch;
+    align-items: start; /* 改為 start，避免卡片自動拉伸對齊最高的那張 */
 }
 .full-width-card { grid-column: 1 / -1 !important; width: 100%; }
 .card-wrapper { height: 100%; }
@@ -129,7 +129,9 @@ body {
     background: var(--bg-surface); border-radius: var(--card-radius); 
     border: 1px solid var(--border-color); box-shadow: var(--shadow-card); 
     padding: 24px; 
-    height: 100%; position: relative; 
+    height: 100%; /* 讓它填滿 wrapper */
+    min-height: 200px; /* 最小高度 */
+    position: relative; 
     transition: transform 0.2s, box-shadow 0.2s;
     display: flex; flex-direction: column; justify-content: space-between; gap: 16px; 
     overflow: hidden; 
@@ -230,34 +232,37 @@ button:active { transform: scale(0.97); }
 .secondary-actions-row, .big-action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 0; }
 
 /* ==========================================
-   4. 列表 (Lists) - 美化重點
+   4. 列表 (Lists) - 關鍵修復：限制高度
    ========================================== */
 .list-container { 
-    flex: 1; min-height: 0;
+    flex: 1; 
+    min-height: 100px;
+    /* [Desktop] 設定最大高度，避免卡片無限拉長 */
+    max-height: 400px; 
     border: 1px solid var(--border-color); border-radius: var(--btn-radius); 
     background: var(--bg-input); display: flex; flex-direction: column; 
     margin-bottom: 8px;
 }
 .scroll-list { 
-    flex: 1; overflow-y: auto; margin: 0; padding: 0; list-style: none; min-height: 0; 
+    flex: 1; 
+    overflow-y: auto; /* 強制出現捲軸 */
+    margin: 0; padding: 0; list-style: none; min-height: 0; 
     overscroll-behavior: contain; height: 100%;
 }
 .scroll-list::-webkit-scrollbar { width: 6px; }
 .scroll-list::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 10px; }
 
-/* 列表項目優化：Flex Row 對齊 */
+/* 列表項目 */
 .list-item { 
     display: flex; justify-content: space-between; align-items: center; 
-    padding: 10px 16px; /* 稍微縮減垂直 padding */
-    border-bottom: 1px solid var(--border-color); 
+    padding: 10px 16px; border-bottom: 1px solid var(--border-color); 
     background: var(--bg-surface); transition: background 0.15s;
-    flex-wrap: wrap; /* 允許極端情況換行，但預設盡量在同一行 */
-    gap: 8px;
+    flex-wrap: wrap; gap: 8px;
 }
 .list-item:last-child { border-bottom: none; }
 .list-item:hover { background: var(--bg-hover); }
 
-/* 文字區域：確保不被擠壓 */
+/* 文字區域 */
 .list-info { 
     display: flex; flex-direction: column; overflow: hidden; gap: 2px;
     flex: 1 1 auto; min-width: 120px;
@@ -265,26 +270,20 @@ button:active { transform: scale(0.97); }
 .list-main-text { font-weight: 600; color: var(--text-main); font-size: 0.95rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .list-sub-text { font-size: 0.8rem; color: var(--text-sub); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* 操作區域：強制水平排列，除非空間極小 */
+/* 操作區域 */
 .list-actions { 
     display: flex; gap: 8px; flex-shrink: 0; align-items: center; 
-    flex-wrap: nowrap; /* 關鍵：避免按鈕換行變成垂直堆疊 */
+    flex-wrap: nowrap; 
 }
-
-/* 操作按鈕美化：改為圖示風格 (Ghost Button) */
 .list-actions button { 
-    height: 32px; width: 32px; /* 方形按鈕 */
-    font-size: 0.85rem; padding: 0;
-    background: transparent; border: 1px solid transparent; /* 預設透明 */
-    color: var(--text-sub);
-    border-radius: 8px;
+    height: 32px; width: 32px; font-size: 0.85rem; padding: 0;
+    background: transparent; border: 1px solid transparent; 
+    color: var(--text-sub); border-radius: 8px;
 }
-.list-actions button:hover { 
-    background: var(--bg-hover); color: var(--primary); border-color: var(--border-color); 
-}
+.list-actions button:hover { background: var(--bg-hover); color: var(--primary); border-color: var(--border-color); }
 .list-actions button.btn-secondary.success { color: var(--success-text); background: var(--success-bg); }
 
-/* 權限下拉選單美化 */
+/* 權限下拉選單 */
 .role-select { 
     height: 30px; padding: 0 8px; width: auto; max-width: 110px;
     font-size: 0.8rem; border-radius: 6px; 
@@ -390,7 +389,10 @@ button:active { transform: scale(0.97); }
     .content-area { width: 100%; padding: 16px; overflow: visible; height: auto; display: block; }
     
     .card-container { display: flex; flex-direction: column; gap: 20px; } 
+    /* Mobile上解除高度限制，避免出現兩個捲軸 */
     .admin-card { height: auto !important; min-height: auto; gap: 20px; }
+    .list-container { max-height: none; height: auto; }
+    .scroll-list { max-height: 400px; } /* Mobile列表仍需限制，避免單個卡片過長 */
     
     .dashboard-header { grid-template-columns: 1fr 1fr; gap: 12px; }
     .dashboard-item { padding: 16px; }
@@ -405,12 +407,8 @@ button:active { transform: scale(0.97); }
     button, input, select { min-height: 48px; font-size: 16px; }
     button { white-space: normal; line-height: 1.2; height: auto; padding: 12px; }
     
-    .list-container { max-height: none; height: auto; }
-    .scroll-list { max-height: 400px; }
-    
-    /* Mobile上讓列表動作稍微寬鬆一點 */
     .list-actions { flex-wrap: wrap; justify-content: flex-end; }
-    .list-actions button { width: 44px; height: 44px; } /* 方便手指點擊 */
+    .list-actions button { width: 44px; height: 44px; } 
 
     .mobile-only-settings { display: block; margin-top: 24px; padding-top: 20px; border-top: 1px dashed var(--border-color); }
     #login-container { width: 100%; padding: 32px 24px; box-shadow: none; top: 0; margin-top: 40px; border: none; }
