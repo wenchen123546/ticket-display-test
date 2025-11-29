@@ -1,660 +1,418 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v20.4 Syntax Fixed
+ * 後台樣式 (admin.css) - v20.2 Login Fix
  * ========================================== */
-const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
-// [Security] Enhanced mk function
-const mk = (t, c, txt, ev={}, ch=[], isHtml=false) => { 
-    const e = document.createElement(t); 
-    if(c) e.className=c; 
-    if(txt) {
-        if(isHtml) e.innerHTML = txt; 
-        else e.textContent = txt;
-    }
-    Object.entries(ev).forEach(([k,v])=>e[k.startsWith('on')?k.toLowerCase():k]=v); 
-    ch.forEach(x=>x&&e.appendChild(x)); return e; 
-};
+:root {
+    /* [色彩系統] */
+    --bg-body: #f1f5f9;
+    --bg-surface: #ffffff;
+    --bg-sidebar: #ffffff;
+    --bg-hover: #f8fafc;
+    --bg-input: #f8fafc;
+    --text-main: #0f172a;
+    --text-sub: #64748b;
+    --text-light: #94a3b8;
+    --border-color: #e2e8f0;
+    --border-focus: #818cf8;
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --primary-soft: rgba(79, 70, 229, 0.08);
+    --primary-glow: rgba(79, 70, 229, 0.3);
+    --success: #10b981; --success-bg: #ecfdf5; --success-text: #047857;
+    --warning: #f59e0b; --warning-bg: #fffbeb; --warning-text: #b45309;
+    --danger: #ef4444;  --danger-bg: #fef2f2;  --danger-text: #b91c1c;
 
-const toast = (m, t='info') => { 
-    const el=$("toast-notification"); el.textContent=m; 
-    el.className = `show ${t}`; setTimeout(()=>el.className="", 3000); 
-};
-
-const i18n = {
-    "zh-TW": { 
-        status_conn:"✅ 已連線", status_dis:"⚠️ 連線中斷...", saved:"✅ 已儲存", denied:"❌ 權限不足", 
-        expired:"Session 過期", login_fail:"登入失敗", confirm:"⚠️ 確認", recall:"↩️ 重呼", 
-        edit:"✎ 編輯", del:"✕ 刪除", save:"✓ 儲存", cancel:"✕ 取消",
-        login_title: "請登入管理系統", ph_account: "帳號", ph_password: "密碼", login_btn: "登入",
-        admin_panel: "管理後台", nav_live: "現場控台", nav_stats: "數據報表", nav_booking: "預約管理",
-        nav_settings: "系統設定", nav_line: "LINE設定", logout: "登出",
-        dash_curr: "目前叫號", dash_issued: "已發號至", dash_wait: "等待組數",
-        card_call: "指揮中心", btn_next: "下一號 ▶", btn_prev: "◀ 上一號", btn_pass: "過號", 
-        lbl_assign: "指定 / 插隊", btn_exec: "GO", btn_reset_call: "↺ 重置叫號",
-        card_issue: "發號管理", btn_recall: "➖ 收回", btn_issue: "發號 ➕", 
-        lbl_fix_issue: "修正發號數", btn_fix: "修正", btn_reset_issue: "↺ 重置發號",
-        card_passed: "過號名單", btn_clear_passed: "清空過號",
-        card_stats: "流量分析", lbl_today: "今日人次", btn_refresh: "重整", btn_calibrate: "校正", btn_clear_stats: "🗑️ 清空統計",
-        card_logs: "操作日誌", btn_clear_logs: "清除日誌",
-        card_sys: "系統", lbl_public: "開放前台", lbl_sound: "提示音效", 
-        lbl_tts: "TTS 語音廣播", btn_play: "播放", 
-        lbl_mode: "取號模式", mode_online: "線上取號", mode_manual: "手動輸入", btn_reset_all: "💥 全域重置",
-        card_online: "在線管理", card_links: "連結管理", ph_link_name: "名稱", btn_clear_links: "清空連結",
-        card_users: "帳號管理", lbl_add_user: "新增帳號", ph_nick: "暱稱",
-        card_roles: "權限設定", btn_save_roles: "儲存權限變更",
-        btn_save: "儲存", btn_restore: "恢復預設值",
-        modal_edit: "編輯數據", btn_done: "完成",
-        card_booking: "預約管理", lbl_add_appt: "新增預約", wait: "等待...",
-        loading: "載入中...", empty: "[ 空 ]", no_logs: "[ 無日誌 ]", no_appt: "暫無預約",
-        role_operator: "操作員", role_manager: "經理", role_admin: "管理員",
-        msg_recall_confirm: "確定要重呼 %s 嗎？\n(當前叫號將移入過號名單)", msg_sent: "📢 已發送", msg_calibrated: "校正完成",
-        perm_role: "角色權限", perm_call: "叫號/指揮", perm_issue: "發號", perm_stats: "數據/日誌", 
-        perm_settings: "系統設定", perm_line: "LINE設定", perm_appointment: "預約管理", perm_users: "帳號管理"
-    },
-    "en": { 
-        status_conn:"✅ Connected", status_dis:"⚠️ Disconnected...", saved:"✅ Saved", denied:"❌ Denied", 
-        expired:"Session Expired", login_fail:"Login Failed", confirm:"⚠️ Confirm", recall:"↩️ Recall", 
-        edit:"✎ Edit", del:"✕ Del", save:"✓ Save", cancel:"✕ Cancel",
-        login_title: "Login to Admin Panel", ph_account: "Username", ph_password: "Password", login_btn: "Login",
-        admin_panel: "Admin Panel", nav_live: "Live Console", nav_stats: "Statistics", nav_booking: "Booking",
-        nav_settings: "Settings", nav_line: "Line Config", logout: "Logout",
-        dash_curr: "Current Serving", dash_issued: "Last Issued", dash_wait: "Waiting",
-        card_call: "Command Center", btn_next: "Next ▶", btn_prev: "◀ Prev", btn_pass: "Pass", 
-        lbl_assign: "Assign / Jump", btn_exec: "GO", btn_reset_call: "↺ Reset Call",
-        card_issue: "Ticketing", btn_recall: "➖ Recall", btn_issue: "Issue ➕", 
-        lbl_fix_issue: "Fix Issued #", btn_fix: "Fix", btn_reset_issue: "↺ Reset Issue",
-        card_passed: "Passed List", btn_clear_passed: "Clear Passed",
-        card_stats: "Analytics", lbl_today: "Today's Count", btn_refresh: "Refresh", btn_calibrate: "Calibrate", btn_clear_stats: "🗑️ Clear Stats",
-        card_logs: "Action Logs", btn_clear_logs: "Clear Logs",
-        card_sys: "System", lbl_public: "Public Access", lbl_sound: "Sound FX", 
-        lbl_tts: "TTS Broadcast", btn_play: "Play", 
-        lbl_mode: "Mode", mode_online: "Online Ticket", mode_manual: "Manual Input", btn_reset_all: "💥 Factory Reset",
-        card_online: "Online Users", card_links: "Links Manager", ph_link_name: "Name", btn_clear_links: "Clear Links",
-        card_users: "User Manager", lbl_add_user: "Add User", ph_nick: "Nickname",
-        card_roles: "Role Permissions", btn_save_roles: "Save Permission Changes",
-        btn_save: "Save", btn_restore: "Restore Defaults",
-        modal_edit: "Edit Data", btn_done: "Done",
-        card_booking: "Booking Manager", lbl_add_appt: "Add Booking", wait: "Waiting...",
-        loading: "Loading...", empty: "[ Empty ]", no_logs: "[ No Logs ]", no_appt: "No Appointments",
-        role_operator: "Operator", role_manager: "Manager", role_admin: "Admin",
-        msg_recall_confirm: "Recall number %s?\n(Current number will be moved to passed list)", msg_sent: "📢 Sent", msg_calibrated: "Calibrated",
-        perm_role: "Role", perm_call: "Role", perm_issue: "Ticketing", perm_stats: "Stats/Logs", 
-        perm_settings: "Settings", perm_line: "Line Config", perm_appointment: "Booking", perm_users: "Users"
-    }
-};
-
-let curLang = localStorage.getItem('callsys_lang')||'zh-TW', T = i18n[curLang], userRole="normal", username="", uniqueUser="", cachedLine=null, isDark = localStorage.getItem('callsys_admin_theme') === 'dark';
-const socket = io({ autoConnect: false });
-let globalRoleConfig = null;
-
-async function req(url, data={}, btn=null) {
-    if(btn) btn.disabled=true;
-    try {
-        const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-        const res = await r.json();
-        if(!r.ok) { if(r.status===403) { if(!res.error?.includes("權限")) logout(); } toast(`❌ ${res.error||'Error'}`, "error"); return null; }
-        return res;
-    } catch(e) { toast(`❌ ${e.message}`, "error"); return null; } finally { if(btn) setTimeout(()=>btn.disabled=false, 300); }
-}
-
-const confirmBtn = (el, txt, action) => {
-    if(!el) return; let t, c=5;
-    el.dataset.originalKey = Object.keys(T).find(key => T[key] === txt) || txt; 
-    el.onclick = (e) => { 
-        e.stopPropagation(); 
-        if(el.classList.contains("is-confirming")) { action(); reset(); } 
-        else { el.classList.add("is-confirming"); el.textContent = `${T.confirm} (${c})`; t = setInterval(() => { c--; el.textContent = `${T.confirm} (${c})`; if(c<=0) reset(); }, 1000); } 
-    };
-    const reset = () => { clearInterval(t); el.classList.remove("is-confirming"); el.textContent = T[el.dataset.originalKey] || txt; c=5; };
-};
-
-const updateLangUI = () => {
-    T = i18n[curLang]||i18n["zh-TW"]; 
-    $$('[data-i18n]').forEach(e => { const k = e.getAttribute('data-i18n'); if(T[k]) e.textContent = T[k]; });
-    $$('[data-i18n-ph]').forEach(e => e.placeholder = T[e.getAttribute('data-i18n-ph')]||"");
-    $$('button[data-original-key]').forEach(b => { if(!b.classList.contains('is-confirming')) b.textContent = T[b.dataset.originalKey]; });
+    /* [尺寸系統] */
+    --sidebar-w: 260px;
+    --header-h: 64px;
+    --card-radius: 16px;
+    --btn-radius: 10px;
+    --input-h: 46px;
     
-    if(checkPerm('users')) loadUsers(); 
-    if(checkPerm('stats')) loadStats(); 
-    if(checkPerm('appointment')) loadAppointments(); 
-    if(isSuperAdmin()) loadRoles(); 
-    if(checkPerm('settings')) {
-        req("/api/featured/get").then(l => renderList("featured-list-ui", l, renderFeaturedItem));
-        initBusinessHoursUI(); 
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+    --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+}
+
+body.dark-mode {
+    --bg-body: #0b1120;
+    --bg-surface: #1e293b;
+    --bg-sidebar: #1e293b;
+    --bg-hover: #334155;
+    --bg-input: #0f172a;
+    --text-main: #f8fafc;
+    --text-sub: #94a3b8;
+    --text-light: #64748b;
+    --border-color: rgba(255, 255, 255, 0.08);
+    --border-focus: #6366f1;
+    --primary: #818cf8;
+    --primary-hover: #a5b4fc;
+    --primary-soft: rgba(129, 140, 248, 0.15);
+    --primary-glow: rgba(129, 140, 248, 0.4);
+    --success: #34d399; --success-bg: rgba(6, 95, 70, 0.4); --success-text: #d1fae5;
+    --warning: #fbbf24; --warning-bg: rgba(120, 53, 15, 0.4); --warning-text: #fef3c7;
+    --danger: #f87171;  --danger-bg: rgba(127, 29, 29, 0.4);  --danger-text: #fee2e2;
+    --shadow-sm: none;
+    --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+/* ==========================================
+ * [新增] Login Container Styles (修正過大問題)
+ * ========================================== */
+#login-container {
+    width: 90%;
+    max-width: 400px;         /* 關鍵：限制最大寬度 */
+    margin: 12vh auto 0;      /* 垂直置中，頂部留白 */
+    padding: 48px 32px;
+    background: var(--bg-surface);
+    border-radius: 24px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-float);
+    animation: loginFadeIn 0.5s ease-out;
+}
+
+/* 優化登入畫面內部間距 */
+#login-container .control-group {
+    margin-bottom: 20px;
+}
+#login-container .btn-hero {
+    margin-top: 12px;
+}
+
+@keyframes loginFadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================
+ * General Resets
+ * ========================================== */
+* { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+body { margin: 0; width: 100%; height: 100vh; font-family: 'Inter', system-ui, sans-serif; background: var(--bg-body); color: var(--text-main); font-size: 14px; line-height: 1.5; overflow: hidden; transition: background-color 0.3s ease; }
+
+/* Layout - Desktop Defaults */
+#admin-panel { display: flex; width: 100%; height: 100vh; overflow: hidden; }
+.sidebar { width: var(--sidebar-w); background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; z-index: 20; }
+.sidebar-header { height: var(--header-h); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); font-weight: 800; color: var(--primary); font-size: 1.15rem; }
+.sidebar-nav { flex: 1; padding: 20px 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.nav-btn { padding: 12px 16px; border-radius: var(--btn-radius); display: flex; align-items: center; gap: 12px; color: var(--text-sub); background: transparent; border: 1px solid transparent; cursor: pointer; font-weight: 500; font-size: 0.95rem; text-align: left; transition: all 0.2s ease; white-space: nowrap; }
+.nav-btn:hover { background: var(--bg-hover); color: var(--text-main); }
+.nav-btn.active { background: var(--primary-soft); color: var(--primary); font-weight: 700; border-color: rgba(79, 70, 229, 0.1); }
+.sidebar-footer { padding: 20px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; background: var(--bg-sidebar); }
+.content-area { flex: 1; padding: 32px; width: 0; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: center; scroll-behavior: smooth; }
+.section-group { width: 100%; max-width: 1400px; display: none; animation: fadeIn 0.4s ease-out; }
+.section-group.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Grid System */
+.card-container, .dashboard-header { 
+    display: grid; gap: 24px; 
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); 
+    align-items: stretch; width: 100%;
+}
+.dashboard-header { margin-bottom: 24px; flex-shrink: 0; }
+.full-width-card { grid-column: 1 / -1 !important; width: 100%; }
+.card-wrapper { height: auto; display: flex; flex-direction: column; }
+
+/* Cards */
+.admin-card, .dashboard-item { 
+    background: var(--bg-surface); border-radius: var(--card-radius); 
+    border: 1px solid var(--border-color); 
+    position: relative; transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    overflow: visible; 
+}
+.admin-card { 
+    box-shadow: var(--shadow-card); padding: 24px; 
+    height: 100%; min-height: 220px; 
+    display: flex; flex-direction: column; gap: 20px; 
+}
+.dashboard-item { padding: 24px; display: flex; flex-direction: column; justify-content: center; box-shadow: var(--shadow-sm); }
+.admin-card:hover, .dashboard-item:hover { transform: translateY(-2px); box-shadow: var(--shadow-float); border-color: var(--primary); }
+.admin-card h3 { margin: 0; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); font-size: 1rem; color: var(--text-main); font-weight: 700; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.card-icon { font-size: 1.3rem; opacity: 0.9; }
+.dashboard-item::after { content:''; position: absolute; top:0; left:0; width: 4px; height: 100%; background: var(--primary); opacity: 0.8; }
+.big-number { font-size: 3.5rem; font-weight: 800; line-height: 1; margin-top: 8px; color: var(--text-main); letter-spacing: -2px; }
+.sub-number { font-size: 2.5rem; font-weight: 700; line-height: 1.1; margin-top: 8px; color: var(--text-main); letter-spacing: -1px; }
+
+/* Inputs & Controls */
+.control-group { margin-bottom: 0; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+.control-group label { font-size: 0.9rem; font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center; }
+input, select, textarea { height: var(--input-h); border-radius: var(--btn-radius); font-size: 0.95rem; border: 1px solid var(--border-color); padding: 0 16px; background: var(--bg-input); color: var(--text-main); width: 100%; transition: all 0.2s ease; font-family: inherit; font-weight: 500; }
+input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.input-group { display: flex; gap: 8px; width: 100%; align-items: center; } 
+.input-group input { flex: 1; }
+
+/* Buttons & Actions */
+button { height: var(--input-h); border-radius: var(--btn-radius); font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; border: none; transition: all 0.2s ease; font-size: 0.95rem; padding: 0 16px; flex-shrink: 0; user-select: none; }
+button:active { transform: scale(0.97); }
+.btn-hero { width: 100%; height: 64px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%); color: white; font-size: 1.2rem; letter-spacing: 0.5px; box-shadow: 0 8px 20px -6px var(--primary-glow); }
+.btn-hero:hover { box-shadow: 0 12px 24px -4px var(--primary-glow); transform: translateY(-1px); }
+.btn-secondary { background: var(--bg-body); border: 1px solid var(--border-color); color: var(--text-sub); }
+.btn-secondary:hover { border-color: var(--primary); color: var(--primary); background: var(--bg-surface); }
+.btn-secondary.success { background: var(--success-bg); color: var(--success-text); border-color: transparent; }
+.btn-secondary.success:hover { background: var(--success); color: white; }
+.btn-warn { background: var(--danger-bg); color: var(--danger-text); border: 1px solid transparent; }
+.btn-warn:hover { background: var(--danger); color: white; }
+.btn-add { width: var(--input-h); padding: 0; background: var(--primary); color: white; font-size: 1.4rem; line-height: 1; }
+.btn-reset-single { width: 100%; margin-top: auto; padding: 12px; height: auto; background: transparent; color: var(--text-light); font-size: 0.85rem; font-weight: 500; text-align: center; }
+.btn-reset-single:hover { color: var(--danger); background: var(--danger-bg); border-radius: var(--btn-radius); }
+
+/* Quick Actions & Big Buttons */
+.quick-actions { display: flex; gap: 6px; margin-right: 8px; flex-shrink: 0; }
+.quick-actions button { width: 44px; padding: 0; font-size: 0.9rem; border: 1px solid var(--border-color); background: var(--bg-surface); }
+.quick-actions button:hover { border-color: var(--primary); color: var(--primary); }
+.big-action-row { display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; margin-bottom: auto; }
+.btn-big { height: 80px; font-size: 1.1rem; flex-direction: column; gap: 6px; }
+.admin-card .control-group:last-of-type { margin-top: auto; padding-top: 16px; border-top: 1px dashed var(--border-color); }
+
+/* Lists */
+.list-container { flex: 1; min-height: 100px; max-height: 400px; border: 1px solid var(--border-color); border-radius: var(--btn-radius); background: var(--bg-input); display: flex; flex-direction: column; overflow: hidden; }
+.scroll-list { flex: 1; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+.list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border-color); background: var(--bg-surface); transition: background 0.15s; gap: 12px; }
+.list-item:hover { background: var(--bg-hover); }
+.list-info { display: flex; flex-direction: column; overflow: hidden; flex: 1; gap: 2px; }
+.list-main-text { font-weight: 600; color: var(--text-main); font-size: 0.95rem; }
+.list-sub-text { font-size: 0.8rem; color: var(--text-sub); }
+.list-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+.list-actions button { width: auto; height: 32px; padding: 0 10px; font-size: 0.8rem; border-radius: 6px; background: transparent; border: 1px solid var(--border-color); color: var(--text-sub); }
+.list-actions button:hover { border-color: var(--primary); color: var(--primary); background: var(--bg-surface); }
+
+/* Charts & Other */
+.chart-container { display: flex; align-items: flex-end; height: 180px; gap: 4px; padding-top: 20px; border-bottom: 1px dashed var(--border-color); margin-bottom: 0; width: 100%; flex-grow: 1; }
+.chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; cursor: pointer; position: relative; }
+.chart-bar { width: 80%; min-height: 4px; border-radius: 4px 4px 0 0; background: var(--primary); opacity: 0.3; transition: 0.3s; }
+.chart-col:hover .chart-bar { opacity: 1; transform: scaleY(1.1); background: var(--primary-hover); }
+.chart-col.current .chart-bar { background: var(--warning); opacity: 0.9; }
+.chart-val { font-size: 0.7rem; margin-bottom: 4px; opacity: 0; transition: 0.2s; font-weight: 700; transform: translateY(5px); color: var(--text-main); }
+.chart-col:hover .chart-val { opacity: 1; transform: translateY(0); }
+.chart-label { font-size: 0.65rem; margin-top: 6px; color: var(--text-sub); font-family: 'JetBrains Mono', monospace; }
+
+.toggle-switch { appearance: none; width: 46px; height: 26px; background: var(--border-color); border-radius: 20px; position: relative; cursor: pointer; transition: 0.3s; }
+.toggle-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.toggle-switch:checked { background: var(--success); } .toggle-switch:checked::after { transform: translateX(20px); }
+
+.segmented-control { background: var(--bg-input); padding: 4px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; gap: 4px; width: 100%; }
+.segmented-option { padding: 8px 12px; font-size: 0.9rem; border-radius: 8px; text-align: center; flex: 1; cursor: pointer; transition: 0.2s; color: var(--text-sub); font-weight: 600; white-space: nowrap; }
+.segmented-option.active { background: var(--bg-surface); color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-weight: 700; border: 1px solid var(--border-color); }
+input[type="radio"] { display: none; }
+
+#status-bar { position: fixed; top: 0; width: 100%; z-index: 9999; background: var(--danger); color: white; text-align: center; padding: 12px; font-weight: 700; font-size: 0.9rem; transform: translateY(-100%); transition: 0.3s; }
+#status-bar.visible { transform: translateY(0); }
+#toast-notification { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--text-main); color: var(--bg-body); padding: 12px 24px; border-radius: 50px; font-weight: 600; opacity: 0; transition: 0.3s; pointer-events: none; z-index: 9999; box-shadow: 0 10px 30px rgba(0,0,0,0.2); font-size: 0.95rem; border: 1px solid var(--border-color); white-space: nowrap; }
+#toast-notification.show { opacity: 1; } #toast-notification.success { background: var(--success); color: white; } #toast-notification.error { background: var(--danger); color: white; }
+
+/* Grid & User Styles */
+#user-list-ui, #online-users-list { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); grid-auto-rows: max-content; gap: 16px; padding: 4px; max-height: 600px; overflow-y: auto; flex-grow: 1; }
+.user-card-item { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; display: flex; flex-direction: column; height: auto; min-height: 0; position: relative; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.2s ease; }
+.user-card-item:hover { transform: translateY(-3px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.1); border-color: var(--primary); z-index: 5; }
+.user-card-item.online-mode { border-left: 5px solid var(--success); }
+.user-card-header { padding: 16px; display: flex; align-items: center; gap: 14px; flex-grow: 1; }
+.user-avatar-fancy { width: 42px; height: 42px; border-radius: 12px; color: white; font-weight: 800; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1); flex-shrink: 0; }
+.user-info-fancy { flex: 1; min-width: 0; }
+.user-nick-fancy { font-weight: 700; color: var(--text-main); font-size: 1rem; margin-bottom: 2px; }
+.user-id-fancy { font-size: 0.8rem; color: var(--text-sub); font-family: 'JetBrains Mono', monospace; opacity: 0.8; }
+.role-badge-fancy { font-size: 0.7rem; padding: 3px 8px; border-radius: 6px; font-weight: 700; text-transform: uppercase; display: inline-block; margin-top: 6px; }
+.user-card-actions { background: var(--bg-input); padding: 10px 16px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; align-items: center; gap: 8px; flex-shrink: 0; }
+.btn-action-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-sub); cursor: pointer; transition: 0.2s; }
+.btn-action-icon:hover { border-color: var(--primary); color: var(--primary); }
+.status-pulse-indicator { width: 10px; height: 10px; background-color: var(--success); border-radius: 50%; animation: pulse-green 2s infinite; display: inline-block; margin-right: 6px; }
+@keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+
+/* Matrix Table Styling */
+.perm-table-wrapper { width: 100%; overflow-x: auto; border-radius: 8px; border: 1px solid var(--border-color); }
+.perm-matrix { width: 100%; border-collapse: collapse; min-width: 300px; }
+.perm-matrix thead th { background: var(--bg-input); color: var(--text-sub); font-size: 0.85rem; padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); white-space: nowrap; }
+.perm-matrix thead th:first-child { text-align: left; padding-left: 16px; width: 40%; }
+.th-content { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.th-icon { font-size: 1.2rem; }
+.th-role.role-op { color: var(--primary); } .th-role.role-mgr { color: var(--warning); }
+.perm-matrix tbody tr { border-bottom: 1px solid var(--border-color); transition: background 0.15s; }
+.perm-matrix tbody tr:last-child { border-bottom: none; }
+.perm-matrix tbody tr:hover { background: var(--bg-hover); }
+.td-perm-name { padding: 12px 16px; font-weight: 600; color: var(--text-main); font-size: 0.95rem; }
+.td-check { padding: 10px; text-align: center; vertical-align: middle; }
+.custom-check { display: inline-block; position: relative; cursor: pointer; user-select: none; width: 24px; height: 24px; }
+.custom-check input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
+.checkmark { position: absolute; top: 0; left: 0; height: 24px; width: 24px; background-color: var(--bg-input); border: 2px solid var(--border-color); border-radius: 6px; transition: all 0.2s; }
+.custom-check:hover input ~ .checkmark { border-color: var(--primary); }
+.custom-check input:checked ~ .checkmark { background-color: var(--primary); border-color: var(--primary); }
+.checkmark:after { content: ""; position: absolute; display: none; }
+.custom-check input:checked ~ .checkmark:after { display: block; left: 7px; top: 3px; width: 6px; height: 12px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
+
+/* ==========================================
+ * MOBILE OPTIMIZATION FIXED
+ * ========================================== */
+@media (max-width: 768px) {
+    /* 1. 全局重置 */
+    html, body {
+        height: auto !important;
+        min-height: 100%;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
     }
     
-    if($("section-settings").classList.contains("active") && checkPerm('line')) {
-        if(cachedLine) renderLineSettings(); else loadLineSettings();
-        loadLineMessages();
-        loadLineAutoReplies(); // [New] Load keyword rules
+    /* 2. 佈局重置 */
+    #admin-panel {
+        flex-direction: column;
+        height: auto !important;
+        overflow: visible !important;
+        display: block;
+        padding-top: 60px;
     }
 
-    if(username) $("sidebar-user-info").textContent = username;
-};
-
-function renderList(ulId, list, fn, emptyMsgKey="empty") {
-    const ul = $(ulId); if(!ul) return; 
-    while (ul.firstChild) ul.removeChild(ul.firstChild); 
-    if(!list?.length) { 
-        ul.innerHTML=""; 
-        ul.appendChild(mk("li", "list-item", T[emptyMsgKey] || T.empty, {style:"justify-content:center;color:var(--text-sub);"})); 
-        return; 
+    /* 3. 側邊欄改為置頂橫向滑動 Tabs */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 60px;
+        z-index: 100;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        flex-direction: row;
+        overflow-x: auto;
+        white-space: nowrap;
+        padding: 0 8px;
+        align-items: center;
+        background: var(--bg-surface);
     }
-    const frag = document.createDocumentFragment();
-    list.forEach(x => { const el = fn(x); if(el) frag.appendChild(el); });
-    ul.appendChild(frag);
-}
-
-function applyTheme() {
-    document.body.classList.toggle('dark-mode', isDark); localStorage.setItem('callsys_admin_theme', isDark?'dark':'light');
-    if($('admin-theme-toggle')) $('admin-theme-toggle').textContent = isDark ? '☀️' : '🌙';
-    if($('admin-theme-toggle-mobile')) $('admin-theme-toggle-mobile').textContent = isDark ? '☀️' : '🌙';
-}
-
-const checkPerm = (perm) => {
-    if(isSuperAdmin()) return true;
-    if(!globalRoleConfig) return false;
-    const myRoleConfig = globalRoleConfig[userRole];
-    if(!myRoleConfig) return false;
-    return myRoleConfig.can.includes('*') || myRoleConfig.can.includes(perm);
-};
-
-const applyUIPermissions = async () => {
-    globalRoleConfig = await req("/api/admin/roles/get");
-    if(!globalRoleConfig) return;
-    $$('[data-perm]').forEach(el => {
-        const requiredPerm = el.getAttribute('data-perm');
-        if (checkPerm(requiredPerm)) {
-            el.style.display = ''; 
-            if(el.classList.contains('admin-card')) el.style.display = 'flex';
-        } else {
-            el.style.display = 'none'; 
-        }
-    });
-    const visibleNav = document.querySelector('.nav-btn[style="display: none;"]');
-    if(visibleNav && visibleNav.classList.contains('active')) {
-        const firstVisible = document.querySelector('.nav-btn:not([style*="none"])');
-        if(firstVisible) firstVisible.click();
-    }
-};
-
-const checkSession = async () => {
-    uniqueUser = localStorage.getItem('callsys_user');
-    userRole = localStorage.getItem('callsys_role'); 
-    username = localStorage.getItem('callsys_nick');
-    if (uniqueUser === 'superadmin' && userRole !== 'ADMIN') { userRole = 'ADMIN'; localStorage.setItem('callsys_role', 'ADMIN'); }
+    .sidebar-header, .sidebar-footer { display: none !important; }
     
-    if(uniqueUser) {
-        showPanel();
-        await applyUIPermissions();
-        updateLangUI();
-    } else showLogin();
-};
-
-const logout = () => { 
-    localStorage.removeItem('callsys_user'); localStorage.removeItem('callsys_role'); localStorage.removeItem('callsys_nick');
-    document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    location.reload(); 
-};
-const showLogin = () => { $("login-container").style.display="block"; $("admin-panel").style.display="none"; socket.disconnect(); };
-const isSuperAdmin = () => (uniqueUser === 'superadmin' || userRole === 'super' || userRole === 'ADMIN');
-
-const showPanel = () => {
-    $("login-container").style.display="none"; $("admin-panel").style.display="flex"; $("sidebar-user-info").textContent = username;
-    const isSuper = isSuperAdmin();
-    const setBlock = (id, show) => { if($(id)) $(id).style.display = show ? "block" : "none"; };
-    ["card-role-management", "btn-export-csv", "mode-switcher-group", "unlock-pwd-group"].forEach(id => setBlock(id, isSuper));
-    ['resetNumber','resetIssued','resetPassed','resetFeaturedContents','btn-clear-logs','btn-clear-stats','btn-reset-line-msg','resetAll'].forEach(id => setBlock(id, isSuper));
-    socket.connect(); 
-    upgradeSystemModeUI();
-    initBusinessHoursUI();
-};
-
-function upgradeSystemModeUI() {
-    const container = document.querySelector('#card-sys .control-group:nth-of-type(3)');
-    if (!container || container.querySelector('.segmented-control')) return;
-    const radios = container.querySelectorAll('input[type="radio"]');
-    if (radios.length < 2) return;
-    const wrapper = mk('div', 'segmented-control');
-    const labelsToRemove = [];
-    radios.forEach(radio => {
-        const labelNode = radio.closest('label');
-        if(labelNode) labelsToRemove.push(labelNode);
-        const val = radio.value;
-        const labelKey = val === 'ticketing' ? 'mode_online' : 'mode_manual';
-        const labelText = T[labelKey] || val; 
-        const newLabel = mk('label', 'segmented-option', labelText);
-        newLabel.dataset.i18n = labelKey; 
-        wrapper.appendChild(newLabel);
-        newLabel.appendChild(radio); 
-        newLabel.onclick = (e) => { 
-            if(!radio.checked) { radio.checked = true; radio.dispatchEvent(new Event('change')); }
-            updateSegmentedVisuals(wrapper); 
-        };
-    });
-    labelsToRemove.forEach(l => l.replaceWith(...l.childNodes)); 
-    const title = container.querySelector('label:not(.segmented-option)');
-    container.innerHTML = ''; 
-    if(title) container.appendChild(title); 
-    container.appendChild(wrapper);
-    updateSegmentedVisuals(wrapper);
-}
-
-function updateSegmentedVisuals(wrapper) {
-    const radios = wrapper.querySelectorAll('input[type="radio"]');
-    radios.forEach(r => {
-        const lbl = r.closest('.segmented-option');
-        if(lbl) { if(r.checked) lbl.classList.add('active'); else lbl.classList.remove('active'); }
-    });
-}
-
-// [New] Dynamic Business Hours UI
-async function initBusinessHoursUI() {
-    if(!checkPerm('settings')) return;
-    const card = $("card-sys"); if(!card || card.querySelector('#business-hours-group')) return;
-    const container = mk("div", "control-group", null, {id:"business-hours-group", style:"margin-top:10px; border-top:1px dashed var(--border-color); padding-top:10px;"});
-    const label = mk("label", null, "營業時間控制");
-    const wrapper = mk("div", null, null, {style:"display:flex; gap:10px; align-items:center;"});
-    const toggle = mk("input", "toggle-switch", null, {type:"checkbox", id:"bh-enabled"});
-    const startIn = mk("input", null, null, {type:"number", min:0, max:23, placeholder:"Start", style:"width:60px;text-align:center;"});
-    const arrow = mk("span", null, "➜");
-    const endIn = mk("input", null, null, {type:"number", min:0, max:24, placeholder:"End", style:"width:60px;text-align:center;"});
-    const btnSave = mk("button", "btn-secondary success", "儲存", {style:"margin-left:auto;"});
-    wrapper.append(toggle, startIn, arrow, endIn, btnSave);
-    container.append(label, wrapper);
-    const resetBtn = $("resetAll");
-    if(resetBtn) card.insertBefore(container, resetBtn); else card.appendChild(container);
-    const d = await req("/api/admin/settings/hours/get");
-    if(d) { toggle.checked = d.enabled; startIn.value = d.start; endIn.value = d.end; }
-    btnSave.onclick = async () => { if(await req("/api/admin/settings/hours/save", {enabled: toggle.checked, start: startIn.value, end: endIn.value})) toast(T.saved, "success"); };
-}
-
-// [New] Load Line Messages
-async function loadLineMessages() {
-    if(!$("msg-success")) return;
-    const d = await req("/api/admin/line-messages/get");
-    if(d) {
-        $("msg-success").value = d.success;
-        $("msg-approach").value = d.approach;
-        $("msg-arrival").value = d.arrival;
-        $("msg-passed").value = d.passed;
-        $("msg-cancel").value = d.cancel;
+    .sidebar-nav {
+        flex-direction: row;
+        padding: 0;
+        gap: 8px;
+        height: 100%;
+        align-items: center;
+        overflow: visible;
     }
-}
-
-// [New] Line Auto Reply Logic
-async function loadLineAutoReplies() {
-    const list = $("line-autoreply-list"); 
-    if(!list) return;
     
-    // 1. 載入預設回覆
-    req("/api/admin/line-default-reply/get").then(r => {
-        if($("line-default-msg")) $("line-default-msg").value = r.reply || "";
-    });
-
-    // 2. 載入關鍵字列表
-    const rules = await req("/api/admin/line-autoreply/list");
+    .nav-btn {
+        flex-direction: row;
+        padding: 8px 12px;
+        font-size: 0.85rem;
+        border-radius: 20px;
+        height: 36px;
+        background: var(--bg-input);
+        border: 1px solid var(--border-color);
+        margin: 0;
+        flex-shrink: 0;
+    }
     
-    if (!rules || Object.keys(rules).length === 0) {
-        list.innerHTML = `<li class="list-item" style="justify-content:center; color:var(--text-sub);">[ 無自定義規則 ]</li>`;
-        return;
+    .nav-btn.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
     }
 
-    renderList("line-autoreply-list", Object.entries(rules), ([key, reply]) => {
-        const li = mk("li", "list-item");
-        
-        const info = mk("div", "list-info", null, {}, [
-            mk("span", "list-main-text", key, {style: "color:var(--primary);"}),
-            mk("span", "list-sub-text", reply)
-        ]);
-        
-        const btnDel = mk("button", "btn-action-icon danger", "✕", { title: T.del });
-        confirmBtn(btnDel, "✕", async () => {
-            await req("/api/admin/line-autoreply/del", { keyword: key });
-            loadLineAutoReplies();
-        });
-
-        const actions = mk("div", "list-actions");
-        actions.appendChild(btnDel);
-        
-        li.append(info, actions);
-        return li;
-    });
-}
-
-socket.on("connect", () => { $("status-bar").classList.remove("visible"); toast(`${T.status_conn} (${username})`, "success"); });
-socket.on("disconnect", () => $("status-bar").classList.add("visible"));
-socket.on("updateQueue", d => { $("number").textContent=d.current; $("issued-number").textContent=d.issued; $("waiting-count").textContent=Math.max(0, d.issued-d.current); if(checkPerm('stats')) loadStats(); });
-socket.on("update", n => { $("number").textContent=n; if(checkPerm('stats')) loadStats(); });
-socket.on("initAdminLogs", l => { if(checkPerm('stats')) renderLogs(l, true); });
-socket.on("newAdminLog", l => { if(checkPerm('stats')) renderLogs([l], false); });
-socket.on("updatePublicStatus", b => $("public-toggle").checked = b);
-socket.on("updateSoundSetting", b => $("sound-toggle").checked = b);
-socket.on("updateSystemMode", m => { $$('input[name="systemMode"]').forEach(r => r.checked = (r.value === m)); const w = document.querySelector('.segmented-control'); if(w) updateSegmentedVisuals(w); });
-socket.on("updateAppointments", l => { if(checkPerm('appointment')) renderAppointments(l); });
-
-socket.on("updateOnlineAdmins", l => { 
-    if(checkPerm('users')) {
-        const getGradient = (str) => `linear-gradient(135deg, hsl(${str.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%360}, 75%, 60%), hsl(${(str.split('').reduce((a,c)=>a+c.charCodeAt(0),0)+50)%360}, 75%, 50%))`;
-        renderList("online-users-list", (l||[]).sort((a,b)=>(a.role==='super'?-1:1)), u => {
-            const roleClass = (u.userRole || u.role || 'OPERATOR').toLowerCase();
-            const roleLabel = (u.userRole || u.role) === 'ADMIN' ? 'ADMIN' : ((u.userRole || u.role) === 'MANAGER' ? 'MANAGER' : 'OPERATOR');
-            const displayNick = u.nickname || u.username;
-            const card = mk("li", "user-card-item online-mode");
-            const avatar = mk("div", "user-avatar-fancy", displayNick.charAt(0).toUpperCase(), { style: `background: ${getGradient(u.username)}` });
-            const pulse = mk("span", "status-pulse-indicator");
-            const nickDiv = mk("div", "user-nick-fancy", null, {}, [pulse, mk("span", null, displayNick)]); // Safe
-            const infoDiv = mk("div", "user-info-fancy", null, {}, [nickDiv, mk("div", "user-id-fancy", `IP/ID: @${u.username}`), mk("div", `role-badge-fancy ${roleClass.includes('admin')?'admin':roleClass}`, roleLabel)]);
-            const header = mk("div", "user-card-header", null, {}, [avatar, infoDiv]);
-            const actions = mk("div", "user-card-actions", null, {style:"justify-content:flex-end; opacity:0.7; font-size:0.8rem;"}, [mk("span", null, "🟢 Active Now")]);
-            card.append(header, actions);
-            return card;
-        }, "loading");
+    /* 4. 內容區域優化 */
+    .content-area {
+        padding: 16px; 
+        width: 100%;
+        display: block;
+        min-height: calc(100vh - 60px);
+        height: auto !important;
+        flex: none;
+        overflow: visible;
+        padding-bottom: 80px;
     }
-});
 
-socket.on("updatePassed", l => renderList("passed-list-ui", l, n => {
-    const acts = mk("div", "list-actions", null, {}, [
-        mk("button", "btn-secondary", T.recall, {onclick:()=>{ if(confirm(T.msg_recall_confirm.replace('%s', n))) req("/api/control/recall-passed",{number:n}); }}),
-        (b => { confirmBtn(b, T.del, ()=>req("/api/passed/remove",{number:n})); return b; })(mk("button", "btn-secondary", T.del))
-    ]);
-    return mk("li", "list-item", null, {}, [mk("span","list-main-text",`${n} 號`,{style:"font-size:1rem;color:var(--primary);"}), acts]);
-}, "empty"));
-
-const renderFeaturedItem = (item) => {
-    const view = mk("div", "list-info", null, {}, [mk("span","list-main-text",item.linkText), mk("span","list-sub-text",item.linkUrl)]);
-    const form = mk("div", "edit-form-wrapper", null, {style:"display:none; position:relative;"}, [
-        mk("input",null,null,{value:item.linkText, placeholder:"Name"}), mk("input",null,null,{value:item.linkUrl, placeholder:"URL"}),
-        mk("div","edit-form-actions",null,{},[
-            mk("button","btn-secondary",T.cancel,{onclick:()=>{form.style.display="none";view.style.display="flex";acts.style.display="flex";}}),
-            mk("button","btn-secondary success",T.save,{onclick:async()=>{if(await req("/api/featured/edit",{oldLinkText:item.linkText,oldLinkUrl:item.linkUrl,newLinkText:form.children[0].value,newLinkUrl:form.children[1].value})) toast(T.saved,"success");}})
-        ])
-    ]);
-    const acts = mk("div", "list-actions", null, {}, [
-        mk("button", "btn-secondary", T.edit, {onclick:()=>{form.style.display="flex";view.style.display="none";acts.style.display="none";}}),
-        mk("button", "btn-secondary", T.del, {onclick:()=>req("/api/featured/remove", item)})
-    ]);
-    return mk("li", "list-item", null, {}, [view, acts, form]);
-};
-socket.on("updateFeaturedContents", l => { if(checkPerm('settings')) renderList("featured-list-ui", l, renderFeaturedItem, "empty"); });
-
-async function loadAppointments() { try { renderAppointments((await req("/api/appointment/list"))?.appointments); } catch(e){} }
-function renderAppointments(list) {
-    renderList("appointment-list-ui", list, a => {
-        const dt = new Date(a.scheduled_time), dateStr = dt.toLocaleDateString()+" "+dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-        const btnDel = mk("button", "btn-secondary", T.del); confirmBtn(btnDel, T.del, async()=>await req("/api/appointment/remove",{id:a.id}));
-        return mk("li", "list-item", null, {}, [
-            mk("div", "list-info", null, {}, [mk("span","list-main-text",`${a.number} 號`,{style:"color:var(--primary);font-size:1rem;"}), mk("span","list-sub-text",`📅 ${dateStr}`)]),
-            mk("div", "list-actions", null, {}, [btnDel])
-        ]);
-    }, "no_appt");
-}
-
-async function loadUsers() {
-    const d = await req("/api/admin/users"); if(!d?.users) return;
-    const isSuper = isSuperAdmin(); 
-    const getGradient = (str) => `linear-gradient(135deg, hsl(${str.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%360}, 75%, 60%), hsl(${(str.split('').reduce((a,c)=>a+c.charCodeAt(0),0)+50)%360}, 75%, 50%))`;
-
-    renderList("user-list-ui", d.users, u => {
-        const roleClass = (u.role||'OPERATOR').toLowerCase();
-        const roleLabel = u.role === 'OPERATOR' ? 'Op (操作員)' : (u.role === 'MANAGER' ? 'Mgr (經理)' : 'Adm (管理員)');
-        const card = mk("li", "user-card-item");
-        const avatar = mk("div", "user-avatar-fancy", (u.nickname||u.username).charAt(0).toUpperCase(), { style: `background: ${getGradient(u.username)}` });
-        const infoDiv = mk("div", "user-info-fancy", null, {}, [
-            mk("div", "user-nick-fancy", u.nickname || u.username),
-            mk("div", "user-id-fancy", `@${u.username}`),
-            mk("div", `role-badge-fancy ${roleClass}`, roleLabel)
-        ]);
-        const header = mk("div", "user-card-header", null, {}, [avatar, infoDiv]);
-        const actions = mk("div", "user-card-actions");
-        const editForm = mk("div", "edit-form-wrapper", null, {style: "display:none;"}, [
-            mk("h4", null, "修改暱稱", {style:"margin:0 0 10px 0; color:var(--text-main);"}),
-            mk("input", null, null, {value: u.nickname, placeholder: T.ph_nick, style:"margin-bottom:10px;"}),
-            mk("div", "edit-form-actions", null, {}, [
-                mk("button", "btn-secondary", T.cancel, {onclick: (e) => { e.stopPropagation(); editForm.style.display = "none"; }}),
-                mk("button", "btn-secondary success", T.save, {onclick: async (e) => { e.stopPropagation(); if(await req("/api/admin/set-nickname", {targetUsername: u.username, nickname: editForm.children[1].value})) { toast(T.saved, "success"); loadUsers(); } }})
-            ])
-        ]);
-
-        if (u.username === uniqueUser || isSuper) {
-            const btnEdit = mk("button", "btn-action-icon", "✎", { title: T.edit });
-            btnEdit.onclick = () => { editForm.style.display = "flex"; };
-            actions.appendChild(btnEdit);
-        } else actions.appendChild(mk("span"));
-
-        if (u.username !== 'superadmin' && isSuper) {
-            const rightGrp = mk("div", null, null, {style:"display:flex; gap:8px; align-items:center;"});
-            const roleSel = mk("select", "role-select", null, {
-                title: "變更權限", style: "height:32px; font-size:0.8rem; padding:0 8px;",
-                onchange: async () => { if(await req("/api/admin/set-role", {targetUsername: u.username, newRole: roleSel.value})) { toast(T.saved, "success"); loadUsers(); } }
-            });
-            ['OPERATOR', 'MANAGER', 'ADMIN'].forEach(r => roleSel.add(new Option(r, r, false, u.role === r)));
-            const btnDel = mk("button", "btn-action-icon danger", "✕", { title: T.del });
-            confirmBtn(btnDel, "✕", async () => { await req("/api/admin/del-user", {delUsername: u.username}); loadUsers(); });
-            rightGrp.append(roleSel, btnDel);
-            actions.appendChild(rightGrp);
-        }
-        card.append(header, actions, editForm);
-        return card;
-    }, "loading");
-
-    const cardContainer = $("card-user-management");
-    let cardAdminBody = cardContainer?.querySelector('.admin-card');
-    const oldAdd = document.getElementById("add-user-container-fixed");
-    if(oldAdd) oldAdd.remove();
-
-    if(cardAdminBody) {
-        const addContainer = mk("div", "add-user-container", null, {id:"add-user-container-fixed"});
-        const addGrid = mk("div", "add-user-grid");
-        const iUser = mk("input", null, null, {id:"new-user-username", placeholder: T.ph_account});
-        const iPass = mk("input", null, null, {id:"new-user-password", type:"password", placeholder: "Pwd"});
-        const iNick = mk("input", null, null, {id:"new-user-nickname", placeholder: T.ph_nick});
-        const iRole = mk("select", null, null, {id:"new-user-role"});
-        iRole.add(new Option("Operator", "OPERATOR")); iRole.add(new Option("Manager", "MANAGER")); iRole.add(new Option("Admin", "ADMIN"));
-        const btnAdd = mk("button", "btn-hero btn-add-user-fancy", `+ ${T.lbl_add_user}`, {style: "height:46px; font-size:1rem;"});
-        btnAdd.onclick = async()=>{ if(!iUser.value || !iPass.value) return toast("請輸入帳號密碼", "error"); if(await req("/api/admin/add-user", {newUsername:iUser.value, newPassword:iPass.value, newNickname:iNick.value, newRole:iRole.value})) { toast(T.saved,"success"); loadUsers(); iUser.value=""; iPass.value=""; iNick.value=""; } };
-        addGrid.append(iUser, iPass, iNick, iRole, btnAdd);
-        addContainer.appendChild(addGrid);
-        cardAdminBody.appendChild(addContainer);
+    /* 5. 卡片與 Grid 強制堆疊 */
+    .card-container, .dashboard-header {
+        display: flex !important;
+        flex-direction: column;
+        gap: 16px;
     }
-}
-
-async function loadRoles() {
-    const cfg = globalRoleConfig || await req("/api/admin/roles/get"); 
-    const ctr = $("role-editor-content"); if(!cfg || !ctr) return; ctr.innerHTML="";
-    const perms = [{k:'call', t:T.perm_call}, {k:'issue', t:T.perm_issue}, {k:'stats', t:T.perm_stats}, {k:'settings', t:T.perm_settings}, {k:'appointment', t:T.perm_appointment}, {k:'line', t:T.perm_line}, {k:'users', t:T.perm_users}];
-    const targetRoles = ['OPERATOR', 'MANAGER'];
-    const roleMeta = { 'OPERATOR': { icon: '🎮', label: T.role_operator, class: 'role-op' }, 'MANAGER': { icon: '🛡️', label: T.role_manager, class: 'role-mgr' } };
-    const tableWrapper = mk("div", "perm-table-wrapper");
-    const table = mk("table", "perm-matrix");
-    const thead = mk("thead"); const trHead = mk("tr");
-    trHead.appendChild(mk("th", null, "權限項目 / 角色"));
-    targetRoles.forEach(r => { const meta = roleMeta[r]; const th = mk("th", `th-role ${meta.class}`); const iconHtml = `<div class="th-content"><span class="th-icon">${meta.icon}</span><span>${meta.label}</span></div>`; th.innerHTML = iconHtml; trHead.appendChild(th); });
-    thead.appendChild(trHead); table.appendChild(thead);
-    const tbody = mk("tbody");
-    perms.forEach(p => { const tr = mk("tr"); const tdName = mk("td", "td-perm-name", p.t); tr.appendChild(tdName);
-        targetRoles.forEach(r => { const tdCheck = mk("td", "td-check"); const isChecked = (cfg[r]?.can||[]).includes(p.k); const label = mk("label", "custom-check"); const chk = mk("input", "role-chk", null, {type: "checkbox", dataset: { role: r, perm: p.k }, checked: isChecked}); const checkmark = mk("span", "checkmark"); label.append(chk, checkmark); tdCheck.appendChild(label); tr.appendChild(tdCheck); });
-        tbody.appendChild(tr);
-    });
-    table.appendChild(tbody); tableWrapper.appendChild(table); ctr.appendChild(tableWrapper);
-}
-
-async function loadStats() {
-    try {
-        const d = await req("/api/admin/stats");
-        if(d?.hourlyCounts) {
-            if($("stats-today-count")) $("stats-today-count").textContent = d.todayCount||0;
-            const chart = $("hourly-chart"); chart.innerHTML=""; const max = Math.max(...d.hourlyCounts, 1);
-            d.hourlyCounts.forEach((v, i) => chart.appendChild(mk("div", `chart-col ${i===d.serverHour?'current':''}`, null, {onclick:()=>openStatModal(i,v)}, [
-                mk("div","chart-val",v||""), mk("div","chart-bar",null,{style:`height:${Math.max(v/max*100,2)}%;background:${v===0?'var(--border-color)':''}`}), mk("div","chart-label",String(i).padStart(2,'0'))
-            ])));
-            renderList("stats-list-ui", d.history||[], h => { const li = mk("li","list-item"); li.innerHTML = `<span>${new Date(h.timestamp).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})} - <b style="color:var(--primary)">${h.number}</b> <small style="color:var(--text-sub)">(${h.operator})</small></span>`; return li; }, "no_logs");
-        }
-    } catch(e){}
-}
-
-async function loadLineSettings() { cachedLine = await req("/api/admin/line-settings/get"); renderLineSettings(); }
-function renderLineSettings() {
-    renderList("line-settings-list-ui", Object.keys(cachedLine||{}), k => {
-        const val = cachedLine[k]||"", row = mk("div", "line-setting-row", null, {style:"display:flex;width:100%;align-items:center;justify-content:space-between;"});
-        const edit = mk("div", "line-edit-box", null, {style:"display:none;width:100%;"}, [
-            mk("textarea", null, null, {value:val, placeholder:"Content..."}),
-            mk("div", null, null, {style:"display:flex;gap:8px;justify-content:flex-end;margin-top:4px;"}, [
-                mk("button","btn-secondary",T.cancel,{onclick:()=>{edit.style.display="none";row.style.display="flex";}}),
-                mk("button","btn-secondary success",T.save,{onclick:async()=>{if(await req("/api/admin/line-settings/save",{[k]:edit.children[0].value})){cachedLine[k]=edit.children[0].value;toast(T.saved,"success");renderLineSettings();}}})
-            ])
-        ]);
-        row.append(mk("div","line-setting-info",null,{},[mk("div","line-setting-label",k.split(':').pop(),{style:"font-weight:600;"}), mk("code","line-setting-preview",val||"(未設定)",{style:val?"color:var(--text-sub);":"opacity:0.5"})]), mk("button","btn-secondary",T.edit,{onclick:()=>{row.style.display="none";edit.style.display="flex";}}));
-        return mk("li", "list-item", null, {}, [row, edit]);
-    }, "empty");
-    req("/api/admin/line-settings/get-unlock-pass").then(r=>{ if($("line-unlock-pwd") && r) $("line-unlock-pwd").value=r.password||""; });
-}
-
-function renderLogs(logs, init) {
-    const ul = $("admin-log-ui"); if(!ul) return; if(init) ul.innerHTML=""; 
-    if(!logs?.length && init) return ul.innerHTML=`<li class='list-item' style='color:var(--text-sub);'>${T.no_logs}</li>`;
-    const frag = document.createDocumentFragment();
-    logs.forEach(m => frag.appendChild(mk("li", "list-item", m, {style:"font-family:monospace;font-size:0.8rem;"})));
-    init ? ul.appendChild(frag) : ul.insertBefore(frag.firstChild, ul.firstChild);
-    while(ul.children.length > 50) ul.removeChild(ul.lastChild);
-}
-
-const act = (id, api, data={}) => $(id)?.addEventListener("click", async () => {
-    const numEl = $("number");
-    const originalVal = numEl ? parseInt(numEl.textContent || 0) : 0;
-    if(api.includes('call') && numEl && data.direction) { numEl.textContent = originalVal + (data.direction === 'next' ? 1 : -1); numEl.style.opacity = "0.6"; }
-    try { await req(api, data, $(id)); } catch(e) { if(numEl) numEl.textContent = originalVal; } finally { if(numEl) numEl.style.opacity = "1"; }
-});
-const bind = (id, fn) => $(id)?.addEventListener("click", fn);
-
-async function adjustCurrent(delta) {
-    const numEl = $("number"); const c = parseInt(numEl.textContent) || 0; const target = c + delta;
-    if(target > 0) { numEl.textContent = target; numEl.style.opacity = "0.6"; try { if(await req("/api/control/set-call", {number: target})) toast(`${T.saved}: ${target}`, "success"); } catch(e) { numEl.textContent = c; } finally { numEl.style.opacity = "1"; } }
-}
-bind("btn-call-add-1", () => adjustCurrent(1));
-bind("btn-call-add-5", () => adjustCurrent(5));
-
-act("btn-call-prev", "/api/control/call", {direction:"prev"}); 
-act("btn-call-next", "/api/control/call", {direction:"next"});
-act("btn-mark-passed", "/api/control/pass-current"); 
-act("btn-issue-prev", "/api/control/issue", {direction:"prev"}); 
-act("btn-issue-next", "/api/control/issue", {direction:"next"});
-bind("setNumber", async()=>{ const n=$("manualNumber").value; if(n>0 && await req("/api/control/set-call",{number:n})) { $("manualNumber").value=""; toast(T.saved,"success"); }});
-bind("setIssuedNumber", async()=>{ const n=$("manualIssuedNumber").value; if(n>=0 && await req("/api/control/set-issue",{number:n})) { $("manualIssuedNumber").value=""; toast(T.saved,"success"); }});
-bind("add-passed-btn", async()=>{ const n=$("new-passed-number").value; if(n>0 && await req("/api/passed/add",{number:n})) $("new-passed-number").value=""; });
-bind("add-featured-btn", async()=>{ const t=$("new-link-text").value, u=$("new-link-url").value; if(t&&u && await req("/api/featured/add",{linkText:t, linkUrl:u})) { $("new-link-text").value=""; $("new-link-url").value=""; }});
-bind("btn-broadcast", async()=>{ const m=$("broadcast-msg").value; if(m && await req("/api/admin/broadcast",{message:m})) { toast(T.msg_sent,"success"); $("broadcast-msg").value=""; }});
-bind("btn-add-appt", async()=>{ const n=$("appt-number").value, t=$("appt-time").value; if(n&&t && await req("/api/appointment/add",{number:parseInt(n), timeStr:t})) { toast(T.saved,"success"); $("appt-number").value=""; $("appt-time")._flatpickr?.clear(); }});
-bind("btn-save-roles", async()=>{ const c={ OPERATOR:{level:1,can:[]}, MANAGER:{level:2,can:[]}, ADMIN:{level:9,can:['*']} }; $$(".role-chk:checked").forEach(k => c[k.dataset.role].can.push(k.dataset.perm)); if(await req("/api/admin/roles/update", {rolesConfig:c})) { toast(T.saved,"success"); globalRoleConfig = c; applyUIPermissions(); } });
-bind("btn-save-unlock-pwd", async()=>{ const p=$("line-unlock-pwd").value; if(await req("/api/admin/line-settings/save-pass", {password:p})) toast(T.saved,"success"); });
-bind("btn-export-csv", async()=>{ const d=await req("/api/admin/export-csv", { date: new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Taipei"}) }); if(d?.csvData) { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\uFEFF"+d.csvData],{type:'text/csv'})); a.download=d.fileName; a.click(); } });
-
-// [New] Save Line Messages
-bind("btn-save-line-msgs", async () => {
-    const data = {
-        success: $("msg-success").value,
-        approach: $("msg-approach").value,
-        arrival: $("msg-arrival").value,
-        passed: $("msg-passed").value,
-        cancel: $("msg-cancel").value
-    };
-    if(await req("/api/admin/line-messages/save", data, $("btn-save-line-msgs"))) {
-        toast(T.saved, "success");
-    }
-});
-
-// [New] Bind Auto Reply Buttons
-bind("btn-save-default-reply", async () => {
-    const val = $("line-default-msg").value;
-    if(await req("/api/admin/line-default-reply/save", { reply: val }, $("btn-save-default-reply"))) {
-        toast(T.saved, "success");
-    }
-});
-
-bind("btn-add-keyword", async () => {
-    const key = $("new-keyword-in").value;
-    const rep = $("new-reply-in").value;
-    if(!key || !rep) return toast("請輸入關鍵字與回覆內容", "error");
     
-    if(await req("/api/admin/line-autoreply/save", { keyword: key, reply: rep })) {
-        $("new-keyword-in").value = "";
-        $("new-reply-in").value = "";
-        toast(T.saved, "success");
-        loadLineAutoReplies();
+    .admin-card {
+        height: auto !important;
+        min-height: auto;
+        padding: 20px;
     }
-});
 
-bind("admin-theme-toggle", ()=>{ isDark = !isDark; applyTheme(); });
-bind("admin-theme-toggle-mobile", ()=>{ isDark = !isDark; applyTheme(); });
-bind("login-button", async () => { const res = await fetch("/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username:$("username-input").value, password:$("password-input").value})}).then(r=>r.json()).catch(()=>({error:T.login_fail})); if(res.success) { localStorage.setItem('callsys_user', res.username); localStorage.setItem('callsys_role', res.userRole); localStorage.setItem('callsys_nick', res.nickname); checkSession(); } else $("login-error").textContent=res.error||T.login_fail; });
-bind("btn-logout", logout); bind("btn-logout-mobile", logout);
+    /* 6. 輸入框字體優化 */
+    input, select, textarea {
+        font-size: 16px !important; 
+    }
 
-["resetNumber","resetIssued","resetPassed","resetFeaturedContents","resetAll","btn-clear-logs","btn-clear-stats","btn-reset-line-msg"].forEach(id => {
-    const el = $(id); if(!el) return;
-    let url;
-    if (id.includes('clear')) url = id.includes('logs') ? "/api/logs/clear" : "/api/admin/stats/clear";
-    else if (id === 'resetAll') url = "/reset";
-    else if (id.includes('line')) url = "/api/admin/line-settings/reset";
-    else if (id.includes('Passed')) url = "/api/passed/clear";
-    else if (id.includes('Featured')) url = "/api/featured/clear";
-    else url = `/api/control/${id==='resetNumber'?'set-call':'set-issue'}`;
-    const needsZero = id.startsWith('reset') && !['All','Passed','Featured','line'].some(s => id.includes(s));
-    confirmBtn(el, el.textContent.trim(), async () => {
-        await req(url, needsZero ? {number: 0} : {});
-        if(id === 'btn-clear-stats') { $("stats-today-count").textContent="0"; const chart = $("hourly-chart"); chart.innerHTML=""; for(let i=0; i<24; i++) { chart.appendChild(mk("div", `chart-col ${i===new Date().getHours()?'current':''}`, null, {}, [mk("div","chart-val","0"), mk("div","chart-bar",null,{style:"height:2%;background:var(--border-color)"}), mk("div","chart-label",String(i).padStart(2,'0'))])); } toast(T.saved, "success"); }
-        if(id === 'btn-clear-logs') { $("admin-log-ui").innerHTML=`<li class='list-item'>${T.no_logs}</li>`; toast(T.saved, "success"); }
-        if(id.includes('Passed')) { $("passed-list-ui").innerHTML = `<li class="list-item" style="justify-content:center;color:var(--text-sub);">${T.empty}</li>`; }
-    });
-});
+    /* 7. 使用者列表與表格修復 */
+    #user-list-ui, #online-users-list {
+        display: flex !important;
+        flex-direction: column;
+        max-height: none;
+        overflow: visible;
+    }
+    .user-card-item { width: 100%; }
 
-bind("btn-refresh-stats", loadStats);
-bind("btn-calibrate-stats", async () => { if(confirm(`${T.confirm} ${T.btn_calibrate}?`)) { const r = await req("/api/admin/stats/calibrate"); if(r && r.success) { toast(`${T.msg_calibrated} (Diff: ${r.diff})`, "success"); loadStats(); } } });
-
-let editHr=null; const modal=$("edit-stats-overlay");
-bind("btn-modal-close", ()=>modal.style.display="none");
-window.openStatModal = (h,v) => { $("modal-current-count").textContent=v; editHr=h; modal.style.display="flex"; };
-["btn-stats-minus", "btn-stats-plus"].forEach((id, i) => bind(id, async()=>{ if(editHr!==null) { await req("/api/admin/stats/adjust", {hour:editHr, delta:i?1:-1}); $("modal-current-count").textContent = Math.max(0, parseInt($("modal-current-count").textContent)+(i?1:-1)); loadStats(); }}));
-
-document.addEventListener("DOMContentLoaded", () => {
-    checkSession(); applyTheme();
-    if($("admin-lang-selector")) $("admin-lang-selector").value = curLang;
-    if($("admin-lang-selector-mobile")) $("admin-lang-selector-mobile").value = curLang;
-    if($("appt-time")) flatpickr("#appt-time", { enableTime:true, dateFormat:"Y-m-d H:i", time_24hr:true, locale:"zh_tw", minDate:"today", disableMobile:"true" });
+    .perm-table-wrapper {
+        margin: 0 -10px;
+        width: calc(100% + 20px);
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
     
-    $$('.nav-btn').forEach(b => b.onclick = () => {
-        $$('.nav-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active');
-        $$('.section-group').forEach(s=>s.classList.remove('active')); 
-        const target = $(b.dataset.target);
-        if(target) {
-            target.classList.add('active');
-            if(b.dataset.target === 'section-stats') loadStats();
-            if(b.dataset.target === 'section-settings') { 
-                loadAppointments(); 
-                loadUsers(); 
-                if(checkPerm('line')) { 
-                    if(cachedLine) renderLineSettings(); else loadLineSettings(); 
-                    loadLineMessages();
-                    loadLineAutoReplies(); // [新增]
-                } 
-            }
-        }
-    });
-    
-    [ $("admin-lang-selector"), $("admin-lang-selector-mobile") ].forEach(sel => {
-        sel?.addEventListener("change", e => { 
-            curLang = e.target.value; localStorage.setItem('callsys_lang', curLang); 
-            if($("admin-lang-selector")) $("admin-lang-selector").value = curLang;
-            if($("admin-lang-selector-mobile")) $("admin-lang-selector-mobile").value = curLang;
-            updateLangUI(); 
-        });
-    });
+    .sidebar { padding-top: env(safe-area-inset-top); height: calc(60px + env(safe-area-inset-top)); }
+    .content-area { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+}
 
-    $("sound-toggle")?.addEventListener("change", e => req("/set-sound-enabled", {enabled:e.target.checked})); 
-    $("public-toggle")?.addEventListener("change", e => req("/set-public-status", {isPublic:e.target.checked}));
-    $$('input[name="systemMode"]').forEach(r => r.onchange = () => confirm(T.confirm+" Switch Mode?") ? req("/set-system-mode", {mode:r.value}) : (r.checked=!r.checked));
-    
-    document.addEventListener("keydown", e => {
-        if(["INPUT","TEXTAREA"].includes(document.activeElement.tagName)) { if(e.key==="Enter" && !e.shiftKey) { const map={"username-input":"login-button","manualNumber":"setNumber","manualIssuedNumber":"setIssuedNumber","new-passed-number":"add-passed-btn"}; if(map[document.activeElement.id]) $(map[document.activeElement.id])?.click(); } return; }
-        if(e.key==="ArrowRight") $("btn-call-next")?.click(); if(e.key==="ArrowLeft") $("btn-call-prev")?.click(); if(e.key.toLowerCase()==="p") $("btn-mark-passed")?.click();
-    });
-});
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
+    padding: 20px;
+}
+
+.modal-content {
+    background: var(--bg-surface);
+    padding: 24px;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border: 1px solid var(--border-color);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.modal-content h3 { margin: 0; color: var(--text-main); }
+.btn-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s;
+    color: var(--text-sub);
+}
+.btn-circle:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    transform: scale(1.1);
+}
+@keyframes modalPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
