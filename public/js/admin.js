@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v20.4 Line Edit Fix
+ * 後台邏輯 (admin.js) - v20.5 Admin Role Editable
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 
@@ -370,7 +370,6 @@ socket.on("updateAppointments", l => { if(checkPerm('appointment')) renderAppoin
 
 socket.on("updateOnlineAdmins", l => { 
     if(checkPerm('users')) {
-        // [Fixed Syntax]
         const getGradient = (str) => { const n=str.split('').reduce((a,c)=>a+c.charCodeAt(0),0); return `linear-gradient(135deg, hsl(${n%360}, 75%, 60%), hsl(${(n+50)%360}, 75%, 50%))`; };
         renderList("online-users-list", (l||[]).sort((a,b)=>(a.role==='super'?-1:1)), u => {
             const roleClass = (u.userRole || u.role || 'OPERATOR').toLowerCase();
@@ -429,7 +428,6 @@ function renderAppointments(list) {
 async function loadUsers() {
     const d = await req("/api/admin/users"); if(!d?.users) return;
     const isSuper = isSuperAdmin(); 
-    // [Fixed Syntax]
     const getGradient = (str) => { const n=str.split('').reduce((a,c)=>a+c.charCodeAt(0),0); return `linear-gradient(135deg, hsl(${n%360}, 75%, 60%), hsl(${(n+50)%360}, 75%, 50%))`; };
 
     renderList("user-list-ui", d.users, u => {
@@ -500,8 +498,15 @@ async function loadRoles() {
     const cfg = globalRoleConfig || await req("/api/admin/roles/get"); 
     const ctr = $("role-editor-content"); if(!cfg || !ctr) return; ctr.innerHTML="";
     const perms = [{k:'call', t:T.perm_call}, {k:'issue', t:T.perm_issue}, {k:'stats', t:T.perm_stats}, {k:'settings', t:T.perm_settings}, {k:'appointment', t:T.perm_appointment}, {k:'line', t:T.perm_line}, {k:'users', t:T.perm_users}];
-    const targetRoles = ['OPERATOR', 'MANAGER'];
-    const roleMeta = { 'OPERATOR': { icon: '🎮', label: T.role_operator, class: 'role-op' }, 'MANAGER': { icon: '🛡️', label: T.role_manager, class: 'role-mgr' } };
+    
+    // [Modified] Added 'ADMIN' to targetRoles to allow editing
+    const targetRoles = ['OPERATOR', 'MANAGER', 'ADMIN'];
+    const roleMeta = { 
+        'OPERATOR': { icon: '🎮', label: T.role_operator, class: 'role-op' }, 
+        'MANAGER': { icon: '🛡️', label: T.role_manager, class: 'role-mgr' },
+        'ADMIN': { icon: '👑', label: T.role_admin, class: 'role-mgr' } 
+    };
+
     const tableWrapper = mk("div", "perm-table-wrapper");
     const table = mk("table", "perm-matrix");
     const thead = mk("thead"); const trHead = mk("tr");
@@ -582,7 +587,19 @@ bind("add-passed-btn", async()=>{ const n=$("new-passed-number").value; if(n>0 &
 bind("add-featured-btn", async()=>{ const t=$("new-link-text").value, u=$("new-link-url").value; if(t&&u && await req("/api/featured/add",{linkText:t, linkUrl:u})) { $("new-link-text").value=""; $("new-link-url").value=""; }});
 bind("btn-broadcast", async()=>{ const m=$("broadcast-msg").value; if(m && await req("/api/admin/broadcast",{message:m})) { toast(T.msg_sent,"success"); $("broadcast-msg").value=""; }});
 bind("btn-add-appt", async()=>{ const n=$("appt-number").value, t=$("appt-time").value; if(n&&t && await req("/api/appointment/add",{number:parseInt(n), timeStr:t})) { toast(T.saved,"success"); $("appt-number").value=""; $("appt-time")._flatpickr?.clear(); }});
-bind("btn-save-roles", async()=>{ const c={ OPERATOR:{level:1,can:[]}, MANAGER:{level:2,can:[]}, ADMIN:{level:9,can:['*']} }; $$(".role-chk:checked").forEach(k => c[k.dataset.role].can.push(k.dataset.perm)); if(await req("/api/admin/roles/update", {rolesConfig:c})) { toast(T.saved,"success"); globalRoleConfig = c; applyUIPermissions(); } });
+
+// [Modified] btn-save-roles handler: allow ADMIN editing
+bind("btn-save-roles", async()=>{ 
+    // Initialized ADMIN with empty array [] to accept checkbox inputs
+    const c={ OPERATOR:{level:1,can:[]}, MANAGER:{level:2,can:[]}, ADMIN:{level:9,can:[]} }; 
+    $$(".role-chk:checked").forEach(k => c[k.dataset.role].can.push(k.dataset.perm)); 
+    if(await req("/api/admin/roles/update", {rolesConfig:c})) { 
+        toast(T.saved,"success"); 
+        globalRoleConfig = c; 
+        applyUIPermissions(); 
+    } 
+});
+
 bind("btn-save-unlock-pwd", async()=>{ const p=$("line-unlock-pwd").value; if(await req("/api/admin/line-settings/save-pass", {password:p})) toast(T.saved,"success"); });
 bind("btn-export-csv", async()=>{ const d=await req("/api/admin/export-csv", { date: new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Taipei"}) }); if(d?.csvData) { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\uFEFF"+d.csvData],{type:'text/csv'})); a.download=d.fileName; a.click(); } });
 
