@@ -289,7 +289,40 @@
                                 <button id="btn-save-unlock-pwd" class="btn-secondary">儲存</button>
                             </div>
                         </div>
-                        <div class="list-container" style="min-height:300px;">
+
+                        <div style="margin: 20px 0; padding-top: 20px; border-top: 1px dashed var(--border-color);">
+                            <h4 style="margin: 0 0 15px 0; color: var(--text-main);">自定義自動回覆</h4>
+                            
+                            <div class="control-group">
+                                <label>設定成功 (變數: {number})</label>
+                                <input type="text" id="msg-success" placeholder="設定成功: {number}號">
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>快到了通知 (變數: {target}, {diff})</label>
+                                <input type="text" id="msg-approach" placeholder="🔔 {target}號快到了 (前方剩{diff}組)">
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>到號通知 (變數: {current})</label>
+                                <input type="text" id="msg-arrival" placeholder="🎉 {current}號 到您了！">
+                            </div>
+                            
+                            <div class="control-group" style="display:flex; gap:10px;">
+                                <div style="flex:1;">
+                                    <label>已過號訊息</label>
+                                    <input type="text" id="msg-passed" placeholder="已過號">
+                                </div>
+                                <div style="flex:1;">
+                                    <label>取消追蹤訊息</label>
+                                    <input type="text" id="msg-cancel" placeholder="已取消">
+                                </div>
+                            </div>
+                            
+                            <button id="btn-save-line-msgs" class="btn-secondary success" style="width:100%; margin-top:10px;">儲存訊息設定</button>
+                        </div>
+
+                        <div class="list-container" style="min-height:150px;">
                             <ul id="line-settings-list-ui" class="scroll-list"><li>Loading settings...</li></ul>
                         </div>
                         <button id="btn-reset-line-msg" class="btn-reset-single" data-i18n="btn_restore">恢復預設值</button>
