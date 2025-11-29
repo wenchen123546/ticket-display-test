@@ -1,5 +1,5 @@
 /* ==========================================
- * 伺服器 (index.js) - v18.6 Super Admin & Line Edit Fix
+ * 伺服器 (index.js) - v18.7 System Commands Config
  * ========================================== */
 require('dotenv').config();
 const { Server } = require("http"), express = require("express"), socketio = require("socket.io");
@@ -32,6 +32,12 @@ const KEYS = {
             APPROACH: 'callsys:line:msg:approach', ARRIVAL: 'callsys:line:msg:arrival', 
             SUCCESS: 'callsys:line:msg:success', PASSED: 'callsys:line:msg:passed', CANCEL: 'callsys:line:msg:cancel',
             DEFAULT: 'callsys:line:msg:default' 
+        },
+        // [新增] 系統指令 Keys
+        CMD: {
+            LOGIN: 'callsys:line:cmd:login',
+            STATUS: 'callsys:line:cmd:status',
+            CANCEL: 'callsys:line:cmd:cancel'
         },
         AUTOREPLY: 'callsys:line:autoreply_rules'
     } 
@@ -157,20 +163,29 @@ app.post('/callback', async (req, res, next) => {
         if (!lineClient) return;
         const rp = x => lineClient.replyMessage(e.replyToken, { type: 'text', text: x }).catch(err => console.error("Reply Error:", err));
 
-        if(t==='後台登入') return rp((await redis.get(`${KEYS.LINE.ADMIN}${u}`)) ? `🔗 ${process.env.RENDER_EXTERNAL_URL}/admin.html` : (await redis.set(`${KEYS.LINE.CTX}${u}`,'WAIT_PWD','EX',120),"請輸入密碼"));
+        // [Modified] Dynamic System Commands
+        const [cmdLogin, cmdStatus, cmdCancel] = await redis.mget(KEYS.LINE.CMD.LOGIN, KEYS.LINE.CMD.STATUS, KEYS.LINE.CMD.CANCEL);
+        const CMD_LOGIN = cmdLogin || '後台登入';
+        const CMD_STATUS_LIST = (cmdStatus || 'status,?,查詢').split(',').map(s => s.trim().toLowerCase());
+        const CMD_CANCEL_LIST = (cmdCancel || 'cancel,取消').split(',').map(s => s.trim().toLowerCase());
+
+        // 1. 後台登入邏輯
+        if(t === CMD_LOGIN) return rp((await redis.get(`${KEYS.LINE.ADMIN}${u}`)) ? `🔗 ${process.env.RENDER_EXTERNAL_URL}/admin.html` : (await redis.set(`${KEYS.LINE.CTX}${u}`,'WAIT_PWD','EX',120),"請輸入密碼"));
         if((await redis.get(`${KEYS.LINE.CTX}${u}`))==='WAIT_PWD' && t===(await redis.get(KEYS.LINE.PWD)||`unlock${ADMIN_TOKEN}`)) { await redis.set(`${KEYS.LINE.ADMIN}${u}`,"1","EX",600); await redis.del(`${KEYS.LINE.CTX}${u}`); return rp("🔓 驗證成功"); }
 
+        // 2. 自定義關鍵字回覆
         const customReply = await redis.hget(KEYS.LINE.AUTOREPLY, t);
         if (customReply) return rp(customReply);
         
+        // 3. 系統指令與數字
         const [msgSucc, msgPass, msgCanc, msgDefault] = await redis.mget(KEYS.LINE.MSG.SUCCESS, KEYS.LINE.MSG.PASSED, KEYS.LINE.MSG.CANCEL, KEYS.LINE.MSG.DEFAULT);
         const TXT_SUCC = msgSucc || '設定成功: {number}號';
         const TXT_PASS = msgPass || '已過號';
         const TXT_CANC = msgCanc || '已取消';
 
-        if(['?','status'].includes(t.toLowerCase())) { const [n,i,my]=await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.get(`${KEYS.LINE.USER}${u}`)]); return rp(`叫號:${n||0} / 發號:${i||0}${my?`\n您的:${my}`:''}`); }
+        if(CMD_STATUS_LIST.includes(t.toLowerCase())) { const [n,i,my]=await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.get(`${KEYS.LINE.USER}${u}`)]); return rp(`叫號:${n||0} / 發號:${i||0}${my?`\n您的:${my}`:''}`); }
         
-        if(['cancel'].includes(t.toLowerCase())) { 
+        if(CMD_CANCEL_LIST.includes(t.toLowerCase())) { 
             const n=await redis.get(`${KEYS.LINE.USER}${u}`); 
             if(n){await redis.multi().del(`${KEYS.LINE.USER}${u}`).srem(`${KEYS.LINE.SUB}${n}`,u).exec(); return rp(TXT_CANC);} 
         }
@@ -182,6 +197,7 @@ app.post('/callback', async (req, res, next) => {
             return rp(TXT_SUCC.replace(/{number}/g, n)); 
         }
 
+        // 4. 預設回覆
         if (msgDefault && msgDefault.trim() !== "") {
             return rp(msgDefault);
         }
@@ -204,13 +220,10 @@ const auth = async(req, res, next) => {
 
 // [Modified] perm Middleware with Super Admin Bypass
 const perm = (act) => async (req, res, next) => {
-    // Super Admin has absolute power, bypass all checks
     if(req.user.role === 'super') return next();
-
     const rKey = req.user.userRole || 'OPERATOR';
     const rolesCfg = JSON.parse(await redis.get(KEYS.ROLES)) || DEFAULT_ROLES;
-    const role = rolesCfg[rKey] || DEFAULT_ROLES.OPERATOR; // Safety Fallback
-    
+    const role = rolesCfg[rKey] || DEFAULT_ROLES.OPERATOR;
     if(role.level >= 9 || role.can.includes(act) || role.can.includes('*')) return next();
     res.status(403).json({ error: "權限不足" });
 };
@@ -415,6 +428,26 @@ app.post("/api/admin/line-default-reply/save", auth, perm('line'), H(async r => 
     addLog(r.user.nickname, "🔧 更新 LINE 預設回覆"); 
 }));
 
+// [新增] 系統指令設定 API
+app.post("/api/admin/line-system-keywords/get", auth, perm('line'), H(async r => {
+    const [login, status, cancel] = await redis.mget(KEYS.LINE.CMD.LOGIN, KEYS.LINE.CMD.STATUS, KEYS.LINE.CMD.CANCEL);
+    return {
+        login: login || '後台登入',
+        status: status || 'status,?,查詢',
+        cancel: cancel || 'cancel,取消'
+    };
+}));
+
+app.post("/api/admin/line-system-keywords/save", auth, perm('line'), H(async r => {
+    const { login, status, cancel } = r.body;
+    await redis.mset(
+        KEYS.LINE.CMD.LOGIN, login, 
+        KEYS.LINE.CMD.STATUS, status, 
+        KEYS.LINE.CMD.CANCEL, cancel
+    );
+    addLog(r.user.nickname, "🔧 更新 LINE 系統指令");
+}));
+
 
 // --- Notifications ---
 async function checkLine(curr) {
@@ -453,4 +486,4 @@ io.on("connection", async s => {
     s.emit("updateSoundSetting",snd==="1"); s.emit("updatePublicStatus",pub!=="0"); s.emit("updateSystemMode",m||'ticketing'); s.emit("updateWaitTime",await calcWaitTime());
 });
 
-initDatabase().then(() => { server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v18.6 running on ${PORT}`)); }).catch(err => { console.error("❌ DB Error:", err); process.exit(1); });
+initDatabase().then(() => { server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v18.7 running on ${PORT}`)); }).catch(err => { console.error("❌ DB Error:", err); process.exit(1); });
