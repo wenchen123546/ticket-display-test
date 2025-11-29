@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v20.6 System Commands UI
+ * 後台邏輯 (admin.js) - v20.7 Fixes & Permissions
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 
@@ -127,7 +127,7 @@ const updateLangUI = () => {
         if(cachedLine) renderLineSettings(); else loadLineSettings();
         loadLineMessages();
         loadLineAutoReplies();
-        loadLineSystemCommands(); // [New]
+        loadLineSystemCommands(); 
     }
 
     if(username) $("sidebar-user-info").textContent = username;
@@ -287,7 +287,6 @@ async function loadLineMessages() {
 async function loadLineSystemCommands() {
     const section = $("line-cmd-section");
     if(!section) {
-        // Inject UI if not exists
         const parent = $("msg-success").closest('.admin-card');
         const defaultMsgGroup = $("line-default-msg").closest('.control-group');
         
@@ -311,10 +310,8 @@ async function loadLineSystemCommands() {
                     </div>
                 </div>
             `;
-            // Insert before the Auto Reply section (which usually follows default msg)
             parent.insertBefore(container, defaultMsgGroup.nextSibling);
             
-            // Bind button
             $("btn-save-cmd").onclick = async () => {
                 const data = {
                     login: $("cmd-login").value,
@@ -341,12 +338,10 @@ async function loadLineAutoReplies() {
     const list = $("line-autoreply-list"); 
     if(!list) return;
     
-    // 1. 載入預設回覆
     req("/api/admin/line-default-reply/get").then(r => {
         if($("line-default-msg")) $("line-default-msg").value = r.reply || "";
     });
 
-    // 2. 載入關鍵字列表
     const rules = await req("/api/admin/line-autoreply/list");
     
     if (!rules || Object.keys(rules).length === 0) {
@@ -355,13 +350,11 @@ async function loadLineAutoReplies() {
     }
 
     const renderAutoReplyItem = ([key, reply]) => {
-        // A. 檢視模式
         const view = mk("div", "list-info", null, {}, [
             mk("span", "list-main-text", key, {style: "color:var(--primary); font-weight:bold;"}),
             mk("span", "list-sub-text", reply)
         ]);
 
-        // B. 編輯模式 (預設隱藏)
         const form = mk("div", "edit-form-wrapper", null, {style:"display:none; width:100%; gap:8px; align-items:center;"}, [
             mk("input", null, null, {value: key, placeholder: "接收關鍵字", style:"flex:1;"}),
             mk("input", null, null, {value: reply, placeholder: "回覆內容", style:"flex:2;"}),
@@ -380,13 +373,12 @@ async function loadLineAutoReplies() {
                         newReply: newRep 
                     })) {
                         toast(T.saved, "success");
-                        loadLineAutoReplies(); // 重新載入列表
+                        loadLineAutoReplies(); 
                     }
                 }})
             ])
         ]);
 
-        // C. 操作按鈕
         const actions = mk("div", "list-actions", null, {}, [
             mk("button", "btn-action-icon", "✎", { 
                 title: T.edit,
@@ -432,7 +424,7 @@ socket.on("updateOnlineAdmins", l => {
             const card = mk("li", "user-card-item online-mode");
             const avatar = mk("div", "user-avatar-fancy", displayNick.charAt(0).toUpperCase(), { style: `background: ${getGradient(u.username)}` });
             const pulse = mk("span", "status-pulse-indicator");
-            const nickDiv = mk("div", "user-nick-fancy", null, {}, [pulse, mk("span", null, displayNick)]); // Safe
+            const nickDiv = mk("div", "user-nick-fancy", null, {}, [pulse, mk("span", null, displayNick)]); 
             const infoDiv = mk("div", "user-info-fancy", null, {}, [nickDiv, mk("div", "user-id-fancy", `IP/ID: @${u.username}`), mk("div", `role-badge-fancy ${roleClass.includes('admin')?'admin':roleClass}`, roleLabel)]);
             const header = mk("div", "user-card-header", null, {}, [avatar, infoDiv]);
             const actions = mk("div", "user-card-actions", null, {style:"justify-content:flex-end; opacity:0.7; font-size:0.8rem;"}, [mk("span", null, "🟢 Active Now")]);
@@ -553,7 +545,6 @@ async function loadRoles() {
     const ctr = $("role-editor-content"); if(!cfg || !ctr) return; ctr.innerHTML="";
     const perms = [{k:'call', t:T.perm_call}, {k:'issue', t:T.perm_issue}, {k:'stats', t:T.perm_stats}, {k:'settings', t:T.perm_settings}, {k:'appointment', t:T.perm_appointment}, {k:'line', t:T.perm_line}, {k:'users', t:T.perm_users}];
     
-    // [Modified] Added 'ADMIN' to targetRoles to allow editing
     const targetRoles = ['OPERATOR', 'MANAGER', 'ADMIN'];
     const roleMeta = { 
         'OPERATOR': { icon: '🎮', label: T.role_operator, class: 'role-op' }, 
@@ -568,8 +559,19 @@ async function loadRoles() {
     targetRoles.forEach(r => { const meta = roleMeta[r]; const th = mk("th", `th-role ${meta.class}`); const iconHtml = `<div class="th-content"><span class="th-icon">${meta.icon}</span><span>${meta.label}</span></div>`; th.innerHTML = iconHtml; trHead.appendChild(th); });
     thead.appendChild(trHead); table.appendChild(thead);
     const tbody = mk("tbody");
-    perms.forEach(p => { const tr = mk("tr"); const tdName = mk("td", "td-perm-name", p.t); tr.appendChild(tdName);
-        targetRoles.forEach(r => { const tdCheck = mk("td", "td-check"); const isChecked = (cfg[r]?.can||[]).includes(p.k); const label = mk("label", "custom-check"); const chk = mk("input", "role-chk", null, {type: "checkbox", dataset: { role: r, perm: p.k }, checked: isChecked}); const checkmark = mk("span", "checkmark"); label.append(chk, checkmark); tdCheck.appendChild(label); tr.appendChild(tdCheck); });
+    perms.forEach(p => { 
+        const tr = mk("tr"); const tdName = mk("td", "td-perm-name", p.t); tr.appendChild(tdName);
+        targetRoles.forEach(r => { 
+            const tdCheck = mk("td", "td-check"); 
+            // [FIXED] 檢查是否擁有萬用字元 '*'
+            const roleCan = cfg[r]?.can || [];
+            const isChecked = roleCan.includes('*') || roleCan.includes(p.k);
+            
+            const label = mk("label", "custom-check"); 
+            const chk = mk("input", "role-chk", null, {type: "checkbox", dataset: { role: r, perm: p.k }, checked: isChecked}); 
+            const checkmark = mk("span", "checkmark"); 
+            label.append(chk, checkmark); tdCheck.appendChild(label); tr.appendChild(tdCheck); 
+        });
         tbody.appendChild(tr);
     });
     table.appendChild(tbody); tableWrapper.appendChild(table); ctr.appendChild(tableWrapper);
@@ -743,7 +745,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     if(cachedLine) renderLineSettings(); else loadLineSettings(); 
                     loadLineMessages();
                     loadLineAutoReplies();
-                    loadLineSystemCommands(); // [New]
+                    loadLineSystemCommands(); 
                 } 
             }
         }
