@@ -321,8 +321,37 @@
                             
                             <button id="btn-save-line-msgs" class="btn-secondary success" style="width:100%; margin-top:10px;">儲存訊息設定</button>
                         </div>
+                        
+                        <div style="margin: 20px 0; padding-top: 20px; border-top: 1px dashed var(--border-color);">
+                            <h4 style="margin: 0 0 15px 0; color: var(--text-main);">🤖 關鍵字自動回覆</h4>
+                            
+                            <div class="control-group">
+                                <label>預設回覆 (當無法識別指令時)</label>
+                                <div class="input-group">
+                                    <input type="text" id="line-default-msg" placeholder="例如：請輸入號碼進行追蹤，或輸入 'status' 查詢...">
+                                    <button id="btn-save-default-reply" class="btn-secondary success">儲存</button>
+                                </div>
+                                <small style="color:var(--text-sub);">* 留空則不進行預設回覆</small>
+                            </div>
 
-                        <div class="list-container" style="min-height:150px;">
+                            <div class="control-group" style="margin-top: 15px;">
+                                <label>新增規則</label>
+                                <div class="input-group">
+                                    <input type="text" id="new-keyword-in" placeholder="接收文字 (例如: 營業時間)" style="flex:1;">
+                                    <input type="text" id="new-reply-in" placeholder="自動回覆內容" style="flex:2;">
+                                    <button id="btn-add-keyword" class="btn-add">+</button>
+                                </div>
+                            </div>
+
+                            <div class="list-container" style="min-height:150px; margin-top:10px;">
+                                <ul id="line-autoreply-list" class="scroll-list">
+                                    <li style="padding:12px; text-align:center; color:var(--text-sub);">Loading rules...</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="list-container" style="min-height:100px; margin-top:20px;">
+                             <label style="padding:10px; font-weight:bold; color:var(--text-sub);">API 設定</label>
                             <ul id="line-settings-list-ui" class="scroll-list"><li>Loading settings...</li></ul>
                         </div>
                         <button id="btn-reset-line-msg" class="btn-reset-single" data-i18n="btn_restore">恢復預設值</button>
