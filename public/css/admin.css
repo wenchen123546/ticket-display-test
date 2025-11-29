@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v17.3 Layout Fix
+ * 後台樣式 (admin.css) - v17.4 Mobile Width Fix
  * ========================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
@@ -117,11 +117,10 @@ body {
 .section-group.active { display: block; }
 
 /* ==========================================
-   2. 卡片 (Cards) - Fixed Overflow Issues
+   2. 卡片 (Cards)
    ========================================== */
 .card-container { 
     display: grid; gap: 24px; 
-    /* Desktop: 智能 Grid，最少 340px */
     grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
     align-items: stretch;
 }
@@ -135,7 +134,7 @@ body {
     height: 100%; position: relative; 
     transition: transform 0.2s, box-shadow 0.2s;
     display: flex; flex-direction: column; justify-content: space-between; gap: 16px; 
-    overflow: hidden; /* 防止內容溢出圓角 */
+    overflow: hidden; 
 }
 body.dark-mode .admin-card { border: 1px solid rgba(255,255,255,0.08); }
 .admin-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-float); border-color: var(--primary); }
@@ -169,13 +168,7 @@ body.dark-mode .admin-card { border: 1px solid rgba(255,255,255,0.08); }
    ========================================== */
 .control-group { margin-bottom: 0; display: flex; flex-direction: column; gap: 8px; }
 .control-group label { font-size: 0.85rem; font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; }
-
-/* Compact Group: 確保底部操作區塊不會被吃掉，但若卡片過高，它會在底部 */
-.admin-card .control-group.compact-group { 
-    flex-grow: 0; 
-    margin-top: auto; 
-    flex-shrink: 0; /* 防止被擠壓 */
-}
+.admin-card .control-group.compact-group { flex-grow: 0; margin-top: auto; flex-shrink: 0; }
 
 input, select, textarea { 
     height: var(--input-h); border-radius: var(--btn-radius); font-size: 0.95rem; 
@@ -185,15 +178,10 @@ input, select, textarea {
 }
 input:focus, select:focus, textarea:focus { border-color: var(--primary); background: var(--bg-surface); box-shadow: 0 0 0 3px var(--primary-soft); }
 
-/* Input Group: 增加 Wrap，避免在窄卡片時破版 */
-.input-group { 
-    display: flex; gap: 10px; width: 100%; 
-    flex-wrap: wrap; /* 允許換行 */
-} 
+.input-group { display: flex; gap: 10px; width: 100%; flex-wrap: wrap; } 
 .input-group input { flex: 1; min-width: 80px; }
 .quick-actions { display: flex; gap: 8px; margin-bottom: 8px; }
 
-/* Toggle Switch */
 .toggle-switch {
     appearance: none; width: 46px; height: 26px; background: var(--border-color);
     border-radius: 20px; position: relative; cursor: pointer; transition: 0.3s; border: none; padding: 0; flex-shrink: 0;
@@ -205,7 +193,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); backgr
 .toggle-switch:checked { background: var(--success); }
 .toggle-switch:checked::after { transform: translateX(20px); }
 
-/* Segmented Control */
 .segmented-control { background: var(--bg-input); padding: 4px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; gap: 4px; }
 .segmented-option { 
     padding: 8px 12px; font-size: 0.85rem; border-radius: 8px; text-align: center; flex: 1; 
@@ -246,22 +233,17 @@ button:active { transform: scale(0.97); }
 .secondary-actions-row, .big-action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 0; }
 
 /* ==========================================
-   4. 列表 (Lists) - Fixed Scrolling & Wrapping
+   4. 列表 (Lists)
    ========================================== */
 .list-container { 
-    flex: 1; 
-    /* Critical Fix: 
-       min-height: 0 允許 Flex 項目縮小，讓底部操作區顯示出來
-       overflow: hidden 強制內部捲軸，不影響父層 */
-    min-height: 0;
+    flex: 1; min-height: 0;
     border: 1px solid var(--border-color); border-radius: var(--btn-radius); 
     background: var(--bg-input); display: flex; flex-direction: column; 
-    margin-bottom: 8px; /* 與下方操作區留點距離 */
+    margin-bottom: 8px;
 }
 .scroll-list { 
     flex: 1; overflow-y: auto; margin: 0; padding: 0; list-style: none; min-height: 0; 
-    overscroll-behavior: contain;
-    height: 100%; /* 填滿 container */
+    overscroll-behavior: contain; height: 100%;
 }
 .scroll-list::-webkit-scrollbar { width: 6px; }
 .scroll-list::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 10px; }
@@ -270,38 +252,26 @@ button:active { transform: scale(0.97); }
     display: flex; justify-content: space-between; align-items: center; 
     padding: 12px 16px; border-bottom: 1px solid var(--border-color); 
     background: var(--bg-surface); transition: background 0.15s;
-    /* Wrap Fix: 窄版面時允許換行，避免按鈕蓋住文字 */
-    flex-wrap: wrap; 
-    gap: 8px;
+    flex-wrap: wrap; gap: 8px;
 }
 .list-item:last-child { border-bottom: none; }
 .list-item:hover { background: var(--bg-hover); }
 
 .list-info { 
     display: flex; flex-direction: column; overflow: hidden; gap: 2px;
-    flex: 1 1 auto; /* 佔據剩餘空間 */
-    min-width: 120px; /* 確保文字不會縮到不見 */
+    flex: 1 1 auto; min-width: 120px;
 }
 .list-main-text { font-weight: 600; color: var(--text-main); font-size: 0.95rem; }
 .list-sub-text { font-size: 0.8rem; color: var(--text-sub); }
 
-.list-actions { 
-    display: flex; gap: 8px; flex-shrink: 0; 
-    align-items: center;
-    flex-wrap: wrap; /* 如果按鈕太多，允許換行 */
-}
+.list-actions { display: flex; gap: 8px; flex-shrink: 0; align-items: center; flex-wrap: wrap; }
 .list-actions button { height: 32px; font-size: 0.8rem; padding: 0 12px; }
-
-/* 修正下拉選單在列表中的樣式 */
-.role-select {
-    height: 32px; padding: 0 8px; width: auto; max-width: 100px;
-}
-
+.role-select { height: 32px; padding: 0 8px; width: auto; max-width: 100px; }
 .edit-form-wrapper { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 8px 0; }
 .edit-form-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 /* ==========================================
-   5. 權限設定 UI (Role Matrix)
+   5. 權限設定 UI
    ========================================== */
 .role-editor-container {
     display: flex; flex-direction: column; gap: 16px;
@@ -316,9 +286,7 @@ button:active { transform: scale(0.97); }
     font-weight: 800; color: var(--primary);
     padding-bottom: 8px; border-bottom: 1px dashed var(--border-color);
 }
-.perm-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px;
-}
+.perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
 .perm-item {
     display: flex; align-items: center; gap: 8px;
     font-size: 0.9rem; color: var(--text-main);
@@ -330,7 +298,7 @@ button:active { transform: scale(0.97); }
 .perm-item input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: var(--primary); cursor: pointer; }
 
 /* ==========================================
-   6. 雜項 (Misc: Login, Chart, Toasts)
+   6. 雜項
    ========================================== */
 .chart-container { 
     display: flex; align-items: flex-end; height: 180px; gap: 6px; 
@@ -429,8 +397,9 @@ button:active { transform: scale(0.97); }
         min-width: 65px; 
     }
     
-    /* 3. 內容區修正 */
+    /* 3. 內容區修正 - KEY FIX HERE */
     .content-area { 
+        width: 100%; /* 強制寬度為 100%，覆蓋 Desktop 的 width: 0 */
         padding: 16px; 
         overflow: visible; 
         height: auto; 
