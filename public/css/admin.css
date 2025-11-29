@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v19.6 Matrix UI Fix
+ * 後台樣式 (admin.css) - v20.0 Mobile Optimization
  * ========================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
@@ -61,7 +61,7 @@ body.dark-mode {
 * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
 body { margin: 0; width: 100%; height: 100vh; font-family: 'Inter', system-ui, sans-serif; background: var(--bg-body); color: var(--text-main); font-size: 14px; line-height: 1.5; overflow: hidden; transition: background-color 0.3s ease; }
 
-/* Layout */
+/* Layout - Desktop Defaults */
 #admin-panel { display: flex; width: 100%; height: 100vh; overflow: hidden; }
 .sidebar { width: var(--sidebar-w); background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; z-index: 20; }
 .sidebar-header { height: var(--header-h); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); font-weight: 800; color: var(--primary); font-size: 1.15rem; }
@@ -188,152 +188,150 @@ input[type="radio"] { display: none; }
 .status-pulse-indicator { width: 10px; height: 10px; background-color: var(--success); border-radius: 50%; animation: pulse-green 2s infinite; display: inline-block; margin-right: 6px; }
 @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
 
-/* Mobile Only Fixes */
-@media (max-width: 768px) {
-    body { height: auto; min-height: 100vh; overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
-    #admin-panel { flex-direction: column; height: auto; min-height: 100vh; overflow: visible; }
-    .sidebar { width: 100%; height: auto; position: sticky; top: 0; flex-direction: row; overflow-x: auto; border-bottom: 1px solid var(--border-color); box-shadow: var(--shadow-sm); border-right: none; }
-    .sidebar-header, .sidebar-footer { display: none; }
-    .sidebar-nav { flex-direction: row; padding: 8px 12px; gap: 8px; flex-wrap: nowrap; }
-    .nav-btn { flex-direction: column; padding: 6px 12px; font-size: 0.75rem; gap: 4px; justify-content: center; text-align: center; flex: 0 0 auto; min-width: 65px; }
-    .content-area { padding: 16px; width: 100%; display: block; height: auto; }
-    .card-container, .dashboard-header { display: flex; flex-direction: column; }
-    .admin-card { height: auto !important; min-height: auto; }
-    #user-list-ui, #online-users-list { display: flex !important; flex-direction: column; max-height: none; }
-    .add-user-container { position: relative; margin-top: 0; }
-}
+/* Matrix Table Styling (Updated) */
+.perm-table-wrapper { width: 100%; overflow-x: auto; border-radius: 8px; border: 1px solid var(--border-color); }
+.perm-matrix { width: 100%; border-collapse: collapse; min-width: 300px; }
+.perm-matrix thead th { background: var(--bg-input); color: var(--text-sub); font-size: 0.85rem; padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); white-space: nowrap; }
+.perm-matrix thead th:first-child { text-align: left; padding-left: 16px; width: 40%; }
+.th-content { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.th-icon { font-size: 1.2rem; }
+.th-role.role-op { color: var(--primary); } .th-role.role-mgr { color: var(--warning); }
+.perm-matrix tbody tr { border-bottom: 1px solid var(--border-color); transition: background 0.15s; }
+.perm-matrix tbody tr:last-child { border-bottom: none; }
+.perm-matrix tbody tr:hover { background: var(--bg-hover); }
+.td-perm-name { padding: 12px 16px; font-weight: 600; color: var(--text-main); font-size: 0.95rem; }
+.td-check { padding: 10px; text-align: center; vertical-align: middle; }
+.custom-check { display: inline-block; position: relative; cursor: pointer; user-select: none; width: 24px; height: 24px; }
+.custom-check input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
+.checkmark { position: absolute; top: 0; left: 0; height: 24px; width: 24px; background-color: var(--bg-input); border: 2px solid var(--border-color); border-radius: 6px; transition: all 0.2s; }
+.custom-check:hover input ~ .checkmark { border-color: var(--primary); }
+.custom-check input:checked ~ .checkmark { background-color: var(--primary); border-color: var(--primary); }
+.checkmark:after { content: ""; position: absolute; display: none; }
+.custom-check input:checked ~ .checkmark:after { display: block; left: 7px; top: 3px; width: 6px; height: 12px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
 
 /* ==========================================
- * 權限設定卡片優化 (Role Matrix)
+ * MOBILE OPTIMIZATION FIXED
  * ========================================== */
+@media (max-width: 768px) {
+    /* 1. 全局重置：強制解除桌面版的 overflow: hidden 鎖定，恢復自然捲動 */
+    html, body {
+        height: auto !important;
+        min-height: 100%;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
+    }
+    
+    /* 2. 佈局重置：將側邊欄與內容垂直排列 */
+    #admin-panel {
+        flex-direction: column;
+        height: auto !important;
+        overflow: visible !important;
+        display: block;
+        padding-top: 60px; /* 留出置頂選單空間 */
+    }
 
-/* 表格容器：允許在極小螢幕橫向滾動 */
-.perm-table-wrapper {
-    width: 100%;
-    overflow-x: auto;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-}
+    /* 3. 側邊欄改為置頂橫向滑動 Tabs */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 60px;
+        z-index: 100;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        flex-direction: row;
+        overflow-x: auto;
+        white-space: nowrap;
+        padding: 0 8px;
+        align-items: center;
+        background: var(--bg-surface); /* 確保不透明 */
+    }
+    
+    /* 隱藏桌面版 Header/Footer */
+    .sidebar-header, .sidebar-footer { display: none !important; }
+    
+    /* 調整選單按鈕樣式 */
+    .sidebar-nav {
+        flex-direction: row;
+        padding: 0;
+        gap: 8px;
+        height: 100%;
+        align-items: center;
+        overflow: visible;
+    }
+    
+    .nav-btn {
+        flex-direction: row;
+        padding: 8px 12px;
+        font-size: 0.85rem;
+        border-radius: 20px;
+        height: 36px;
+        background: var(--bg-input);
+        border: 1px solid var(--border-color);
+        margin: 0;
+        flex-shrink: 0; /* 防止被壓縮 */
+    }
+    
+    .nav-btn.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
 
-.perm-matrix {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 300px; /* 防止過度壓縮 */
-}
+    /* 4. 內容區域優化 */
+    .content-area {
+        padding: 16px; /* 增加左右邊距防止貼邊 */
+        padding-bottom: 80px; /* 底部留白 */
+        width: 100%;
+        display: block;
+        height: auto;
+        overflow: visible;
+    }
 
-/* 表頭樣式 */
-.perm-matrix thead th {
-    background: var(--bg-input);
-    color: var(--text-sub);
-    font-size: 0.85rem;
-    padding: 12px;
-    text-align: center;
-    border-bottom: 2px solid var(--border-color);
-    white-space: nowrap;
-}
+    /* 5. 卡片與 Grid 強制堆疊 */
+    .card-container, .dashboard-header {
+        display: flex !important;
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .admin-card {
+        height: auto !important;
+        min-height: auto;
+        padding: 20px;
+    }
 
-.perm-matrix thead th:first-child {
-    text-align: left;
-    padding-left: 16px;
-    width: 40%;
-}
+    /* 6. 輸入框字體優化 (防止 iOS 自動放大) */
+    input, select, textarea {
+        font-size: 16px !important; 
+    }
 
-.th-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-}
-.th-icon { font-size: 1.2rem; }
+    /* 7. 使用者列表與表格修復 */
+    #user-list-ui, #online-users-list {
+        display: flex !important;
+        flex-direction: column;
+        max-height: none;
+        overflow: visible;
+    }
+    
+    .user-card-item {
+        width: 100%;
+    }
 
-/* 角色標題顏色區分 */
-.th-role.role-op { color: var(--primary); }
-.th-role.role-mgr { color: var(--warning); }
-
-/* 表格內容樣式 */
-.perm-matrix tbody tr {
-    border-bottom: 1px solid var(--border-color);
-    transition: background 0.15s;
-}
-
-.perm-matrix tbody tr:last-child {
-    border-bottom: none;
-}
-
-.perm-matrix tbody tr:hover {
-    background: var(--bg-hover);
-}
-
-.td-perm-name {
-    padding: 12px 16px;
-    font-weight: 600;
-    color: var(--text-main);
-    font-size: 0.95rem;
-}
-
-.td-check {
-    padding: 10px;
-    text-align: center;
-    vertical-align: middle;
-}
-
-/* 自定義 Checkbox 樣式 (更大、更好點擊) */
-.custom-check {
-    display: inline-block;
-    position: relative;
-    cursor: pointer;
-    user-select: none;
-    width: 24px;
-    height: 24px;
-}
-
-.custom-check input {
-    position: absolute;
-    opacity: 0;
-    cursor: pointer;
-    height: 0;
-    width: 0;
-}
-
-.checkmark {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 24px;
-    width: 24px;
-    background-color: var(--bg-input);
-    border: 2px solid var(--border-color);
-    border-radius: 6px;
-    transition: all 0.2s;
-}
-
-.custom-check:hover input ~ .checkmark {
-    border-color: var(--primary);
-}
-
-.custom-check input:checked ~ .checkmark {
-    background-color: var(--primary);
-    border-color: var(--primary);
-}
-
-.checkmark:after {
-    content: "";
-    position: absolute;
-    display: none;
-}
-
-.custom-check input:checked ~ .checkmark:after {
-    display: block;
-    left: 7px;
-    top: 3px;
-    width: 6px;
-    height: 12px;
-    border: solid white;
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-}
-
-/* 暗黑模式適配 */
-body.dark-mode .perm-matrix thead th {
-    background: rgba(255,255,255,0.05);
+    .perm-table-wrapper {
+        margin: 0 -10px; /* 讓表格在小螢幕可以稍微往外延伸 */
+        width: calc(100% + 20px);
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
+    
+    /* 安全區域適配 (瀏海機) */
+    .sidebar { padding-top: env(safe-area-inset-top); height: calc(60px + env(safe-area-inset-top)); }
+    .content-area { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
 }
