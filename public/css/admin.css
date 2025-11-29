@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v17.4 Layout Squeeze Fix
+ * 後台樣式 (admin.css) - v17.5 Mobile Bottom Nav
  * ========================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
@@ -354,34 +354,70 @@ button:active { transform: scale(0.97); }
 .btn-circle:hover { border-color: var(--primary); color: var(--primary); background: var(--bg-surface); transform: scale(1.1); }
 
 /* ==========================================
-   7. RWD (Mobile Fixes - CRITICAL)
+   7. RWD (Mobile Fixes - BOTTOM NAV)
    ========================================== */
 @media (max-width: 768px) {
     /* 修正整體捲動 */
     body { height: auto; overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
     #admin-panel { flex-direction: column; height: auto; min-height: 100vh; overflow: visible; }
     
-    /* 側邊欄變頂部欄 */
-    .sidebar { width: 100%; height: auto; position: sticky; top: 0; border-right: none; border-bottom: 1px solid var(--border-color); flex-direction: row; padding: 0; box-shadow: var(--shadow-sm); z-index: 1000; overflow-x: auto; scrollbar-width: none; }
+    /* 側邊欄變底部導航 (BOTTOM NAVIGATION) */
+    .sidebar { 
+        width: 100%; 
+        height: auto; 
+        position: fixed; /* 固定在底部 */
+        bottom: 0; 
+        top: auto; 
+        border-right: none; 
+        border-top: 1px solid var(--border-color); /* 上方分隔線 */
+        border-bottom: none;
+        flex-direction: row; 
+        padding: 0; 
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.05); /* 向上陰影 */
+        z-index: 9999; 
+        overflow-x: auto; 
+        scrollbar-width: none; 
+        background: var(--bg-surface); /* 確保不透明 */
+        padding-bottom: env(safe-area-inset-bottom); /* iOS Home Bar 避讓 */
+    }
     .sidebar::-webkit-scrollbar { display: none; }
     .sidebar-header, .sidebar-footer { display: none; }
-    .sidebar-nav { flex-direction: row; padding: 8px 12px; gap: 8px; flex-wrap: nowrap; }
-    .nav-btn { flex-direction: column; padding: 6px 12px; font-size: 0.75rem; gap: 4px; justify-content: center; text-align: center; flex: 0 0 auto; min-width: 65px; }
     
-    /* [CRITICAL FIX] 強制重置 content-area 寬度 */
+    .sidebar-nav { 
+        flex-direction: row; 
+        padding: 8px 12px; 
+        gap: 0; 
+        width: 100%;
+        justify-content: space-around; /* 按鈕平均分佈 */
+    }
+    .nav-btn { 
+        flex-direction: column; 
+        padding: 6px 4px; 
+        font-size: 0.75rem; 
+        gap: 4px; 
+        justify-content: center; 
+        text-align: center; 
+        flex: 1; /* 均分寬度 */
+        min-width: auto; 
+        border-radius: 8px;
+    }
+    .nav-btn:active { background: var(--bg-hover); transform: scale(0.95); }
+    
+    /* [CRITICAL FIX] 強制重置 content-area 寬度與底部留白 */
     .content-area { 
         padding: 16px; 
+        padding-bottom: 100px; /* 預留底部導航空間，防止內容被擋 */
         overflow: visible; 
         height: auto; 
         display: block; 
-        width: 100% !important; /* 修正被 Desktop 版 flex:1; width:0 擠壓的問題 */
+        width: 100% !important; 
     }
     
     /* 卡片與儀表板佈局調整 */
     .card-container { display: flex; flex-direction: column; gap: 20px; } 
     .admin-card { height: auto !important; min-height: auto; gap: 20px; }
     
-    /* 儀表板：讓「目前叫號」與「已發號」並排，但字體稍微縮小以防溢出 */
+    /* 儀表板 */
     .dashboard-header { grid-template-columns: 1fr 1fr; gap: 12px; }
     .dashboard-item { padding: 16px; }
     .dashboard-item:last-child { grid-column: 1 / -1; }
