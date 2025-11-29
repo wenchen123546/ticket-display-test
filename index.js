@@ -1,5 +1,5 @@
 /* ==========================================
- * 伺服器 (index.js) - v18.1 Webhook Fix
+ * 伺服器 (index.js) - v18.2 403 Signature Fix
  * ========================================== */
 require('dotenv').config();
 const { Server } = require("http"), express = require("express"), socketio = require("socket.io");
@@ -45,7 +45,7 @@ const initLine = async () => {
     if (token && secret) {
         try { lineClient = new line.Client({ channelAccessToken: token, channelSecret: secret }); } catch(e) { console.error("Line Init Error", e); }
     } else {
-        console.warn("⚠️ LINE Bot Token/Secret尚未設定 (Webhook 可能會報錯 500，請檢查環境變數)");
+        console.warn("⚠️ LINE Bot Token/Secret尚未設定");
     }
 };
 initLine();
@@ -56,7 +56,6 @@ try { if (!fs.existsSync(path.join(__dirname, 'user_logs'))) fs.mkdirSync(path.j
 const dbPath = path.join(__dirname, 'callsys.db');
 const db = new sqlite3.Database(dbPath);
 const dbQueue = [];
-
 const initDatabase = () => {
     return new Promise((resolve, reject) => {
         db.serialize(() => {
@@ -114,8 +113,6 @@ const calcWaitTime = async (force) => {
     let total = 0; for(let i=0; i<rows.length-1; i++) total += (rows[i].timestamp - rows[i+1].timestamp);
     return (lastWaitCalc=Date.now(), cacheWait = Math.ceil((total / (rows.length - 1) / 60000) * 10) / 10);
 };
-
-// [Helper] Business Hours Check
 const isBusinessOpen = async () => {
     const cfg = JSON.parse(await redis.get(KEYS.HOURS)) || { enabled: false };
     if (!cfg.enabled) return true;
@@ -124,8 +121,76 @@ const isBusinessOpen = async () => {
     return currentH >= cfg.start && currentH < cfg.end;
 };
 
-// --- Middleware & Auth ---
-app.use(helmet({ contentSecurityPolicy: false })); app.use(express.static(path.join(__dirname, "public"))); app.use(express.json()); app.set('trust proxy', 1);
+// --- LINE WEBHOOK (MUST BE BEFORE express.json()) ---
+// ⚠️ 重要：此區塊必須放在 app.use(express.json()) 之前，否則簽章驗證會失敗 (403 Forbidden)
+const getLineConfig = async () => {
+    const [dbToken, dbSecret] = await redis.mget(KEYS.LINE.CFG_TOKEN, KEYS.LINE.CFG_SECRET);
+    return {
+        channelAccessToken: dbToken || LINE_ACCESS_TOKEN,
+        channelSecret: dbSecret || LINE_CHANNEL_SECRET
+    };
+};
+
+app.post('/callback', async (req, res, next) => {
+    try {
+        const config = await getLineConfig();
+        
+        // 1. 檢查設定
+        if (!config.channelAccessToken || !config.channelSecret) {
+            console.error("❌ LINE Webhook Failed: Missing Access Token or Secret (Check .env)");
+            return res.status(500).json({ error: "Server Configuration Error: Missing LINE Config" });
+        }
+
+        // 2. 嘗試初始化全域 Client (用於回覆)
+        if (!lineClient) {
+            try { lineClient = new line.Client(config); } catch (e) { console.error("Line Client Init Fail", e); }
+        }
+
+        // 3. 執行簽章驗證 Middleware
+        // 注意：這個 middleware 需要原始的 request body stream
+        line.middleware(config)(req, res, (err) => {
+            if (err) {
+                console.error("❌ LINE Signature Validation Failed:", err.message);
+                // 這裡的 403 通常是因為 Channel Secret 錯誤，或 body 已經被 express.json() 修改
+                return res.status(403).json({ error: "Invalid Signature" });
+            }
+            next();
+        });
+    } catch (e) {
+        console.error("❌ LINE Webhook Internal Error:", e);
+        res.status(500).end();
+    }
+}, (req, res) => {
+    // 4. 事件處理
+    Promise.all(req.body.events.map(async e => {
+        if (e.type !== 'message' || e.message.type !== 'text') return;
+        const t = e.message.text.trim();
+        const u = e.source.userId;
+        
+        if (!lineClient) return;
+        const rp = x => lineClient.replyMessage(e.replyToken, { type: 'text', text: x }).catch(err => console.error("Reply Error:", err));
+
+        if(t==='後台登入') return rp((await redis.get(`${KEYS.LINE.ADMIN}${u}`)) ? `🔗 ${process.env.RENDER_EXTERNAL_URL}/admin.html` : (await redis.set(`${KEYS.LINE.CTX}${u}`,'WAIT_PWD','EX',120),"請輸入密碼"));
+        if((await redis.get(`${KEYS.LINE.CTX}${u}`))==='WAIT_PWD' && t===(await redis.get(KEYS.LINE.PWD)||`unlock${ADMIN_TOKEN}`)) { await redis.set(`${KEYS.LINE.ADMIN}${u}`,"1","EX",600); await redis.del(`${KEYS.LINE.CTX}${u}`); return rp("🔓 驗證成功"); }
+        if(['?','status'].includes(t.toLowerCase())) { const [n,i,my]=await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.get(`${KEYS.LINE.USER}${u}`)]); return rp(`叫號:${n||0} / 發號:${i||0}${my?`\n您的:${my}`:''}`); }
+        if(/^\d+$/.test(t)) { const n=parseInt(t), c=parseInt(await redis.get(KEYS.CURRENT))||0; if(n<=c) return rp("已過號"); await redis.multi().set(`${KEYS.LINE.USER}${u}`,n,'EX',43200).sadd(`${KEYS.LINE.SUB}${n}`,u).expire(`${KEYS.LINE.SUB}${n}`,43200).sadd(KEYS.LINE.ACTIVE,n).exec(); return rp(`設定成功: ${n}號`); }
+        if(['cancel'].includes(t.toLowerCase())) { const n=await redis.get(`${KEYS.LINE.USER}${u}`); if(n){await redis.multi().del(`${KEYS.LINE.USER}${u}`).srem(`${KEYS.LINE.SUB}${n}`,u).exec(); return rp("已取消");} }
+    }))
+    .then(() => res.json({}))
+    .catch(e => {
+        console.error("Event Handler Error:", e);
+        res.status(500).end();
+    });
+});
+// ------------------------------------------------
+
+// --- Middleware (General) ---
+app.use(helmet({ contentSecurityPolicy: false })); 
+app.use(express.static(path.join(__dirname, "public"))); 
+// ⚠️ 重要：express.json() 必須放在 LINE Webhook 之後
+app.use(express.json()); 
+app.set('trust proxy', 1);
+
 const H = fn => async(req, res, next) => { try { const r = await fn(req, res); if(r!==false) res.json(r||{success:true}); } catch(e){ res.status(500).json({error:e.message}); } };
 
 const auth = async(req, res, next) => {
@@ -263,7 +328,6 @@ app.post("/api/passed/clear", auth, perm('pass'), H(async r => {
     addLog(r.user.nickname, "🗑️ 清空過號名單");
 }));
 
-// Users API (Protected by 'users' permission)
 app.post("/api/admin/users", auth, perm('users'), H(async r => {
     const rawUsers = [{username:'superadmin',nickname:await redis.hget(KEYS.NICKS,'superadmin')||'Super',role:'ADMIN'}, ...(await redis.hkeys(KEYS.USERS)).map(x=>({username:x, nickname:null, role:null}))];
     const resolvedUsers = await Promise.all(rawUsers.map(async u=>{ if(u.username!=='superadmin'){u.nickname=await redis.hget(KEYS.NICKS,u.username)||u.username; u.role=await redis.hget(KEYS.USER_ROLES,u.username)||'OPERATOR';} return u; }));
@@ -277,7 +341,6 @@ app.post("/api/admin/set-role", auth, perm('users'), H(async r => { if(r.user.ro
 app.post("/api/admin/roles/get", auth, H(async r => JSON.parse(await redis.get(KEYS.ROLES)) || DEFAULT_ROLES));
 app.post("/api/admin/roles/update", auth, perm('settings'), H(async r => { if(r.user.role!=='super') throw new Error("僅超級管理員"); await redis.set(KEYS.ROLES, JSON.stringify(r.body.rolesConfig)); addLog(r.user.nickname, "🔧 修改權限"); }));
 
-// Stats & Features (Protected by 'stats' and 'settings')
 app.post("/api/admin/stats", auth, perm('stats'), H(async req => {
     const {dateStr, hour} = getTWTime(), hData = await redis.hgetall(`${KEYS.HOURLY}${dateStr}`), counts = new Array(24).fill(0);
     let total = 0; if(hData) for(let i=0; i<24; i++) { let iss = parseInt(hData[`${i}_i`]||hData[i]||0), pass = parseInt(hData[`${i}_p`]||0), net = Math.max(0, iss - pass); counts[i] = net; total += net; }
@@ -337,66 +400,6 @@ app.post("/api/admin/line-settings/reset", auth, perm('line'), H(async r => { aw
 app.post("/api/admin/line-settings/get-unlock-pass", auth, perm('line'), H(async r => ({ password: await redis.get(KEYS.LINE.PWD) })));
 app.post("/api/admin/line-settings/save-pass", auth, perm('line'), H(async r => { await redis.set(KEYS.LINE.PWD, r.body.password); }));
 
-// --- NEW LINE WEBHOOK LOGIC (Robust & Secure) ---
-const getLineConfig = async () => {
-    const [dbToken, dbSecret] = await redis.mget(KEYS.LINE.CFG_TOKEN, KEYS.LINE.CFG_SECRET);
-    return {
-        channelAccessToken: dbToken || LINE_ACCESS_TOKEN,
-        channelSecret: dbSecret || LINE_CHANNEL_SECRET
-    };
-};
-
-app.post('/callback', async (req, res, next) => {
-    try {
-        const config = await getLineConfig();
-        
-        // 1. Check for missing config explicitly
-        if (!config.channelAccessToken || !config.channelSecret) {
-            console.error("❌ LINE Webhook Failed: Missing Access Token or Secret (Check .env)");
-            return res.status(500).json({ error: "Server Configuration Error: Missing LINE Config" });
-        }
-
-        // 2. Re-initialize global lineClient if it's dead (for replies)
-        if (!lineClient) {
-            try { lineClient = new line.Client(config); } catch (e) { console.error("Line Client Init Fail", e); }
-        }
-
-        // 3. Dynamic Middleware
-        line.middleware(config)(req, res, (err) => {
-            if (err) {
-                console.error("❌ LINE Signature Validation Failed:", err.message);
-                return res.status(403).json({ error: "Invalid Signature" });
-            }
-            next();
-        });
-    } catch (e) {
-        console.error("❌ LINE Webhook Internal Error:", e);
-        res.status(500).end();
-    }
-}, (req, res) => {
-    // Event Handler
-    Promise.all(req.body.events.map(async e => {
-        if (e.type !== 'message' || e.message.type !== 'text') return;
-        const t = e.message.text.trim();
-        const u = e.source.userId;
-        
-        if (!lineClient) return; // Safety check
-        const rp = x => lineClient.replyMessage(e.replyToken, { type: 'text', text: x }).catch(err => console.error("Reply Error:", err));
-
-        if(t==='後台登入') return rp((await redis.get(`${KEYS.LINE.ADMIN}${u}`)) ? `🔗 ${process.env.RENDER_EXTERNAL_URL}/admin.html` : (await redis.set(`${KEYS.LINE.CTX}${u}`,'WAIT_PWD','EX',120),"請輸入密碼"));
-        if((await redis.get(`${KEYS.LINE.CTX}${u}`))==='WAIT_PWD' && t===(await redis.get(KEYS.LINE.PWD)||`unlock${ADMIN_TOKEN}`)) { await redis.set(`${KEYS.LINE.ADMIN}${u}`,"1","EX",600); await redis.del(`${KEYS.LINE.CTX}${u}`); return rp("🔓 驗證成功"); }
-        if(['?','status'].includes(t.toLowerCase())) { const [n,i,my]=await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.get(`${KEYS.LINE.USER}${u}`)]); return rp(`叫號:${n||0} / 發號:${i||0}${my?`\n您的:${my}`:''}`); }
-        if(/^\d+$/.test(t)) { const n=parseInt(t), c=parseInt(await redis.get(KEYS.CURRENT))||0; if(n<=c) return rp("已過號"); await redis.multi().set(`${KEYS.LINE.USER}${u}`,n,'EX',43200).sadd(`${KEYS.LINE.SUB}${n}`,u).expire(`${KEYS.LINE.SUB}${n}`,43200).sadd(KEYS.LINE.ACTIVE,n).exec(); return rp(`設定成功: ${n}號`); }
-        if(['cancel'].includes(t.toLowerCase())) { const n=await redis.get(`${KEYS.LINE.USER}${u}`); if(n){await redis.multi().del(`${KEYS.LINE.USER}${u}`).srem(`${KEYS.LINE.SUB}${n}`,u).exec(); return rp("已取消");} }
-    }))
-    .then(() => res.json({}))
-    .catch(e => {
-        console.error("Event Handler Error:", e);
-        res.status(500).end();
-    });
-});
-// ------------------------------------------------
-
 async function checkLine(curr) {
     if(!lineClient) return;
     const t = curr+5, [appr, arr, sub5, sub0] = await Promise.all([redis.get('callsys:line:msg:approach'), redis.get('callsys:line:msg:arrival'), redis.smembers(`${KEYS.LINE.SUB}${t}`), redis.smembers(`${KEYS.LINE.SUB}${curr}`)]);
@@ -442,7 +445,7 @@ io.on("connection", async s => {
 });
 
 initDatabase().then(() => {
-    server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v18.1 running on ${PORT}`));
+    server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v18.2 running on ${PORT}`));
 }).catch(err => {
     console.error("❌ Failed to start server due to DB error:", err);
     process.exit(1);
