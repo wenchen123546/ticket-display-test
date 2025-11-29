@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v18.0 Fixed & Polished
+ * 後台邏輯 (admin.js) - v18.1 Fixed & Polished
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 const mk = (t, c, txt, ev={}, ch=[]) => { 
@@ -382,17 +382,16 @@ async function loadUsers() {
         return card;
     }, "loading");
 
-    // 重繪 "新增使用者" 區塊 (從卡片列表分離出來)
+    // 重繪 "新增使用者" 區塊 (從卡片列表分離出來) - v18.1 Fix
     const cardContainer = $("card-user-management");
+    const existingWrapper = document.getElementById("add-user-wrapper");
+    if(existingWrapper) existingWrapper.remove(); // 避免重複
+    
     let addSection = document.getElementById("add-user-section-fixed");
     
-    if(!addSection && cardContainer) {
-        // 清理舊的結構
-        const oldControls = cardContainer.querySelectorAll('.control-group.compact-group, .add-user-container');
-        oldControls.forEach(el => el.remove());
-
+    if(cardContainer) {
         // 建立新的新增區塊卡片
-        const containerDiv = mk("div", "admin-card", null, {id: "add-user-wrapper", style:"margin-top: 20px; padding: 24px;"});
+        const containerDiv = mk("div", "admin-card", null, {id: "add-user-wrapper", style:"margin-top: 20px; padding: 24px; height: auto;"});
         const header = mk("h3", null, null, {}, [mk("span", "card-icon", "👤"), mk("span", null, T.lbl_add_user)]);
         
         addSection = mk("div", "add-user-grid", null, {id:"add-user-section-fixed", style:"margin-top:16px;"});
