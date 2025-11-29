@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v17.9 Final Polish
+ * 後台樣式 (admin.css) - v18.0 Layout Fix
  * ========================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
@@ -419,44 +419,43 @@ button:active { transform: scale(0.97); }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ==========================================
-   8. 優化後的帳號與在線管理樣式 (v17.9 Fixed & Polished)
+   8. 帳號管理版面修復 (User UI Fix v18.0)
    ========================================== */
 
-/* 通用網格設定 (帳號與在線管理共用) */
+/* 強制 Grid 列高根據內容自動撐開，防止重疊 */
 #user-list-ui, #online-users-list {
     display: grid !important;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
+    grid-auto-rows: max-content; /* 關鍵修正：讓每一列的高度依內容而定 */
+    gap: 20px; /* 增加間距 */
     padding: 4px;
-    max-height: 500px;
+    max-height: 600px;
     overflow-y: auto;
 }
 
-/* --- [共用卡片基底] --- */
+/* 卡片容器：修正高度與溢出問題 */
 .user-card-item {
     background: var(--bg-surface);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 16px;
+    border-radius: 16px; /* 更圓潤 */
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    height: auto; /* 修正：自動高度 */
+    min-height: 0; /* 防止 Flex 子元素溢出 */
     position: relative;
-    overflow: visible; /* 修正：允許陰影或提示框超出 */
-    min-height: 120px; /* 確保高度一致 */
+    overflow: hidden; /* 修正：確保內容都在圓角內，並包含子元素 */
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
 
 .user-card-item:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-card);
-    border-color: var(--border-focus);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px -5px rgba(0,0,0,0.1);
+    border-color: var(--primary);
+    z-index: 5; /* 懸浮時置頂 */
 }
 
-/* --- [在線使用者專屬樣式] --- */
-.user-card-item.online-mode {
-    border-left: 4px solid var(--success); /* 左側綠條強調在線 */
-}
+.user-card-item.online-mode { border-left: 5px solid var(--success); }
 
 /* 在線呼吸燈 */
 .status-pulse-indicator {
@@ -474,85 +473,89 @@ button:active { transform: scale(0.97); }
     100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
-/* --- [卡片內容排版] --- */
+/* 卡片內容區 */
 .user-card-header { 
+    padding: 16px;
     display: flex; 
     align-items: center; 
-    gap: 12px; 
-    width: 100%;
+    gap: 14px; 
+    flex-grow: 1; /* 佔據剩餘空間 */
 }
 
 .user-avatar-fancy {
-    width: 46px; height: 46px;
+    width: 48px; height: 48px;
     border-radius: 12px; 
     color: white; 
-    font-weight: 800; 
-    font-size: 1.2rem;
+    font-weight: 800; font-size: 1.2rem;
     display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
-    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
     flex-shrink: 0;
 }
 
-.user-info-fancy { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
-.user-nick-fancy { font-weight: 700; color: var(--text-main); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; }
-.user-id-fancy { font-size: 0.8rem; color: var(--text-sub); font-family: 'JetBrains Mono', monospace; opacity: 0.8; margin-top: 2px; }
+.user-info-fancy { flex: 1; min-width: 0; }
+.user-nick-fancy { font-weight: 700; color: var(--text-main); font-size: 1.05rem; margin-bottom: 2px; display: flex; align-items: center;}
+.user-id-fancy { font-size: 0.85rem; color: var(--text-sub); font-family: 'JetBrains Mono', monospace; opacity: 0.8; }
 
 /* 角色標籤 */
 .role-badge-fancy {
-    font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; align-self: flex-start;
-    margin-top: 6px;
+    font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; margin-top: 8px;
 }
 .role-badge-fancy.admin { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; }
-.role-badge-fancy.manager { background: #e0f2fe; color: #0284c7; border: 1px solid rgba(2, 132, 199, 0.2); }
-.role-badge-fancy.operator { background: #f1f5f9; color: #64748b; border: 1px solid var(--border-color); }
-body.dark-mode .role-badge-fancy.manager { background: rgba(14, 165, 233, 0.2); color: #38bdf8; }
-body.dark-mode .role-badge-fancy.operator { background: rgba(148, 163, 184, 0.1); color: #94a3b8; }
+.role-badge-fancy.manager { background: #e0f2fe; color: #0284c7; }
+.role-badge-fancy.operator { background: #f1f5f9; color: #64748b; }
 
-/* --- [操作區與表單] --- */
+/* 底部操作區：改為頁尾風格 */
 .user-card-actions {
+    background: var(--bg-input); /* 灰色背景區分 */
+    padding: 10px 16px;
+    border-top: 1px solid var(--border-color);
     display: flex; 
     justify-content: space-between; 
     align-items: center;
-    padding-top: 12px; 
-    border-top: 1px dashed var(--border-color); 
-    margin-top: auto;
-    min-height: 40px; /* 確保按鈕區域高度 */
+    flex-shrink: 0; /* 防止被壓縮 */
 }
 
-/* 按鈕樣式增強 */
+/* 按鈕樣式 */
 .btn-action-icon {
-    width: 36px; height: 36px;
+    width: 32px; height: 32px;
     display: flex; align-items: center; justify-content: center;
     border-radius: 8px;
     border: 1px solid var(--border-color);
-    background: var(--bg-body);
+    background: var(--bg-surface); /* 白色按鈕 */
     color: var(--text-sub);
-    cursor: pointer;
-    transition: 0.2s;
-    font-size: 1rem;
+    cursor: pointer; transition: 0.2s;
 }
-.btn-action-icon:hover { background: var(--bg-hover); color: var(--primary); border-color: var(--primary); }
-.btn-action-icon.danger:hover { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+.btn-action-icon:hover { border-color: var(--primary); color: var(--primary); transform: scale(1.05); }
+.btn-action-icon.danger:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-bg); }
 
-/* 編輯表單容器 */
+/* 編輯覆蓋層 */
 .edit-form-wrapper { 
-    display: flex; flex-direction: column; gap: 8px; width: 100%; 
-    padding: 10px; background: var(--bg-input); border-radius: 8px;
-    border: 1px solid var(--border-color);
-    position: absolute; /* 絕對定位覆蓋 */
-    top: 0; left: 0; width: 100%; height: 100%;
+    position: absolute; inset: 0; 
+    background: rgba(255,255,255,0.95); backdrop-filter: blur(5px);
     z-index: 10;
-    justify-content: center;
+    display: flex; flex-direction: column; justify-content: center; 
+    padding: 20px;
 }
-.edit-form-actions { display: flex; gap: 8px; justify-content: flex-end; width: 100%; }
+body.dark-mode .edit-form-wrapper { background: rgba(30,41,59,0.95); }
+.edit-form-actions { display: flex; gap: 8px; justify-content: flex-end; width: 100%; margin-top: 10px; }
 
-/* 新增使用者底部區塊 */
+/* 新增使用者區塊 (避免負 margin 造成的版面問題) */
 .add-user-container {
-    background: var(--bg-hover); border-top: 1px solid var(--border-color);
-    padding: 16px; border-radius: 0 0 16px 16px; margin: -24px -24px -24px -24px;
+    background: var(--bg-input);
+    border-top: 1px solid var(--border-color);
+    padding: 20px;
+    border-radius: 0 0 16px 16px;
+    margin-top: auto; 
 }
 .add-user-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.add-user-grid input, .add-user-grid select { font-size: 0.85rem; height: 38px; }
 .btn-add-user-fancy { grid-column: 1 / -1; margin-top: 4px; background: var(--text-main); color: var(--bg-body); }
+
+/* 讓外層卡片去除預設 padding 以適應滿版設計 */
+#card-user-management .admin-card { padding: 0; overflow: visible; border:none; background: transparent; box-shadow: none; }
+/* 重設內部列表容器 */
+#card-user-management .list-container { 
+    border: none; background: transparent; 
+    max-height: none; overflow: visible; 
+    margin-bottom: 24px;
+}
