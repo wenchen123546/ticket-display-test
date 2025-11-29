@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v17.3 Layout Fix
+ * 後台樣式 (admin.css) - v17.4 Layout Squeeze Fix
  * ========================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
@@ -107,7 +107,7 @@ body {
 
 .sidebar-footer { padding: 20px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 12px; background: var(--bg-sidebar); }
 
-/* Content Area */
+/* Content Area - Desktop Default */
 .content-area { 
     flex: 1; padding: 32px; width: 0; min-width: 0; 
     overflow-y: auto; display: flex; flex-direction: column; align-items: center; 
@@ -134,7 +134,7 @@ body {
     height: 100%; position: relative; 
     transition: transform 0.2s, box-shadow 0.2s;
     
-    /* [修正] 將對齊方式從 space-between 改為 flex-start，避免內容少時上方出現大片空白 */
+    /* 修正對齊方式，防止上方空白 */
     display: flex; flex-direction: column; justify-content: flex-start; gap: 16px; 
 }
 body.dark-mode .admin-card { border: 1px solid rgba(255,255,255,0.08); }
@@ -152,7 +152,7 @@ body.dark-mode .admin-card { border: 1px solid rgba(255,255,255,0.08); }
 .admin-card .control-group { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; }
 .admin-card .control-group.compact-group { flex-grow: 0; margin-top: auto; }
 
-/* [修正] 最後的按鈕自動推到底部，確保 Command Center 等卡片的 Reset 按鈕位置正確 */
+/* 重置按鈕置底 */
 .admin-card > button:last-child { margin-top: 0; }
 
 /* Dashboard Stats */
@@ -234,7 +234,7 @@ button:active { transform: scale(0.97); }
 .btn-add { width: var(--input-h); padding: 0; background: var(--primary); color: white; font-size: 1.4rem; line-height: 1; flex-shrink: 0; }
 
 .btn-reset-single { 
-    width: 100%; margin-top: auto; /* [修正] 強制重置按鈕置底 */
+    width: 100%; margin-top: auto; 
     padding: 10px; height: auto;
     background: transparent; color: var(--text-light); font-size: 0.85rem; font-weight: 500;
 }
@@ -246,8 +246,6 @@ button:active { transform: scale(0.97); }
    ========================================== */
 .list-container { 
     flex: 1; 
-    /* [修正] 移除 Desktop 高度限制，讓列表容器能填滿卡片高度 (配合 flex:1) */
-    /* max-height: 40vh; */
     min-height: 150px;
     border: 1px solid var(--border-color); border-radius: var(--btn-radius); 
     overflow: hidden; background: var(--bg-input); display: flex; flex-direction: column; 
@@ -356,33 +354,58 @@ button:active { transform: scale(0.97); }
 .btn-circle:hover { border-color: var(--primary); color: var(--primary); background: var(--bg-surface); transform: scale(1.1); }
 
 /* ==========================================
-   7. RWD (Mobile Fixes)
+   7. RWD (Mobile Fixes - CRITICAL)
    ========================================== */
 @media (max-width: 768px) {
+    /* 修正整體捲動 */
     body { height: auto; overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
     #admin-panel { flex-direction: column; height: auto; min-height: 100vh; overflow: visible; }
+    
+    /* 側邊欄變頂部欄 */
     .sidebar { width: 100%; height: auto; position: sticky; top: 0; border-right: none; border-bottom: 1px solid var(--border-color); flex-direction: row; padding: 0; box-shadow: var(--shadow-sm); z-index: 1000; overflow-x: auto; scrollbar-width: none; }
     .sidebar::-webkit-scrollbar { display: none; }
     .sidebar-header, .sidebar-footer { display: none; }
     .sidebar-nav { flex-direction: row; padding: 8px 12px; gap: 8px; flex-wrap: nowrap; }
     .nav-btn { flex-direction: column; padding: 6px 12px; font-size: 0.75rem; gap: 4px; justify-content: center; text-align: center; flex: 0 0 auto; min-width: 65px; }
-    .content-area { padding: 16px; overflow: visible; height: auto; display: block; }
+    
+    /* [CRITICAL FIX] 強制重置 content-area 寬度 */
+    .content-area { 
+        padding: 16px; 
+        overflow: visible; 
+        height: auto; 
+        display: block; 
+        width: 100% !important; /* 修正被 Desktop 版 flex:1; width:0 擠壓的問題 */
+    }
+    
+    /* 卡片與儀表板佈局調整 */
     .card-container { display: flex; flex-direction: column; gap: 20px; } 
     .admin-card { height: auto !important; min-height: auto; gap: 20px; }
+    
+    /* 儀表板：讓「目前叫號」與「已發號」並排，但字體稍微縮小以防溢出 */
     .dashboard-header { grid-template-columns: 1fr 1fr; gap: 12px; }
     .dashboard-item { padding: 16px; }
     .dashboard-item:last-child { grid-column: 1 / -1; }
-    .big-number { font-size: 2.8rem; } .sub-number { font-size: 2rem; }
+    .big-number { font-size: 2.5rem; } 
+    .sub-number { font-size: 1.8rem; }
+    
+    /* 輸入框與按鈕 */
     .input-group { flex-direction: column; }
     .secondary-actions-row, .big-action-row { gap: 10px; }
     .btn-add { width: 100%; height: 44px; font-size: 1.2rem; }
+    
+    /* 按鈕最小高度與文字 */
     button, input, select { min-height: 48px; font-size: 16px; }
     button { white-space: normal; line-height: 1.2; height: auto; padding: 12px; }
+    
+    /* 列表高度 */
     .list-container { max-height: none; height: auto; }
     .scroll-list { max-height: 400px; }
+    
+    /* 其他 */
     .mobile-only-settings { display: block; margin-top: 24px; padding-top: 20px; border-top: 1px dashed var(--border-color); }
     #login-container { width: 100%; padding: 32px 24px; box-shadow: none; top: 0; margin-top: 40px; border: none; }
 }
+
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ==========================================
