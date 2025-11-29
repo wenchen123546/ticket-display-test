@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v20.5 Admin Role Editable
+ * 後台邏輯 (admin.js) - v20.6 System Commands UI
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 
@@ -126,7 +126,8 @@ const updateLangUI = () => {
     if($("section-settings").classList.contains("active") && checkPerm('line')) {
         if(cachedLine) renderLineSettings(); else loadLineSettings();
         loadLineMessages();
-        loadLineAutoReplies(); // [新增] 載入關鍵字設定
+        loadLineAutoReplies();
+        loadLineSystemCommands(); // [New]
     }
 
     if(username) $("sidebar-user-info").textContent = username;
@@ -279,6 +280,59 @@ async function loadLineMessages() {
         $("msg-arrival").value = d.arrival;
         $("msg-passed").value = d.passed;
         $("msg-cancel").value = d.cancel;
+    }
+}
+
+// [New] Load System Command Settings
+async function loadLineSystemCommands() {
+    const section = $("line-cmd-section");
+    if(!section) {
+        // Inject UI if not exists
+        const parent = $("msg-success").closest('.admin-card');
+        const defaultMsgGroup = $("line-default-msg").closest('.control-group');
+        
+        if(parent && defaultMsgGroup) {
+            const container = mk("div", null, null, {id: "line-cmd-section", style: "margin: 20px 0; padding-top: 20px; border-top: 1px dashed var(--border-color);"});
+            container.innerHTML = `
+                <h4 style="margin: 0 0 15px 0; color: var(--text-main);">🤖 系統指令設定</h4>
+                <div class="control-group">
+                    <label>後台登入 (單一指令)</label>
+                    <input type="text" id="cmd-login" placeholder="預設: 後台登入">
+                </div>
+                <div class="control-group">
+                    <label>查詢狀態 (逗號分隔多個指令)</label>
+                    <input type="text" id="cmd-status" placeholder="預設: status,?,查詢">
+                </div>
+                <div class="control-group">
+                    <label>取消追蹤 (逗號分隔多個指令)</label>
+                    <div class="input-group">
+                        <input type="text" id="cmd-cancel" placeholder="預設: cancel,取消">
+                        <button id="btn-save-cmd" class="btn-secondary success">儲存</button>
+                    </div>
+                </div>
+            `;
+            // Insert before the Auto Reply section (which usually follows default msg)
+            parent.insertBefore(container, defaultMsgGroup.nextSibling);
+            
+            // Bind button
+            $("btn-save-cmd").onclick = async () => {
+                const data = {
+                    login: $("cmd-login").value,
+                    status: $("cmd-status").value,
+                    cancel: $("cmd-cancel").value
+                };
+                if(await req("/api/admin/line-system-keywords/save", data, $("btn-save-cmd"))) {
+                    toast(T.saved, "success");
+                }
+            };
+        }
+    }
+
+    const d = await req("/api/admin/line-system-keywords/get");
+    if(d) {
+        if($("cmd-login")) $("cmd-login").value = d.login;
+        if($("cmd-status")) $("cmd-status").value = d.status;
+        if($("cmd-cancel")) $("cmd-cancel").value = d.cancel;
     }
 }
 
@@ -688,7 +742,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 if(checkPerm('line')) { 
                     if(cachedLine) renderLineSettings(); else loadLineSettings(); 
                     loadLineMessages();
-                    loadLineAutoReplies(); // [新增]
+                    loadLineAutoReplies();
+                    loadLineSystemCommands(); // [New]
                 } 
             }
         }
