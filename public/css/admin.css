@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v20.1 Mobile Fix & Matrix
+ * 後台樣式 (admin.css) - v20.2 Login Fix
  * ========================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
@@ -58,6 +58,37 @@ body.dark-mode {
     --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
 }
 
+/* ==========================================
+ * [新增] Login Container Styles (修正過大問題)
+ * ========================================== */
+#login-container {
+    width: 90%;
+    max-width: 400px;         /* 關鍵：限制最大寬度 */
+    margin: 12vh auto 0;      /* 垂直置中，頂部留白 */
+    padding: 48px 32px;
+    background: var(--bg-surface);
+    border-radius: 24px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-float);
+    animation: loginFadeIn 0.5s ease-out;
+}
+
+/* 優化登入畫面內部間距 */
+#login-container .control-group {
+    margin-bottom: 20px;
+}
+#login-container .btn-hero {
+    margin-top: 12px;
+}
+
+@keyframes loginFadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================
+ * General Resets
+ * ========================================== */
 * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
 body { margin: 0; width: 100%; height: 100vh; font-family: 'Inter', system-ui, sans-serif; background: var(--bg-body); color: var(--text-main); font-size: 14px; line-height: 1.5; overflow: hidden; transition: background-color 0.3s ease; }
 
@@ -73,6 +104,7 @@ body { margin: 0; width: 100%; height: 100vh; font-family: 'Inter', system-ui, s
 .content-area { flex: 1; padding: 32px; width: 0; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: center; scroll-behavior: smooth; }
 .section-group { width: 100%; max-width: 1400px; display: none; animation: fadeIn 0.4s ease-out; }
 .section-group.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* Grid System */
 .card-container, .dashboard-header { 
@@ -188,7 +220,7 @@ input[type="radio"] { display: none; }
 .status-pulse-indicator { width: 10px; height: 10px; background-color: var(--success); border-radius: 50%; animation: pulse-green 2s infinite; display: inline-block; margin-right: 6px; }
 @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
 
-/* Matrix Table Styling (Updated) */
+/* Matrix Table Styling */
 .perm-table-wrapper { width: 100%; overflow-x: auto; border-radius: 8px; border: 1px solid var(--border-color); }
 .perm-matrix { width: 100%; border-collapse: collapse; min-width: 300px; }
 .perm-matrix thead th { background: var(--bg-input); color: var(--text-sub); font-size: 0.85rem; padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color); white-space: nowrap; }
@@ -214,7 +246,7 @@ body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
  * MOBILE OPTIMIZATION FIXED
  * ========================================== */
 @media (max-width: 768px) {
-    /* 1. 全局重置：強制解除桌面版的 overflow: hidden 鎖定，恢復自然捲動 */
+    /* 1. 全局重置 */
     html, body {
         height: auto !important;
         min-height: 100%;
@@ -224,13 +256,13 @@ body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
         position: relative;
     }
     
-    /* 2. 佈局重置：將側邊欄與內容垂直排列 */
+    /* 2. 佈局重置 */
     #admin-panel {
         flex-direction: column;
         height: auto !important;
         overflow: visible !important;
         display: block;
-        padding-top: 60px; /* 留出置頂選單空間 */
+        padding-top: 60px;
     }
 
     /* 3. 側邊欄改為置頂橫向滑動 Tabs */
@@ -249,13 +281,10 @@ body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
         white-space: nowrap;
         padding: 0 8px;
         align-items: center;
-        background: var(--bg-surface); /* 確保不透明 */
+        background: var(--bg-surface);
     }
-    
-    /* 隱藏桌面版 Header/Footer */
     .sidebar-header, .sidebar-footer { display: none !important; }
     
-    /* 調整選單按鈕樣式 */
     .sidebar-nav {
         flex-direction: row;
         padding: 0;
@@ -274,7 +303,7 @@ body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
         background: var(--bg-input);
         border: 1px solid var(--border-color);
         margin: 0;
-        flex-shrink: 0; /* 防止被壓縮 */
+        flex-shrink: 0;
     }
     
     .nav-btn.active {
@@ -288,12 +317,11 @@ body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
         padding: 16px; 
         width: 100%;
         display: block;
-        /* Fix: Use min-height + flex:none to avoid layout breakage on mobile */
         min-height: calc(100vh - 60px);
         height: auto !important;
         flex: none;
         overflow: visible;
-        padding-bottom: 80px; /* Space for safety */
+        padding-bottom: 80px;
     }
 
     /* 5. 卡片與 Grid 強制堆疊 */
@@ -309,7 +337,7 @@ body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
         padding: 20px;
     }
 
-    /* 6. 輸入框字體優化 (防止 iOS 自動放大) */
+    /* 6. 輸入框字體優化 */
     input, select, textarea {
         font-size: 16px !important; 
     }
@@ -321,20 +349,16 @@ body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
         max-height: none;
         overflow: visible;
     }
-    
-    .user-card-item {
-        width: 100%;
-    }
+    .user-card-item { width: 100%; }
 
     .perm-table-wrapper {
-        margin: 0 -10px; /* 讓表格在小螢幕可以稍微往外延伸 */
+        margin: 0 -10px;
         width: calc(100% + 20px);
         border-radius: 0;
         border-left: none;
         border-right: none;
     }
     
-    /* 安全區域適配 (瀏海機) */
     .sidebar { padding-top: env(safe-area-inset-top); height: calc(60px + env(safe-area-inset-top)); }
     .content-area { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
 }
@@ -345,9 +369,9 @@ body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5); /* 半透明黑色背景 */
-    z-index: 10000; /* 確保在最上層 */
-    display: none; /* 預設隱藏！這是關鍵 */
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: none;
     justify-content: center;
     align-items: center;
     backdrop-filter: blur(4px);
@@ -369,11 +393,7 @@ body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
     animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.modal-content h3 {
-    margin: 0;
-    color: var(--text-main);
-}
-
+.modal-content h3 { margin: 0; color: var(--text-main); }
 .btn-circle {
     width: 48px;
     height: 48px;
@@ -389,15 +409,10 @@ body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
     transition: 0.2s;
     color: var(--text-sub);
 }
-
 .btn-circle:hover {
     background: var(--primary);
     color: white;
     border-color: var(--primary);
     transform: scale(1.1);
 }
-
-@keyframes modalPop {
-    from { transform: scale(0.9); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-}
+@keyframes modalPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
