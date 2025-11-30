@@ -373,3 +373,11 @@ input[type="radio"] { display: none; }
     .user-card-item { width: 100%; flex-shrink: 0; }
     .perm-table-wrapper { margin: 0 -10px; width: calc(100% + 20px); border-radius: 0; border-left: none; border-right: none; }
 }
+
+/* 強制將深色模式下的時鐘/日曆圖示反轉顏色 (變為白色) */
+body.dark-mode input[type="time"]::-webkit-calendar-picker-indicator,
+body.dark-mode input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1); /* 將黑色圖示轉為白色 */
+    opacity: 0.8;      /* 稍微調整透明度讓它柔和一點 */
+    cursor: pointer;
+}
