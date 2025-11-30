@@ -1,5 +1,5 @@
 /* ==========================================
- * 前台邏輯 (main.js) - Refactored & Fixed
+ * 前台邏輯 (main.js) - Refactored & Fixed (HH:MM Support)
  * ========================================== */
 const d = document, ls = localStorage, $ = i => d.getElementById(i), $$ = s => d.querySelectorAll(s);
 const on = (e, ev, fn) => e?.addEventListener(ev, fn), show = (e, v) => e && (e.style.display = v ? 'block' : 'none');
@@ -112,10 +112,10 @@ socket.on("connect", () => { socket.emit('joinRoom', 'public'); clearTimeout(con
     .on("updateBusinessHours", h => {
         const el = $("business-hours-badge");
         if(el) {
+            // Simplified display logic: show raw string from backend (e.g. "08:30 - 22:00")
             if (h && h.enabled) {
-                const fmt = t => String(t).padStart(2, '0') + ":00";
                 el.style.display = "inline-flex";
-                el.innerHTML = `<span>🕒</span> ${fmt(h.start)} - ${fmt(h.end)}`;
+                el.innerHTML = `<span>🕒</span> ${h.start} - ${h.end}`;
             } else {
                 el.style.display = "none";
             }
