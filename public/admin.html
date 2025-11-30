@@ -320,6 +320,44 @@
                                 <label>設定成功 (變數: {number})</label>
                                 <input type="text" id="msg-success" placeholder="設定成功: {number}號">
                             </div>
+                            
+                            <div class="control-group">
+                                <label>快到了通知 (變數: {target}, {diff})</label>
+                                <input type="text" id="msg-approach" placeholder="🔔 {target}號快到了 (前方剩{diff}組)">
+                            </div>
+                            
+                            <div class="control-group">
+                                <label>到號通知 (變數: {current})</label>
+                                <input type="text" id="msg-arrival" placeholder="🎉 {current}號 到您了！">
+                            </div>
+                            
+                            <div class="control-group" style="display:flex; gap:10px;">
+                                <div style="flex:1;">
+                                    <label>已過號</label>
+                                    <input type="text" id="msg-passed" placeholder="已過號">
+                                </div>
+                                <div style="flex:1;">
+                                    <label>已取消追蹤</label>
+                                    <input type="text" id="msg-cancel" placeholder="已取消">
+                                </div>
+                            </div>
+                            
+                            <div class="control-group" style="display:flex; gap:10px; margin-top:10px;">
+                                <div style="flex:1;">
+                                    <label>無追蹤 (取消時)</label>
+                                    <input type="text" id="msg-no-tracking" placeholder="您目前沒有設定追蹤。">
+                                </div>
+                                <div style="flex:1;">
+                                    <label>無過號 (查詢時)</label>
+                                    <input type="text" id="msg-no-passed" placeholder="目前沒有過號名單。">
+                                </div>
+                            </div>
+
+                            <div class="control-group" style="margin-top:10px;">
+                                <label>過號名單標題前綴</label>
+                                <input type="text" id="msg-passed-prefix" placeholder="⚠️ 過號名單：">
+                            </div>
+
                             <div class="control-group" style="display:flex; gap:10px; margin-top:10px;">
                                 <div style="flex:1;">
                                     <label>登入提示</label>
