@@ -1,20 +1,19 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - Chart Rendering Fix
+ * 後台邏輯 (admin.js) - UI Layout Fixed
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 
-// FIX: 修正 mk 函數，增加 String() 轉換以防止傳入數字時 startsWith 報錯
+// FIX: 修正 mk 函數，增加 String() 轉換以防止傳入數字時 startsWith 報錯 (延續上一次修復)
 const mk = (t, c, txt, ev={}, ch=[]) => {
     const e = document.createElement(t); if(c) e.className=c;
-    // 修正點：確保 txt 存在且轉為字串後再檢查是否為 HTML
     if(txt !== null && txt !== undefined) {
         const s = String(txt);
         e[s.startsWith('<') ? 'innerHTML' : 'textContent'] = s;
     }
     Object.entries(ev).forEach(([k,v])=>{
         if(k.startsWith('on')) e[k.toLowerCase()]=v;
-        else if(k === 'style') e.style.cssText = v; // 正確套用 inline style
-        else if(k.includes('-')) e.setAttribute(k, v); // 處理 data-*
+        else if(k === 'style') e.style.cssText = v;
+        else if(k.includes('-')) e.setAttribute(k, v);
         else e[k]=v;
     });
     (Array.isArray(ch)?ch:[ch]).forEach(x=>x&&e.appendChild(x)); return e;
@@ -96,9 +95,15 @@ function upgradeSystemModeUI() {
 }
 const updateSegmentedVisuals = (w) => w.querySelectorAll('input[type="radio"]').forEach(r => r.closest('.segmented-option').classList.toggle('active', r.checked));
 
+// FIX: 調整輸入框樣式 (width: 75px, padding: 0 5px) 解決數字被遮擋問題
 async function initBusinessHoursUI() {
     if(!checkPerm('settings')) return; const card=$("card-sys"); if(!card || card.querySelector('#business-hours-group')) return;
-    const t = mk("input","toggle-switch",null,{type:"checkbox",id:"bh-enabled"}), s = mk("input",null,null,{type:"number",min:0,max:23,placeholder:"Start",style:"width:60px;text-align:center;"}), e = mk("input",null,null,{type:"number",min:0,max:24,placeholder:"End",style:"width:60px;text-align:center;"});
+    
+    // 關鍵修改：增加 width 並強制覆寫 padding
+    const t = mk("input","toggle-switch",null,{type:"checkbox",id:"bh-enabled"});
+    const s = mk("input",null,null,{type:"number",min:0,max:23,placeholder:"Start",style:"width:75px;text-align:center;padding:0 5px;"});
+    const e = mk("input",null,null,{type:"number",min:0,max:24,placeholder:"End",style:"width:75px;text-align:center;padding:0 5px;"});
+
     const ctr = mk("div","control-group",null,{id:"business-hours-group",style:"margin-top:10px;border-top:1px dashed var(--border-color);padding-top:10px;"}, [mk("label",null,"營業時間控制"), mk("div",null,null,{style:"display:flex;gap:10px;align-items:center;"}, [t, s, mk("span",null,"➜"), e, mk("button","btn-secondary success","儲存",{style:"margin-left:auto;", onclick:async()=>await req("/api/admin/settings/hours/save",{enabled:t.checked,start:s.value,end:e.value}) && toast(T.saved,"success")})])]);
     const r=$("resetAll"); r ? card.insertBefore(ctr,r) : card.appendChild(ctr);
     req("/api/admin/settings/hours/get").then(d=>{ if(d) { t.checked=d.enabled; s.value=d.start; e.value=d.end; } });
