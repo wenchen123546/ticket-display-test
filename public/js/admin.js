@@ -1,15 +1,14 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - UI Layout Fixed with RemixIcon
+ * 後台邏輯 (admin.js) - UI Layout Fixed
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 
-// FIX: 修正 mk 函數，增加 String() 轉換
+// FIX: 修正 mk 函數，增加 String() 轉換以防止傳入數字時 startsWith 報錯 (延續上一次修復)
 const mk = (t, c, txt, ev={}, ch=[]) => {
     const e = document.createElement(t); if(c) e.className=c;
     if(txt !== null && txt !== undefined) {
         const s = String(txt);
-        // 如果內容以 < 開頭（例如圖標），使用 innerHTML，否則使用 textContent
-        e[s.trim().startsWith('<') ? 'innerHTML' : 'textContent'] = s;
+        e[s.startsWith('<') ? 'innerHTML' : 'textContent'] = s;
     }
     Object.entries(ev).forEach(([k,v])=>{
         if(k.startsWith('on')) e[k.toLowerCase()]=v;
@@ -20,24 +19,18 @@ const mk = (t, c, txt, ev={}, ch=[]) => {
     (Array.isArray(ch)?ch:[ch]).forEach(x=>x&&e.appendChild(x)); return e;
 };
 
-const toast = (m, t='info') => { 
-    const el=$("toast-notification"); 
-    el.innerHTML = t==='success' ? `<i class="ri-checkbox-circle-line"></i> ${m}` : (t==='error' ? `<i class="ri-error-warning-line"></i> ${m}` : m);
-    el.className=`show ${t}`; 
-    setTimeout(()=>el.className="",3000); 
-};
-
+const toast = (m, t='info') => { const el=$("toast-notification"); el.textContent=m; el.className=`show ${t}`; setTimeout(()=>el.className="",3000); };
 const req = async (url, data={}, btn=null) => {
     if(btn) btn.disabled=true;
     try {
         const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)});
         const res = await r.json();
-        if(!r.ok) { if(r.status===403 && !res.error?.includes("權限")) logout(); toast(`${res.error||'Error'}`,"error"); return null; }
+        if(!r.ok) { if(r.status===403 && !res.error?.includes("權限")) logout(); toast(`❌ ${res.error||'Error'}`,"error"); return null; }
         return res;
-    } catch(e) { toast(`${e.message}`,"error"); return null; } finally { if(btn) setTimeout(()=>btn.disabled=false, 300); }
+    } catch(e) { toast(`❌ ${e.message}`,"error"); return null; } finally { if(btn) setTimeout(()=>btn.disabled=false, 300); }
 };
 
-const i18n={"zh-TW":{status_conn:"<i class='ri-wifi-line'></i> 已連線",status_dis:"<i class='ri-wifi-off-line'></i> 連線中斷...",saved:"已儲存",denied:"權限不足",expired:"Session 過期",login_fail:"登入失敗",confirm:"確認",recall:"<i class='ri-subtract-line'></i> 重呼",edit:"<i class='ri-pencil-line'></i>",del:"<i class='ri-delete-bin-line'></i>",save:"儲存",cancel:"取消",login_title:"請登入管理系統",ph_account:"帳號",ph_password:"密碼",login_btn:"登入 <i class='ri-arrow-right-line'></i>",admin_panel:"管理後台",nav_live:"現場控台",nav_stats:"數據報表",nav_booking:"預約管理",nav_settings:"系統設定",nav_line:"LINE設定",logout:"<i class='ri-logout-box-r-line'></i> 登出",dash_curr:"目前叫號",dash_issued:"已發號至",dash_wait:"等待組數",card_call:"指揮中心",btn_next:"下一號 <i class='ri-arrow-right-circle-fill'></i>",btn_prev:"<i class='ri-arrow-left-s-line'></i> 上一號",btn_pass:"<i class='ri-share-forward-line'></i> 過號",lbl_assign:"指定 / 插隊",btn_exec:"GO",btn_reset_call:"<i class='ri-refresh-line'></i> 重置叫號",card_issue:"發號管理",btn_recall:"<i class='ri-subtract-line'></i> 收回",btn_issue:"發號 <i class='ri-add-line'></i>",lbl_fix_issue:"修正發號數",btn_fix:"修正",btn_reset_issue:"<i class='ri-refresh-line'></i> 重置發號",card_passed:"過號名單",btn_clear_passed:"清空過號",card_stats:"流量分析",lbl_today:"今日人次",btn_refresh:"重整",btn_calibrate:"校正",btn_clear_stats:"<i class='ri-delete-bin-line'></i> 清空統計",card_logs:"操作日誌",btn_clear_logs:"<i class='ri-delete-bin-line'></i> 清除日誌",card_sys:"系統",lbl_public:"開放前台",lbl_sound:"提示音效",lbl_tts:"TTS 語音廣播",btn_play:"<i class='ri-play-circle-line'></i>",lbl_mode:"取號模式",mode_online:"線上取號",mode_manual:"手動輸入",btn_reset_all:"<i class='ri-alarm-warning-line'></i> 全域重置",card_online:"在線管理",card_links:"連結管理",ph_link_name:"名稱",btn_clear_links:"清空連結",card_users:"帳號管理",lbl_add_user:"新增帳號",ph_nick:"暱稱",card_roles:"權限設定",btn_save_roles:"儲存權限變更",btn_save:"儲存",btn_restore:"<i class='ri-loop-left-line'></i> 恢復預設值",modal_edit:"編輯數據",btn_done:"完成",card_booking:"預約管理",lbl_add_appt:"新增預約",wait:"等待...",loading:"載入中...",empty:"[ 空 ]",no_logs:"[ 無日誌 ]",no_appt:"暫無預約",role_operator:"操作員",role_manager:"經理",role_admin:"管理員",msg_recall_confirm:"確定要重呼 %s 嗎？\n(當前叫號將移入過號名單)",msg_sent:"已發送",msg_calibrated:"校正完成",perm_role:"角色權限",perm_call:"叫號/指揮",perm_issue:"發號",perm_stats:"數據/日誌",perm_settings:"系統設定",perm_line:"LINE設定",perm_appointment:"預約管理",perm_users:"帳號管理"},"en":{status_conn:"Connected",status_dis:"Disconnected...",saved:"Saved",denied:"Denied",expired:"Session Expired",login_fail:"Login Failed",confirm:"Confirm",recall:"Recall",edit:"Edit",del:"Del",save:"Save",cancel:"Cancel",login_title:"Login to Admin Panel",ph_account:"Username",ph_password:"Password",login_btn:"Login",admin_panel:"Admin Panel",nav_live:"Live Console",nav_stats:"Statistics",nav_booking:"Booking",nav_settings:"Settings",nav_line:"Line Config",logout:"Logout",dash_curr:"Current Serving",dash_issued:"Last Issued",dash_wait:"Waiting",card_call:"Command Center",btn_next:"Next ▶",btn_prev:"◀ Prev",btn_pass:"Pass",lbl_assign:"Assign / Jump",btn_exec:"GO",btn_reset_call:"↺ Reset Call",card_issue:"Ticketing",btn_recall:"➖ Recall",btn_issue:"Issue ➕",lbl_fix_issue:"Fix Issued #",btn_fix:"Fix",btn_reset_issue:"↺ Reset Issue",card_passed:"Passed List",btn_clear_passed:"Clear Passed",card_stats:"Analytics",lbl_today:"Today's Count",btn_refresh:"Refresh",btn_calibrate:"Calibrate",btn_clear_stats:"🗑️ Clear Stats",card_logs:"Action Logs",btn_clear_logs:"Clear Logs",card_sys:"System",lbl_public:"Public Access",lbl_sound:"Sound FX",lbl_tts:"TTS Broadcast",btn_play:"Play",lbl_mode:"Mode",mode_online:"Online Ticket",mode_manual:"Manual Input",btn_reset_all:"💥 Factory Reset",card_online:"Online Users",card_links:"Links Manager",ph_link_name:"Name",btn_clear_links:"Clear Links",card_users:"User Manager",lbl_add_user:"Add User",ph_nick:"Nickname",card_roles:"Role Permissions",btn_save_roles:"Save Permission Changes",btn_save:"Save",btn_restore:"Restore Defaults",modal_edit:"Edit Data",btn_done:"Done",card_booking:"Booking Manager",lbl_add_appt:"Add Booking",wait:"Waiting...",loading:"Loading...",empty:"[ Empty ]",no_logs:"[ No Logs ]",no_appt:"No Appointments",role_operator:"Operator",role_manager:"Manager",role_admin:"Admin",msg_recall_confirm:"Recall number %s?\n(Current number will be moved to passed list)",msg_sent:"Sent",msg_calibrated:"Calibrated",perm_role:"Role",perm_call:"Role",perm_issue:"Ticketing",perm_stats:"Stats/Logs",perm_settings:"Settings",perm_line:"Line Config",perm_appointment:"Booking",perm_users:"Users"}};
+const i18n={"zh-TW":{status_conn:"✅ 已連線",status_dis:"⚠️ 連線中斷...",saved:"✅ 已儲存",denied:"❌ 權限不足",expired:"Session 過期",login_fail:"登入失敗",confirm:"⚠️ 確認",recall:"↩️ 重呼",edit:"✎ 編輯",del:"✕ 刪除",save:"✓ 儲存",cancel:"✕ 取消",login_title:"請登入管理系統",ph_account:"帳號",ph_password:"密碼",login_btn:"登入",admin_panel:"管理後台",nav_live:"現場控台",nav_stats:"數據報表",nav_booking:"預約管理",nav_settings:"系統設定",nav_line:"LINE設定",logout:"登出",dash_curr:"目前叫號",dash_issued:"已發號至",dash_wait:"等待組數",card_call:"指揮中心",btn_next:"下一號 ▶",btn_prev:"◀ 上一號",btn_pass:"過號",lbl_assign:"指定 / 插隊",btn_exec:"GO",btn_reset_call:"↺ 重置叫號",card_issue:"發號管理",btn_recall:"➖ 收回",btn_issue:"發號 ➕",lbl_fix_issue:"修正發號數",btn_fix:"修正",btn_reset_issue:"↺ 重置發號",card_passed:"過號名單",btn_clear_passed:"清空過號",card_stats:"流量分析",lbl_today:"今日人次",btn_refresh:"重整",btn_calibrate:"校正",btn_clear_stats:"🗑️ 清空統計",card_logs:"操作日誌",btn_clear_logs:"清除日誌",card_sys:"系統",lbl_public:"開放前台",lbl_sound:"提示音效",lbl_tts:"TTS 語音廣播",btn_play:"播放",lbl_mode:"取號模式",mode_online:"線上取號",mode_manual:"手動輸入",btn_reset_all:"💥 全域重置",card_online:"在線管理",card_links:"連結管理",ph_link_name:"名稱",btn_clear_links:"清空連結",card_users:"帳號管理",lbl_add_user:"新增帳號",ph_nick:"暱稱",card_roles:"權限設定",btn_save_roles:"儲存權限變更",btn_save:"儲存",btn_restore:"恢復預設值",modal_edit:"編輯數據",btn_done:"完成",card_booking:"預約管理",lbl_add_appt:"新增預約",wait:"等待...",loading:"載入中...",empty:"[ 空 ]",no_logs:"[ 無日誌 ]",no_appt:"暫無預約",role_operator:"操作員",role_manager:"經理",role_admin:"管理員",msg_recall_confirm:"確定要重呼 %s 嗎？\n(當前叫號將移入過號名單)",msg_sent:"📢 已發送",msg_calibrated:"校正完成",perm_role:"角色權限",perm_call:"叫號/指揮",perm_issue:"發號",perm_stats:"數據/日誌",perm_settings:"系統設定",perm_line:"LINE設定",perm_appointment:"預約管理",perm_users:"帳號管理"},"en":{status_conn:"✅ Connected",status_dis:"⚠️ Disconnected...",saved:"✅ Saved",denied:"❌ Denied",expired:"Session Expired",login_fail:"Login Failed",confirm:"⚠️ Confirm",recall:"↩️ Recall",edit:"✎ Edit",del:"✕ Del",save:"✓ Save",cancel:"✕ Cancel",login_title:"Login to Admin Panel",ph_account:"Username",ph_password:"Password",login_btn:"Login",admin_panel:"Admin Panel",nav_live:"Live Console",nav_stats:"Statistics",nav_booking:"Booking",nav_settings:"Settings",nav_line:"Line Config",logout:"Logout",dash_curr:"Current Serving",dash_issued:"Last Issued",dash_wait:"Waiting",card_call:"Command Center",btn_next:"Next ▶",btn_prev:"◀ Prev",btn_pass:"Pass",lbl_assign:"Assign / Jump",btn_exec:"GO",btn_reset_call:"↺ Reset Call",card_issue:"Ticketing",btn_recall:"➖ Recall",btn_issue:"Issue ➕",lbl_fix_issue:"Fix Issued #",btn_fix:"Fix",btn_reset_issue:"↺ Reset Issue",card_passed:"Passed List",btn_clear_passed:"Clear Passed",card_stats:"Analytics",lbl_today:"Today's Count",btn_refresh:"Refresh",btn_calibrate:"Calibrate",btn_clear_stats:"🗑️ Clear Stats",card_logs:"Action Logs",btn_clear_logs:"Clear Logs",card_sys:"System",lbl_public:"Public Access",lbl_sound:"Sound FX",lbl_tts:"TTS Broadcast",btn_play:"Play",lbl_mode:"Mode",mode_online:"Online Ticket",mode_manual:"Manual Input",btn_reset_all:"💥 Factory Reset",card_online:"Online Users",card_links:"Links Manager",ph_link_name:"Name",btn_clear_links:"Clear Links",card_users:"User Manager",lbl_add_user:"Add User",ph_nick:"Nickname",card_roles:"Role Permissions",btn_save_roles:"Save Permission Changes",btn_save:"Save",btn_restore:"Restore Defaults",modal_edit:"Edit Data",btn_done:"Done",card_booking:"Booking Manager",lbl_add_appt:"Add Booking",wait:"Waiting...",loading:"Loading...",empty:"[ Empty ]",no_logs:"[ No Logs ]",no_appt:"No Appointments",role_operator:"Operator",role_manager:"Manager",role_admin:"Admin",msg_recall_confirm:"Recall number %s?\n(Current number will be moved to passed list)",msg_sent:"📢 Sent",msg_calibrated:"Calibrated",perm_role:"Role",perm_call:"Role",perm_issue:"Ticketing",perm_stats:"Stats/Logs",perm_settings:"Settings",perm_line:"Line Config",perm_appointment:"Booking",perm_users:"Users"}};
 
 let curLang = localStorage.getItem('callsys_lang')||'zh-TW', T = i18n[curLang], userRole="normal", username="", uniqueUser="", cachedLine=null, isDark = localStorage.getItem('callsys_admin_theme') === 'dark';
 const socket = io({ autoConnect: false });
@@ -50,14 +43,14 @@ const confirmBtn = (el, txt, action) => {
         if(el.classList.contains("is-confirming")) { action(); reset(); }
         else { el.classList.add("is-confirming"); el.textContent=`${T.confirm} (${c})`; t=setInterval(()=>{ c--; el.textContent=`${T.confirm} (${c})`; if(c<=0) reset(); },1000); }
     };
-    const reset = () => { clearInterval(t); el.classList.remove("is-confirming"); el.innerHTML=T[el.dataset.originalKey]||txt; c=5; };
+    const reset = () => { clearInterval(t); el.classList.remove("is-confirming"); el.textContent=T[el.dataset.originalKey]||txt; c=5; };
 };
 
 const updateLangUI = () => {
     T = i18n[curLang]||i18n["zh-TW"];
-    $$('[data-i18n]').forEach(e => e.innerHTML = T[e.getAttribute('data-i18n')]||"");
+    $$('[data-i18n]').forEach(e => e.textContent = T[e.getAttribute('data-i18n')]||"");
     $$('[data-i18n-ph]').forEach(e => e.placeholder = T[e.getAttribute('data-i18n-ph')]||"");
-    $$('button[data-original-key]').forEach(b => !b.classList.contains('is-confirming') && (b.innerHTML = T[b.dataset.originalKey]));
+    $$('button[data-original-key]').forEach(b => !b.classList.contains('is-confirming') && (b.textContent = T[b.dataset.originalKey]));
     if(checkPerm('users')) loadUsers();
     if(checkPerm('stats')) loadStats();
     if(checkPerm('appointment')) loadAppointments();
@@ -73,7 +66,7 @@ const renderList = (ulId, list, fn, emptyMsgKey="empty") => {
     const frag = document.createDocumentFragment(); list.forEach(x => { const el = fn(x); if(el) frag.appendChild(el); }); ul.appendChild(frag);
 };
 
-const applyTheme = () => { document.body.classList.toggle('dark-mode', isDark); localStorage.setItem('callsys_admin_theme', isDark?'dark':'light'); ['admin-theme-toggle','admin-theme-toggle-mobile'].forEach(i=>$(i)&&($(i).innerHTML=isDark?'<i class="ri-sun-line"></i>':'<i class="ri-moon-line"></i>')); };
+const applyTheme = () => { document.body.classList.toggle('dark-mode', isDark); localStorage.setItem('callsys_admin_theme', isDark?'dark':'light'); ['admin-theme-toggle','admin-theme-toggle-mobile'].forEach(i=>$(i)&&($(i).textContent=isDark?'☀️':'🌙')); };
 const checkPerm = (p) => isSuperAdmin() || (globalRoleConfig && globalRoleConfig[userRole]?.can.some(x=>x==='*'||x===p));
 const isSuperAdmin = () => (uniqueUser === 'superadmin' || userRole === 'super' || userRole === 'ADMIN');
 const logout = () => { localStorage.clear(); document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"; location.reload(); };
@@ -102,9 +95,11 @@ function upgradeSystemModeUI() {
 }
 const updateSegmentedVisuals = (w) => w.querySelectorAll('input[type="radio"]').forEach(r => r.closest('.segmented-option').classList.toggle('active', r.checked));
 
+// FIX: 調整輸入框樣式 (width: 75px, padding: 0 5px) 解決數字被遮擋問題
 async function initBusinessHoursUI() {
     if(!checkPerm('settings')) return; const card=$("card-sys"); if(!card || card.querySelector('#business-hours-group')) return;
     
+    // 關鍵修改：增加 width 並強制覆寫 padding
     const t = mk("input","toggle-switch",null,{type:"checkbox",id:"bh-enabled"});
     const s = mk("input",null,null,{type:"number",min:0,max:23,placeholder:"Start",style:"width:75px;text-align:center;padding:0 5px;"});
     const e = mk("input",null,null,{type:"number",min:0,max:24,placeholder:"End",style:"width:75px;text-align:center;padding:0 5px;"});
@@ -123,7 +118,7 @@ async function loadLineSystemCommands() {
     if(!$("line-cmd-section")) {
         const p = $("msg-success")?.closest('.admin-card'); if(p && $("line-default-msg")) {
             const c = mk("div",null,null,{id:"line-cmd-section",style:"margin:20px 0;padding-top:20px;border-top:1px dashed var(--border-color);"},[
-                mk("h4",null,'<i class="ri-robot-line"></i> 系統指令設定',{style:"margin:0 0 15px 0;color:var(--text-main);font-size:1rem;"}),
+                mk("h4",null,"🤖 系統指令設定",{style:"margin:0 0 15px 0;color:var(--text-main);"}),
                 ...[["login","後台登入"],["status","查詢狀態"],["passed","過號名單"],["help","設定提醒說明"]].map(([k,l])=>mk("div","control-group",null,{},[mk("label",null,`${l} (預設)`), mk("input",null,null,{id:`cmd-${k}`,type:"text"})])),
                 mk("div","control-group",null,{},[mk("label",null,"取消追蹤"), mk("div","input-group",null,{},[mk("input",null,null,{id:"cmd-cancel"}), mk("button","btn-secondary success","儲存",{id:"btn-save-cmd",onclick:async()=>await req("/api/admin/line-system-keywords/save",{login:$("cmd-login").value,status:$("cmd-status").value,cancel:$("cmd-cancel").value,passed:$("cmd-passed").value,help:$("cmd-help").value},$("btn-save-cmd")) && toast(T.saved,"success")})])])
             ]);
@@ -140,7 +135,7 @@ async function loadLineAutoReplies() {
     renderList("line-autoreply-list", Object.entries(rules||{}), ([key, reply]) => {
         const form = mk("div","edit-form-wrapper",null,{style:"display:none;width:100%;gap:8px;align-items:center;"}, [mk("input",null,null,{value:key,placeholder:"Key",style:"flex:1;"}), mk("input",null,null,{value:reply,placeholder:"Reply",style:"flex:2;"}), mk("div","edit-form-actions",null,{},[mk("button","btn-secondary",T.cancel,{onclick:e=>{e.stopPropagation();form.style.display="none";view.style.display="flex";acts.style.display="flex";}}), mk("button","btn-secondary success",T.save,{onclick:async e=>{e.stopPropagation(); if(await req("/api/admin/line-autoreply/edit",{oldKeyword:key,newKeyword:form.children[0].value,newReply:form.children[1].value})) {toast(T.saved,"success");loadLineAutoReplies();}}})])]);
         const view = mk("div","list-info",null,{},[mk("span","list-main-text",key,{style:"color:var(--primary);font-weight:bold;"}), mk("span","list-sub-text",reply)]);
-        const acts = mk("div","list-actions",null,{},[mk("button","btn-action-icon",'<i class="ri-pencil-line"></i>',{title:T.edit,onclick:()=>{form.style.display="flex";view.style.display="none";acts.style.display="none";}}), (b=>{confirmBtn(b,'<i class="ri-delete-bin-line"></i>',async()=>{await req("/api/admin/line-autoreply/del",{keyword:key});loadLineAutoReplies();}); b.className="btn-action-icon danger"; b.title=T.del; return b;})(mk("button"))]);
+        const acts = mk("div","list-actions",null,{},[mk("button","btn-action-icon","✎",{title:T.edit,onclick:()=>{form.style.display="flex";view.style.display="none";acts.style.display="none";}}), (b=>{confirmBtn(b,"✕",async()=>{await req("/api/admin/line-autoreply/del",{keyword:key});loadLineAutoReplies();}); b.className="btn-action-icon danger"; b.title=T.del; return b;})(mk("button"))]);
         return mk("li","list-item",null,{style:"flex-wrap:wrap;"},[view,acts,form]);
     });
 }
@@ -157,7 +152,7 @@ socket.on("updateSystemMode", m => { $$('input[name="systemMode"]').forEach(r =>
 socket.on("updateAppointments", l => checkPerm('appointment') && renderAppointments(l));
 socket.on("updateOnlineAdmins", l => checkPerm('users') && renderList("online-users-list", (l||[]).sort((a,b)=>(a.role==='super'?-1:1)), u => {
     const rC = (u.userRole||u.role||'OPERATOR').toLowerCase(), rL = rC.includes('admin')?'ADMIN':(rC.includes('manager')?'MANAGER':'OPERATOR'), g = s => `linear-gradient(135deg, hsl(${s.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%360},75%,60%), hsl(${(s.split('').reduce((a,c)=>a+c.charCodeAt(0),0)+50)%360},75%,50%))`;
-    return mk("li", "user-card-item online-mode", null, {}, [mk("div","user-card-header",null,{},[mk("div","user-avatar-fancy",(u.nickname||u.username).charAt(0).toUpperCase(),{style:`background:${g(u.username)}`}), mk("div","user-info-fancy",null,{},[mk("div","user-nick-fancy",null,{},[mk("span","status-pulse-indicator"),mk("span",null,u.nickname||u.username)]), mk("div","user-id-fancy",`IP/ID: @${u.username}`), mk("div",`role-badge-fancy ${rC.includes('admin')?'admin':rC}`,rL)])]), mk("div","user-card-actions",null,{style:"justify-content:flex-end;opacity:0.7;font-size:0.8rem;"},[mk("span",null,'<i class="ri-record-circle-line" style="color:var(--success)"></i> Active')])]);
+    return mk("li", "user-card-item online-mode", null, {}, [mk("div","user-card-header",null,{},[mk("div","user-avatar-fancy",(u.nickname||u.username).charAt(0).toUpperCase(),{style:`background:${g(u.username)}`}), mk("div","user-info-fancy",null,{},[mk("div","user-nick-fancy",null,{},[mk("span","status-pulse-indicator"),mk("span",null,u.nickname||u.username)]), mk("div","user-id-fancy",`IP/ID: @${u.username}`), mk("div",`role-badge-fancy ${rC.includes('admin')?'admin':rC}`,rL)])]), mk("div","user-card-actions",null,{style:"justify-content:flex-end;opacity:0.7;font-size:0.8rem;"},[mk("span",null,"🟢 Active Now")])]);
 }, "loading"));
 socket.on("updatePassed", l => renderList("passed-list-ui", l, n => mk("li","list-item",null,{},[mk("span","list-main-text",`${n} 號`,{style:"font-size:1rem;color:var(--primary);"}), mk("div","list-actions",null,{},[mk("button","btn-secondary",T.recall,{onclick:()=>{if(confirm(T.msg_recall_confirm.replace('%s',n))) req("/api/control/recall-passed",{number:n});}}), (b=>{confirmBtn(b,T.del,()=>req("/api/passed/remove",{number:n}));return b;})(mk("button","btn-secondary",T.del))])]), "empty"));
 socket.on("updateFeaturedContents", l => checkPerm('settings') && renderList("featured-list-ui", l, renderFeaturedItem, "empty"));
@@ -175,10 +170,10 @@ async function loadUsers() {
     const isSuper = isSuperAdmin(), g = s => `linear-gradient(135deg, hsl(${s.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%360},75%,60%), hsl(${(s.split('').reduce((a,c)=>a+c.charCodeAt(0),0)+50)%360},75%,50%))`;
     renderList("user-list-ui", d.users, u => {
         const rC = (u.role||'OPERATOR').toLowerCase(), acts = mk("div", "user-card-actions"), editForm = mk("div","edit-form-wrapper",null,{style:"display:none;"},[mk("h4",null,"修改暱稱",{style:"margin:0 0 10px 0;color:var(--text-main);"}), mk("input",null,null,{value:u.nickname,placeholder:T.ph_nick,style:"margin-bottom:10px;"}), mk("div","edit-form-actions",null,{},[mk("button","btn-secondary",T.cancel,{onclick:e=>{e.stopPropagation();editForm.style.display="none";}}),mk("button","btn-secondary success",T.save,{onclick:async e=>{e.stopPropagation();if(await req("/api/admin/set-nickname",{targetUsername:u.username,nickname:editForm.children[1].value})){toast(T.saved,"success");loadUsers();}}})])]);
-        if(u.username===uniqueUser || isSuper) acts.appendChild(mk("button","btn-action-icon",'<i class="ri-pencil-line"></i>',{title:T.edit,onclick:()=>editForm.style.display="flex"})); else acts.appendChild(mk("span"));
+        if(u.username===uniqueUser || isSuper) acts.appendChild(mk("button","btn-action-icon","✎",{title:T.edit,onclick:()=>editForm.style.display="flex"})); else acts.appendChild(mk("span"));
         if(u.username!=='superadmin' && isSuper) {
             const roleSel = mk("select","role-select",null,{title:"變更權限",style:"height:32px;font-size:0.8rem;padding:0 8px;",onchange:async()=>{if(await req("/api/admin/set-role",{targetUsername:u.username,newRole:roleSel.value})){toast(T.saved,"success");loadUsers();}}}); ['OPERATOR','MANAGER','ADMIN'].forEach(r=>roleSel.add(new Option(r,r,false,u.role===r)));
-            acts.appendChild(mk("div",null,null,{style:"display:flex;gap:8px;align-items:center;"},[roleSel, (b=>{confirmBtn(b,'<i class="ri-close-line"></i>',async()=>{await req("/api/admin/del-user",{delUsername:u.username});loadUsers();}); b.className="btn-action-icon danger"; b.title=T.del; return b;})(mk("button"))]));
+            acts.appendChild(mk("div",null,null,{style:"display:flex;gap:8px;align-items:center;"},[roleSel, (b=>{confirmBtn(b,"✕",async()=>{await req("/api/admin/del-user",{delUsername:u.username});loadUsers();}); b.className="btn-action-icon danger"; b.title=T.del; return b;})(mk("button"))]));
         }
         return mk("li","user-card-item",null,{},[mk("div","user-card-header",null,{},[mk("div","user-avatar-fancy",(u.nickname||u.username).charAt(0).toUpperCase(),{style:`background:${g(u.username)}`}), mk("div","user-info-fancy",null,{},[mk("div","user-nick-fancy",u.nickname||u.username),mk("div","user-id-fancy",`@${u.username}`),mk("div",`role-badge-fancy ${rC}`,u.role==='OPERATOR'?'Op (操作員)':(u.role==='MANAGER'?'Mgr (經理)':'Adm (管理員)'))])]), acts, editForm]);
     }, "loading");
@@ -192,7 +187,7 @@ async function loadUsers() {
 async function loadRoles() {
     const cfg = globalRoleConfig || await req("/api/admin/roles/get"), ctr = $("role-editor-content"); if(!cfg || !ctr) return; ctr.innerHTML="";
     const perms = [{k:'call',t:T.perm_call},{k:'issue',t:T.perm_issue},{k:'stats',t:T.perm_stats},{k:'settings',t:T.perm_settings},{k:'appointment',t:T.perm_appointment},{k:'line',t:T.perm_line},{k:'users',t:T.perm_users}], roles = ['OPERATOR','MANAGER','ADMIN'];
-    const meta = {'OPERATOR':{icon:'<i class="ri-gamepad-line"></i>',l:T.role_operator,c:'role-op'},'MANAGER':{icon:'<i class="ri-shield-star-line"></i>',l:T.role_manager,c:'role-mgr'},'ADMIN':{icon:'<i class="ri-crown-line"></i>',l:T.role_admin,c:'role-mgr'}};
+    const meta = {'OPERATOR':{icon:'🎮',l:T.role_operator,c:'role-op'},'MANAGER':{icon:'🛡️',l:T.role_manager,c:'role-mgr'},'ADMIN':{icon:'👑',l:T.role_admin,c:'role-mgr'}};
     ctr.appendChild(mk("div","perm-table-wrapper",null,{},[mk("table","perm-matrix",null,{},[
         mk("thead",null,null,{},[mk("tr",null,null,{},[mk("th",null,"權限項目 / 角色"), ...roles.map(r=>mk("th",`th-role ${meta[r].c}`,`<div class="th-content"><span class="th-icon">${meta[r].icon}</span><span>${meta[r].l}</span></div>`))])]),
         mk("tbody",null,null,{}, perms.map(p => mk("tr",null,null,{},[mk("td","td-perm-name",p.t), ...roles.map(r => mk("td","td-check",null,{},[mk("label","custom-check",null,{},[mk("input","role-chk",null,{type:"checkbox",checked:(cfg[r]?.can||[]).includes('*')||(cfg[r]?.can||[]).includes(p.k), "data-role":r, "data-perm":p.k}), mk("span","checkmark")])]))])))
@@ -214,7 +209,7 @@ async function loadStats() {
                 const valEl = mk("div", "chart-val", v || "0");
                 const barEl = mk("div", "chart-bar", null, { style: barStyle });
                 const colEl = mk("div", `chart-col ${i === d.serverHour ? 'current' : ''}`, null, {
-                    style: `--bar-height: ${barPercent}%`, 
+                    style: `--bar-height: ${barPercent}%`, // 透過 mk 正確套用
                     onclick: (e) => {
                         $$('.chart-col').forEach(c => c !== e.currentTarget && c.classList.remove('active-touch'));
                         e.currentTarget.classList.toggle('active-touch');
@@ -276,7 +271,7 @@ bind("btn-logout",logout); bind("btn-logout-mobile",logout);
     else if(id==='resetAll') url="/reset";
     else if(id.includes('line')) url="/api/admin/line-settings/reset";
     else url=`/api/${id.includes('Passed')?'passed/clear':(id.includes('Featured')?'featured/clear':`control/${id==='resetNumber'?'set-call':'set-issue'}`)}`;
-    confirmBtn(el, el.innerHTML, async()=>{
+    confirmBtn(el, el.textContent.trim(), async()=>{
         await req(url, id.startsWith('reset')&&!['All','Passed','Featured','line'].some(s=>id.includes(s))?{number:0}:{});
         if(id==='btn-clear-stats') { $("stats-today-count").textContent="0"; $("hourly-chart").innerHTML=""; toast(T.saved,"success"); loadStats(); }
         if(id==='btn-clear-logs') { $("admin-log-ui").innerHTML=`<li class='list-item'>${T.no_logs}</li>`; toast(T.saved,"success"); }
