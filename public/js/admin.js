@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v20.13 DOM Fix
+ * 後台邏輯 (admin.js) - v20.14 Line Enhanced
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 
@@ -250,7 +250,7 @@ function updateSegmentedVisuals(wrapper) {
     });
 }
 
-// [New] Dynamic Business Hours UI
+// [Dynamic Business Hours UI]
 async function initBusinessHoursUI() {
     if(!checkPerm('settings')) return;
     const card = $("card-sys"); if(!card || card.querySelector('#business-hours-group')) return;
@@ -271,7 +271,7 @@ async function initBusinessHoursUI() {
     btnSave.onclick = async () => { if(await req("/api/admin/settings/hours/save", {enabled: toggle.checked, start: startIn.value, end: endIn.value})) toast(T.saved, "success"); };
 }
 
-// [New] Load Line Messages
+// [Updated] Load Line Messages (includes help)
 async function loadLineMessages() {
     if(!$("msg-success")) return;
     const d = await req("/api/admin/line-messages/get");
@@ -281,32 +281,26 @@ async function loadLineMessages() {
         $("msg-arrival").value = d.arrival;
         $("msg-passed").value = d.passed;
         $("msg-cancel").value = d.cancel;
+        if($("msg-help")) $("msg-help").value = d.help || "";
     }
 }
 
-// [Fix: System Command DOM Error] 修正系統指令設定區塊無法顯示的問題
+// [Updated] Load System Commands (New fields for passed, help, etc.)
 async function loadLineSystemCommands() {
     const section = $("line-cmd-section");
     if(!section) {
-        // 找到 "LINE 設定" 卡片 (admin-card)
+        // Find "LINE Settings" card
         const parent = $("msg-success") ? $("msg-success").closest('.admin-card') : null;
-        
-        // 找到 "預設回覆" 輸入框 (這個輸入框是 HTML 預設存在的)
         const defaultMsgInput = $("line-default-msg");
         
         if(parent && defaultMsgInput) {
-            // 在 HTML 結構中，line-default-msg 被包在 input-group 中，input-group 包在 control-group 中
-            // control-group 包在一個 wrapper div (關鍵字自動回覆區塊) 中
-            // 我們的目標是把新區塊插入到這個 wrapper div 的後面
-            
-            // 1. 找到 control-group
             const controlGroup = defaultMsgInput.closest('.control-group');
-            
             if (controlGroup) {
-                // 2. 找到 wrapper div (關鍵字區塊)
                 const keywordSectionWrapper = controlGroup.parentElement;
 
                 const container = mk("div", null, null, {id: "line-cmd-section", style: "margin: 20px 0; padding-top: 20px; border-top: 1px dashed var(--border-color);"});
+                
+                // Enhanced HTML for system commands
                 container.innerHTML = `
                     <h4 style="margin: 0 0 15px 0; color: var(--text-main);">🤖 系統指令設定</h4>
                     <div class="control-group">
@@ -314,27 +308,35 @@ async function loadLineSystemCommands() {
                         <input type="text" id="cmd-login" placeholder="預設: 後台登入">
                     </div>
                     <div class="control-group">
-                        <label>查詢狀態 (逗號分隔多個指令)</label>
-                        <input type="text" id="cmd-status" placeholder="預設: status,?,查詢">
+                        <label>查詢狀態 (逗號分隔多個)</label>
+                        <input type="text" id="cmd-status" placeholder="預設: 查詢,查詢進度...">
                     </div>
                     <div class="control-group">
-                        <label>取消追蹤 (逗號分隔多個指令)</label>
+                        <label>過號名單 (逗號分隔多個)</label>
+                        <input type="text" id="cmd-passed" placeholder="預設: 過號,過號名單...">
+                    </div>
+                    <div class="control-group">
+                        <label>設定提醒說明 (逗號分隔多個)</label>
+                        <input type="text" id="cmd-help" placeholder="預設: 設定提醒,提醒...">
+                    </div>
+                    <div class="control-group">
+                        <label>取消追蹤 (逗號分隔多個)</label>
                         <div class="input-group">
-                            <input type="text" id="cmd-cancel" placeholder="預設: cancel,取消">
+                            <input type="text" id="cmd-cancel" placeholder="預設: 取消,取消提醒...">
                             <button id="btn-save-cmd" class="btn-secondary success">儲存</button>
                         </div>
                     </div>
                 `;
                 
-                // 3. 插入到 wrapper div 後面
-                // parent.insertBefore(new, refNode.nextSibling) 等同於 insertAfter
                 parent.insertBefore(container, keywordSectionWrapper.nextSibling);
                 
                 $("btn-save-cmd").onclick = async () => {
                     const data = {
                         login: $("cmd-login").value,
                         status: $("cmd-status").value,
-                        cancel: $("cmd-cancel").value
+                        cancel: $("cmd-cancel").value,
+                        passed: $("cmd-passed").value,
+                        help: $("cmd-help").value
                     };
                     if(await req("/api/admin/line-system-keywords/save", data, $("btn-save-cmd"))) {
                         toast(T.saved, "success");
@@ -349,10 +351,12 @@ async function loadLineSystemCommands() {
         if($("cmd-login")) $("cmd-login").value = d.login;
         if($("cmd-status")) $("cmd-status").value = d.status;
         if($("cmd-cancel")) $("cmd-cancel").value = d.cancel;
+        if($("cmd-passed")) $("cmd-passed").value = d.passed;
+        if($("cmd-help")) $("cmd-help").value = d.help;
     }
 }
 
-// [New] Line Auto Reply Logic (Enhanced with Edit)
+// [New] Line Auto Reply Logic
 async function loadLineAutoReplies() {
     const list = $("line-autoreply-list"); 
     if(!list) return;
@@ -684,13 +688,15 @@ bind("btn-save-roles", async()=>{
 bind("btn-save-unlock-pwd", async()=>{ const p=$("line-unlock-pwd").value; if(await req("/api/admin/line-settings/save-pass", {password:p})) toast(T.saved,"success"); });
 bind("btn-export-csv", async()=>{ const d=await req("/api/admin/export-csv", { date: new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Taipei"}) }); if(d?.csvData) { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\uFEFF"+d.csvData],{type:'text/csv'})); a.download=d.fileName; a.click(); } });
 
+// [Updated] Save Line Messages (includes help)
 bind("btn-save-line-msgs", async () => {
     const data = {
         success: $("msg-success").value,
         approach: $("msg-approach").value,
         arrival: $("msg-arrival").value,
         passed: $("msg-passed").value,
-        cancel: $("msg-cancel").value
+        cancel: $("msg-cancel").value,
+        help: $("msg-help") ? $("msg-help").value : ""
     };
     if(await req("/api/admin/line-messages/save", data, $("btn-save-line-msgs"))) {
         toast(T.saved, "success");
