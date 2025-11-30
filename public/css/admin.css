@@ -294,3 +294,43 @@ body.dark-mode .perm-matrix thead th { background: rgba(255,255,255,0.05); }
 .btn-circle { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--bg-input); font-size: 1.1rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; color: var(--text-sub); }
 .btn-circle:hover { background: var(--primary); color: white; border-color: var(--primary); transform: scale(1.1); }
 @keyframes modalPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* ==========================================
+ * 修正統計卡片佈局 (Stats Layout Fix)
+ * ========================================== */
+#section-stats .dashboard-header {
+    display: flex !important;
+    flex-direction: row; /* Ensure horizontal */
+    justify-content: space-between;
+    align-items: flex-end; /* Align number baseline with buttons */
+    margin-bottom: 0 !important; /* Remove gap below header */
+    padding-bottom: 10px;
+}
+#section-stats .dashboard-header p {
+    margin-bottom: 0 !important;
+    line-height: 1.2;
+}
+#section-stats #stats-today-count {
+    line-height: 1;
+    margin-top: 4px;
+    display: block;
+}
+
+#section-stats .quick-actions {
+    display: flex;
+    gap: 8px; /* Space between buttons */
+    margin-bottom: 4px; /* Slight offset for alignment */
+    flex-direction: row;
+}
+
+#section-stats .quick-actions button {
+    width: auto !important; /* Prevent full width */
+    padding: 0 16px;
+    height: 36px; /* Compact height */
+    margin: 0 !important;
+}
+
+#hourly-chart.chart-container {
+    padding-top: 10px !important; /* Reduce top padding significantly */
+    margin-top: 0 !important;
+}
