@@ -1,4 +1,4 @@
-/* Server v18.11 Refactored with Business Hours Broadcast */
+/* Server v18.11 Refactored with Business Hours Broadcast (HH:MM Support) */
 require('dotenv').config();
 const { Server } = require("http"), express = require("express"), socketio = require("socket.io"), Redis = require("ioredis"),
       helmet = require('helmet'), rateLimit = require('express-rate-limit'), { v4: uuidv4 } = require('uuid'),
@@ -38,7 +38,32 @@ let bCastT = null, cacheWait = 0, lastWaitCalc = 0;
 const broadcastQueue = async () => { if (bCastT) clearTimeout(bCastT); bCastT = setTimeout(async () => { let [c, i] = (await redis.mget(KEYS.CURRENT, KEYS.ISSUED)).map(v => parseInt(v)||0); if(i<c) { i=c; await redis.set(KEYS.ISSUED, i); } io.emit("update", c); io.emit("updateQueue", { current: c, issued: i }); io.emit("updateWaitTime", await calcWaitTime()); io.emit("updateTimestamp", new Date().toISOString()); }, 100); };
 const broadcastAppts = async () => io.to("admin").emit("updateAppointments", await all("SELECT * FROM appointments WHERE status='pending' ORDER BY scheduled_time ASC"));
 const calcWaitTime = async (force) => { if(!force && Date.now()-lastWaitCalc<60000) return cacheWait; const rows = await all(`SELECT timestamp FROM history WHERE action='call' ORDER BY timestamp DESC LIMIT 20`); if(!rows || rows.length < 2) return (cacheWait=0); let total = 0; for(let i=0; i<rows.length-1; i++) total += (rows[i].timestamp - rows[i+1].timestamp); return (lastWaitCalc=Date.now(), cacheWait = Math.ceil((total / (rows.length - 1) / 60000) * 10) / 10); };
-const isBusinessOpen = async () => { const c = JSON.parse(await redis.get(KEYS.HOURS)) || { enabled: false }, h = parseInt(new Date().toLocaleTimeString('zh-TW',{timeZone:'Asia/Taipei',hour:'numeric',hour12:false})); return !c.enabled || (h >= c.start && h < c.end); };
+
+// Updated isBusinessOpen for HH:MM
+const isBusinessOpen = async () => { 
+    const c = JSON.parse(await redis.get(KEYS.HOURS)) || { enabled: false, start: "08:00", end: "22:00" };
+    if (!c.enabled) return true;
+
+    // Get current time in Taipei
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Taipei', hour: 'numeric', minute: 'numeric', hour12: false
+    }).formatToParts(now);
+    
+    const curH = parseInt(parts.find(p => p.type === 'hour').value);
+    const curM = parseInt(parts.find(p => p.type === 'minute').value);
+    const curTotal = curH * 60 + curM;
+
+    // Helper to convert HH:MM or legacy integer to minutes
+    const toMins = (t) => {
+        if (typeof t === 'number') return t * 60; // Handle legacy data
+        const [h, m] = (t || "00:00").split(':').map(Number);
+        return h * 60 + m;
+    };
+
+    return curTotal >= toMins(c.start) && curTotal < toMins(c.end);
+};
+
 async function checkLine(c) { if(!lineClient) return; const t=c+5, [ap, ar, s5, s0] = await Promise.all([redis.get(KEYS.LINE.MSG.APPROACH), redis.get(KEYS.LINE.MSG.ARRIVAL), redis.smembers(`${KEYS.LINE.SUB}${t}`), redis.smembers(`${KEYS.LINE.SUB}${c}`)]); const send = (ids,txt) => { while(ids.length) lineClient.multicast(ids.splice(0,500),[{type:'text',text:txt}]).catch(console.error); }; if(s5.length) send(s5, (ap||'🔔 {target}號快到了 (前方剩{diff}組)').replace(/{current}/g,c).replace(/{target}/g,t).replace(/{diff}/g,5)); if(s0.length) { send(s0, (ar||'🎉 {current}號 到您了！請前往櫃台').replace(/{current}/g,c)); await redis.multi().del(`${KEYS.LINE.SUB}${c}`).srem(KEYS.LINE.ACTIVE,c).exec(); s0.forEach(u=>redis.del(`${KEYS.LINE.USER}${u}`)); } }
 
 // --- Line Webhook ---
@@ -153,11 +178,14 @@ app.post("/set-public-status", auth, perm('settings'), H(async r=>{ await redis.
 app.post("/set-system-mode", auth, perm('settings'), H(async r=>{ await redis.set(KEYS.MODE, r.body.mode); io.emit("updateSystemMode", r.body.mode); }));
 app.post("/reset", auth, perm('settings'), H(async r => resetSys(r.user.nickname)));
 app.post("/api/admin/broadcast", auth, H(async r => { io.emit("adminBroadcast", r.body.message); addLog(r.user.nickname, `📢 廣播: ${r.body.message}`); }));
-app.post("/api/admin/settings/hours/get", auth, H(async r => JSON.parse(await redis.get(KEYS.HOURS)) || { enabled: false, start: 8, end: 22 }));
+
+// Updated API for HH:MM format (default: "08:00" - "22:00")
+app.post("/api/admin/settings/hours/get", auth, H(async r => JSON.parse(await redis.get(KEYS.HOURS)) || { enabled: false, start: "08:00", end: "22:00" }));
 app.post("/api/admin/settings/hours/save", auth, perm('settings'), H(async r => { 
-    const cfg = { start: parseInt(r.body.start), end: parseInt(r.body.end), enabled: !!r.body.enabled };
+    // Save as strings, no parseInt needed for HH:MM
+    const cfg = { start: r.body.start, end: r.body.end, enabled: !!r.body.enabled };
     await redis.set(KEYS.HOURS, JSON.stringify(cfg)); 
-    addLog(r.user.nickname, "🔧 更新營業時間"); 
+    addLog(r.user.nickname, `🔧 更新營業時間 ${cfg.start}-${cfg.end}`); 
     io.emit("updateBusinessHours", cfg); 
 }));
 
