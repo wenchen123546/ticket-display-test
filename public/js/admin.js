@@ -182,7 +182,7 @@ async function loadStats() {
         const d = await req("/api/admin/stats"); if(d?.hourlyCounts) {
             if($("stats-today-count")) $("stats-today-count").textContent = d.todayCount||0;
             const chart = $("hourly-chart"); chart.innerHTML=""; const max = Math.max(...d.hourlyCounts, 1);
-            d.hourlyCounts.forEach((v, i) => chart.appendChild(mk("div", `chart-col ${i===d.serverHour?'current':''}`, null, {onclick:()=>openStatModal(i,v)}, [mk("div","chart-val",v||""), mk("div","chart-bar",null,{style:`height:${Math.max(v/max*100,2)}%;background:${v===0?'var(--border-color)':''}`}), mk("div","chart-label",String(i).padStart(2,'0'))])));
+            d.hourlyCounts.forEach((v, i) => chart.appendChild(mk("div", `chart-col ${i===d.serverHour?'current':''}`, null, {onclick:()=>openStatModal(i,v)}, [mk("div","chart-val",v||""), mk("div","chart-bar",null,{style:`height:${Math.max(v/max*100,2)}%;${v===0?'background:var(--border-color);':''}`}), mk("div","chart-label",String(i).padStart(2,'0'))])));
             renderList("stats-list-ui", d.history||[], h => mk("li","list-item",`<span>${new Date(h.timestamp).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})} - <b style="color:var(--primary)">${h.number}</b> <small style="color:var(--text-sub)">(${h.operator})</small></span>`,{isHtml:true}), "no_logs");
         }
     } catch(e){}
