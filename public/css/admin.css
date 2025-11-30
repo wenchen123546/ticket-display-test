@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台樣式 (admin.css) - v20.7 Layout Fixes
+ * 後台樣式 (admin.css) - v20.10 Chart Fix
  * ========================================== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
@@ -175,9 +175,23 @@ button:active { transform: scale(0.97); }
 .list-actions button { width: auto; height: 32px; padding: 0 10px; font-size: 0.8rem; border-radius: 6px; background: transparent; border: 1px solid var(--border-color); color: var(--text-sub); }
 .list-actions button:hover { border-color: var(--primary); color: var(--primary); background: var(--bg-surface); }
 
-/* Charts & Components */
-.chart-container { display: flex; align-items: flex-end; height: 180px; gap: 4px; padding-top: 20px; border-bottom: 1px dashed var(--border-color); margin-bottom: 0; width: 100%; flex-grow: 1; }
-.chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; cursor: pointer; position: relative; }
+/* Charts & Components (Fix: Overflow & Scrolling) */
+.chart-container { 
+    display: flex; align-items: flex-end; height: 180px; gap: 4px; padding-top: 20px; 
+    border-bottom: 1px dashed var(--border-color); margin-bottom: 0; width: 100%; flex-grow: 1; 
+    overflow-x: auto; overflow-y: hidden; /* 允許橫向捲動 */
+    padding-bottom: 10px; /* 捲軸空間 */
+    -webkit-overflow-scrolling: touch; 
+}
+.chart-container::-webkit-scrollbar { height: 6px; }
+.chart-container::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+
+.chart-col { 
+    flex: 1 0 auto; /* 允許伸縮，但不壓縮至小於 min-width */
+    min-width: 28px; /* 強制最小寬度以確保可讀性 */
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end; 
+    height: 100%; cursor: pointer; position: relative; 
+}
 .chart-bar { width: 80%; min-height: 4px; border-radius: 4px 4px 0 0; background: var(--primary); opacity: 0.3; transition: 0.3s; }
 .chart-col:hover .chart-bar { opacity: 1; transform: scaleY(1.1); background: var(--primary-hover); }
 .chart-col.current .chart-bar { background: var(--warning); opacity: 0.9; }
