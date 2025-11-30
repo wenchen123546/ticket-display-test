@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v20.12 Final Integrated
+ * 後台邏輯 (admin.js) - v20.13 DOM Fix
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 
@@ -284,45 +284,63 @@ async function loadLineMessages() {
     }
 }
 
-// [New] Load System Command Settings
+// [Fix: System Command DOM Error] 修正系統指令設定區塊無法顯示的問題
 async function loadLineSystemCommands() {
     const section = $("line-cmd-section");
     if(!section) {
-        const parent = $("msg-success").closest('.admin-card');
-        const defaultMsgGroup = $("line-default-msg").closest('.control-group');
+        // 找到 "LINE 設定" 卡片 (admin-card)
+        const parent = $("msg-success") ? $("msg-success").closest('.admin-card') : null;
         
-        if(parent && defaultMsgGroup) {
-            const container = mk("div", null, null, {id: "line-cmd-section", style: "margin: 20px 0; padding-top: 20px; border-top: 1px dashed var(--border-color);"});
-            container.innerHTML = `
-                <h4 style="margin: 0 0 15px 0; color: var(--text-main);">🤖 系統指令設定</h4>
-                <div class="control-group">
-                    <label>後台登入 (單一指令)</label>
-                    <input type="text" id="cmd-login" placeholder="預設: 後台登入">
-                </div>
-                <div class="control-group">
-                    <label>查詢狀態 (逗號分隔多個指令)</label>
-                    <input type="text" id="cmd-status" placeholder="預設: status,?,查詢">
-                </div>
-                <div class="control-group">
-                    <label>取消追蹤 (逗號分隔多個指令)</label>
-                    <div class="input-group">
-                        <input type="text" id="cmd-cancel" placeholder="預設: cancel,取消">
-                        <button id="btn-save-cmd" class="btn-secondary success">儲存</button>
-                    </div>
-                </div>
-            `;
-            parent.insertBefore(container, defaultMsgGroup.nextSibling);
+        // 找到 "預設回覆" 輸入框 (這個輸入框是 HTML 預設存在的)
+        const defaultMsgInput = $("line-default-msg");
+        
+        if(parent && defaultMsgInput) {
+            // 在 HTML 結構中，line-default-msg 被包在 input-group 中，input-group 包在 control-group 中
+            // control-group 包在一個 wrapper div (關鍵字自動回覆區塊) 中
+            // 我們的目標是把新區塊插入到這個 wrapper div 的後面
             
-            $("btn-save-cmd").onclick = async () => {
-                const data = {
-                    login: $("cmd-login").value,
-                    status: $("cmd-status").value,
-                    cancel: $("cmd-cancel").value
+            // 1. 找到 control-group
+            const controlGroup = defaultMsgInput.closest('.control-group');
+            
+            if (controlGroup) {
+                // 2. 找到 wrapper div (關鍵字區塊)
+                const keywordSectionWrapper = controlGroup.parentElement;
+
+                const container = mk("div", null, null, {id: "line-cmd-section", style: "margin: 20px 0; padding-top: 20px; border-top: 1px dashed var(--border-color);"});
+                container.innerHTML = `
+                    <h4 style="margin: 0 0 15px 0; color: var(--text-main);">🤖 系統指令設定</h4>
+                    <div class="control-group">
+                        <label>後台登入 (單一指令)</label>
+                        <input type="text" id="cmd-login" placeholder="預設: 後台登入">
+                    </div>
+                    <div class="control-group">
+                        <label>查詢狀態 (逗號分隔多個指令)</label>
+                        <input type="text" id="cmd-status" placeholder="預設: status,?,查詢">
+                    </div>
+                    <div class="control-group">
+                        <label>取消追蹤 (逗號分隔多個指令)</label>
+                        <div class="input-group">
+                            <input type="text" id="cmd-cancel" placeholder="預設: cancel,取消">
+                            <button id="btn-save-cmd" class="btn-secondary success">儲存</button>
+                        </div>
+                    </div>
+                `;
+                
+                // 3. 插入到 wrapper div 後面
+                // parent.insertBefore(new, refNode.nextSibling) 等同於 insertAfter
+                parent.insertBefore(container, keywordSectionWrapper.nextSibling);
+                
+                $("btn-save-cmd").onclick = async () => {
+                    const data = {
+                        login: $("cmd-login").value,
+                        status: $("cmd-status").value,
+                        cancel: $("cmd-cancel").value
+                    };
+                    if(await req("/api/admin/line-system-keywords/save", data, $("btn-save-cmd"))) {
+                        toast(T.saved, "success");
+                    }
                 };
-                if(await req("/api/admin/line-system-keywords/save", data, $("btn-save-cmd"))) {
-                    toast(T.saved, "success");
-                }
-            };
+            }
         }
     }
 
