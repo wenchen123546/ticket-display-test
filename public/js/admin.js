@@ -1,15 +1,16 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - Fixed "Save Roles" Issue
+ * 後台邏輯 (admin.js) - Chart Rendering Fix
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 
-// 修復：改進 mk 函數，正確處理 data-* 屬性
+// FIX: 修正 mk 函數，正確處理 style 字串與 data-* 屬性
 const mk = (t, c, txt, ev={}, ch=[]) => {
     const e = document.createElement(t); if(c) e.className=c;
     if(txt) e[txt.startsWith('<')?'innerHTML':'textContent'] = txt;
     Object.entries(ev).forEach(([k,v])=>{
         if(k.startsWith('on')) e[k.toLowerCase()]=v;
-        else if(k.includes('-')) e.setAttribute(k, v); // 關鍵修正：對於 data-role 等屬性使用 setAttribute
+        else if(k === 'style') e.style.cssText = v; // 關鍵修正：正確套用 inline style
+        else if(k.includes('-')) e.setAttribute(k, v); // 處理 data-*
         else e[k]=v;
     });
     (Array.isArray(ch)?ch:[ch]).forEach(x=>x&&e.appendChild(x)); return e;
@@ -199,7 +200,7 @@ async function loadStats() {
                 const valEl = mk("div", "chart-val", v || "0");
                 const barEl = mk("div", "chart-bar", null, { style: barStyle });
                 const colEl = mk("div", `chart-col ${i === d.serverHour ? 'current' : ''}`, null, {
-                    style: `--bar-height: ${barPercent}%`, 
+                    style: `--bar-height: ${barPercent}%`, // 透過 mk 正確套用
                     onclick: (e) => {
                         $$('.chart-col').forEach(c => c !== e.currentTarget && c.classList.remove('active-touch'));
                         e.currentTarget.classList.toggle('active-touch');
