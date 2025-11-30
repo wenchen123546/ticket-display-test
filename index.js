@@ -1,5 +1,5 @@
 /* ==========================================
- * 伺服器 (index.js) - v18.8 Fixes (Webhook & Middleware Order)
+ * 伺服器 (index.js) - v18.9 Line Enhanced
  * ========================================== */
 require('dotenv').config();
 const { Server } = require("http"), express = require("express"), socketio = require("socket.io");
@@ -31,12 +31,15 @@ const KEYS = {
         MSG: { 
             APPROACH: 'callsys:line:msg:approach', ARRIVAL: 'callsys:line:msg:arrival', 
             SUCCESS: 'callsys:line:msg:success', PASSED: 'callsys:line:msg:passed', CANCEL: 'callsys:line:msg:cancel',
-            DEFAULT: 'callsys:line:msg:default' 
+            DEFAULT: 'callsys:line:msg:default',
+            HELP: 'callsys:line:msg:help' // [新增]
         },
         CMD: {
             LOGIN: 'callsys:line:cmd:login',
             STATUS: 'callsys:line:cmd:status',
-            CANCEL: 'callsys:line:cmd:cancel'
+            CANCEL: 'callsys:line:cmd:cancel',
+            PASSED: 'callsys:line:cmd:passed', // [新增]
+            HELP: 'callsys:line:cmd:help'      // [新增]
         },
         AUTOREPLY: 'callsys:line:autoreply_rules'
     } 
@@ -159,7 +162,7 @@ app.post('/callback', async (req, res) => {
             return res.status(500).end();
         }
 
-        // 使用 LINE Middleware 驗證簽章 (此時 body 尚未被 consumed)
+        // 使用 LINE Middleware 驗證簽章
         line.middleware(config)(req, res, async (err) => {
             if (err) {
                 console.error("❌ LINE Signature Error:", err);
@@ -167,7 +170,6 @@ app.post('/callback', async (req, res) => {
             }
 
             try {
-                // 確保 Client 使用最新設定
                 if (!lineClient) lineClient = new line.Client(config);
 
                 await Promise.all(req.body.events.map(async e => {
@@ -175,32 +177,60 @@ app.post('/callback', async (req, res) => {
                     const t = e.message.text.trim(), u = e.source.userId;
                     const rp = x => lineClient.replyMessage(e.replyToken, { type: 'text', text: x }).catch(err => console.error("Reply Error:", err));
 
-                    const [cmdLogin, cmdStatus, cmdCancel] = await redis.mget(KEYS.LINE.CMD.LOGIN, KEYS.LINE.CMD.STATUS, KEYS.LINE.CMD.CANCEL);
+                    // [Modified] 取得所有指令關鍵字
+                    const [cmdLogin, cmdStatus, cmdCancel, cmdPassed, cmdHelp] = await redis.mget(
+                        KEYS.LINE.CMD.LOGIN, KEYS.LINE.CMD.STATUS, KEYS.LINE.CMD.CANCEL, KEYS.LINE.CMD.PASSED, KEYS.LINE.CMD.HELP
+                    );
+
                     const CMD_LOGIN = cmdLogin || '後台登入';
-                    const CMD_STATUS_LIST = (cmdStatus || 'status,?,查詢').split(',').map(s => s.trim().toLowerCase());
-                    const CMD_CANCEL_LIST = (cmdCancel || 'cancel,取消').split(',').map(s => s.trim().toLowerCase());
+                    const CMD_STATUS_LIST = (cmdStatus || 'status,?,查詢,查詢進度').split(',').map(s => s.trim().toLowerCase());
+                    const CMD_CANCEL_LIST = (cmdCancel || 'cancel,取消,取消提醒').split(',').map(s => s.trim().toLowerCase());
+                    const CMD_PASSED_LIST = (cmdPassed || 'passed,過號,過號名單').split(',').map(s => s.trim().toLowerCase());
+                    const CMD_HELP_LIST = (cmdHelp || 'help,提醒,設定提醒').split(',').map(s => s.trim().toLowerCase());
 
                     // 1. 後台登入
                     if(t === CMD_LOGIN) return rp((await redis.get(`${KEYS.LINE.ADMIN}${u}`)) ? `🔗 ${process.env.RENDER_EXTERNAL_URL}/admin.html` : (await redis.set(`${KEYS.LINE.CTX}${u}`,'WAIT_PWD','EX',120),"請輸入密碼"));
                     if((await redis.get(`${KEYS.LINE.CTX}${u}`))==='WAIT_PWD' && t===(await redis.get(KEYS.LINE.PWD)||`unlock${ADMIN_TOKEN}`)) { await redis.set(`${KEYS.LINE.ADMIN}${u}`,"1","EX",600); await redis.del(`${KEYS.LINE.CTX}${u}`); return rp("🔓 驗證成功"); }
 
-                    // 2. 自定義關鍵字
+                    // 2. 自定義關鍵字 (優先權高)
                     const customReply = await redis.hget(KEYS.LINE.AUTOREPLY, t);
                     if (customReply) return rp(customReply);
                     
-                    // 3. 系統指令
-                    const [msgSucc, msgPass, msgCanc, msgDefault] = await redis.mget(KEYS.LINE.MSG.SUCCESS, KEYS.LINE.MSG.PASSED, KEYS.LINE.MSG.CANCEL, KEYS.LINE.MSG.DEFAULT);
+                    // 3. 系統指令與訊息
+                    const [msgSucc, msgPass, msgCanc, msgDefault, msgHelp] = await redis.mget(
+                        KEYS.LINE.MSG.SUCCESS, KEYS.LINE.MSG.PASSED, KEYS.LINE.MSG.CANCEL, KEYS.LINE.MSG.DEFAULT, KEYS.LINE.MSG.HELP
+                    );
                     const TXT_SUCC = msgSucc || '設定成功: {number}號';
                     const TXT_PASS = msgPass || '已過號';
                     const TXT_CANC = msgCanc || '已取消';
+                    const TXT_HELP = msgHelp || '💡 請直接輸入您的「號碼數字」即可設定到號提醒。\n例如輸入：168';
 
-                    if(CMD_STATUS_LIST.includes(t.toLowerCase())) { const [n,i,my]=await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.get(`${KEYS.LINE.USER}${u}`)]); return rp(`叫號:${n||0} / 發號:${i||0}${my?`\n您的:${my}`:''}`); }
+                    // [Logic] 查詢進度
+                    if(CMD_STATUS_LIST.includes(t.toLowerCase())) { 
+                        const [n,i,my]=await Promise.all([redis.get(KEYS.CURRENT),redis.get(KEYS.ISSUED),redis.get(`${KEYS.LINE.USER}${u}`)]); 
+                        return rp(`目前叫號: ${n||0}\n已發號至: ${i||0}${my?`\n您的追蹤: ${my}號`:''}`); 
+                    }
                     
+                    // [Logic] 取消提醒
                     if(CMD_CANCEL_LIST.includes(t.toLowerCase())) { 
                         const n=await redis.get(`${KEYS.LINE.USER}${u}`); 
                         if(n){await redis.multi().del(`${KEYS.LINE.USER}${u}`).srem(`${KEYS.LINE.SUB}${n}`,u).exec(); return rp(TXT_CANC);} 
+                        return rp("您目前沒有設定追蹤。");
+                    }
+
+                    // [Logic] 過號名單
+                    if(CMD_PASSED_LIST.includes(t.toLowerCase())) {
+                        const passedList = await redis.zrange(KEYS.PASSED, 0, -1);
+                        if (!passedList || passedList.length === 0) return rp("目前沒有過號名單。");
+                        return rp(`⚠️ 過號名單：\n${passedList.join(', ')}`);
+                    }
+
+                    // [Logic] 設定提醒教學
+                    if(CMD_HELP_LIST.includes(t.toLowerCase())) {
+                        return rp(TXT_HELP);
                     }
                     
+                    // [Logic] 數字追蹤
                     if(/^\d+$/.test(t)) { 
                         const n=parseInt(t), c=parseInt(await redis.get(KEYS.CURRENT))||0; 
                         if(n<=c) return rp(TXT_PASS); 
@@ -394,20 +424,28 @@ app.post("/api/admin/line-settings/reset", auth, perm('line'), H(async r => { aw
 app.post("/api/admin/line-settings/get-unlock-pass", auth, perm('line'), H(async r => ({ password: await redis.get(KEYS.LINE.PWD) })));
 app.post("/api/admin/line-settings/save-pass", auth, perm('line'), H(async r => { await redis.set(KEYS.LINE.PWD, r.body.password); }));
 
-// [New] Line Auto Reply & Default Messages
+// [Updated] Line Auto Reply & Default Messages (With Help & Passed Cmds)
 app.post("/api/admin/line-messages/get", auth, perm('line'), H(async r => {
-    const [appr, arr, succ, pass, canc] = await redis.mget(KEYS.LINE.MSG.APPROACH, KEYS.LINE.MSG.ARRIVAL, KEYS.LINE.MSG.SUCCESS, KEYS.LINE.MSG.PASSED, KEYS.LINE.MSG.CANCEL);
+    const [appr, arr, succ, pass, canc, help] = await redis.mget(KEYS.LINE.MSG.APPROACH, KEYS.LINE.MSG.ARRIVAL, KEYS.LINE.MSG.SUCCESS, KEYS.LINE.MSG.PASSED, KEYS.LINE.MSG.CANCEL, KEYS.LINE.MSG.HELP);
     return { 
         approach: appr || '🔔 {target}號快到了 (前方剩{diff}組)',
         arrival: arr || '🎉 {current}號 到您了！請前往櫃台',
         success: succ || '設定成功: {number}號',
         passed: pass || '已過號',
-        cancel: canc || '已取消'
+        cancel: canc || '已取消',
+        help: help || '💡 請直接輸入您的「號碼數字」即可設定到號提醒。\n例如輸入：168'
     };
 }));
 app.post("/api/admin/line-messages/save", auth, perm('line'), H(async r => {
-    const { approach, arrival, success, passed, cancel } = r.body;
-    await redis.mset(KEYS.LINE.MSG.APPROACH, approach, KEYS.LINE.MSG.ARRIVAL, arrival, KEYS.LINE.MSG.SUCCESS, success, KEYS.LINE.MSG.PASSED, passed, KEYS.LINE.MSG.CANCEL, cancel);
+    const { approach, arrival, success, passed, cancel, help } = r.body;
+    await redis.mset(
+        KEYS.LINE.MSG.APPROACH, approach, 
+        KEYS.LINE.MSG.ARRIVAL, arrival, 
+        KEYS.LINE.MSG.SUCCESS, success, 
+        KEYS.LINE.MSG.PASSED, passed, 
+        KEYS.LINE.MSG.CANCEL, cancel,
+        KEYS.LINE.MSG.HELP, help
+    );
     addLog(r.user.nickname, "💬 更新 LINE 自定義訊息");
 }));
 
@@ -445,20 +483,24 @@ app.post("/api/admin/line-default-reply/save", auth, perm('line'), H(async r => 
 }));
 
 app.post("/api/admin/line-system-keywords/get", auth, perm('line'), H(async r => {
-    const [login, status, cancel] = await redis.mget(KEYS.LINE.CMD.LOGIN, KEYS.LINE.CMD.STATUS, KEYS.LINE.CMD.CANCEL);
+    const [login, status, cancel, passed, help] = await redis.mget(KEYS.LINE.CMD.LOGIN, KEYS.LINE.CMD.STATUS, KEYS.LINE.CMD.CANCEL, KEYS.LINE.CMD.PASSED, KEYS.LINE.CMD.HELP);
     return {
         login: login || '後台登入',
-        status: status || 'status,?,查詢',
-        cancel: cancel || 'cancel,取消'
+        status: status || 'status,?,查詢,查詢進度',
+        cancel: cancel || 'cancel,取消,取消提醒',
+        passed: passed || 'passed,過號,過號名單',
+        help: help || 'help,提醒,設定提醒'
     };
 }));
 
 app.post("/api/admin/line-system-keywords/save", auth, perm('line'), H(async r => {
-    const { login, status, cancel } = r.body;
+    const { login, status, cancel, passed, help } = r.body;
     await redis.mset(
         KEYS.LINE.CMD.LOGIN, login, 
         KEYS.LINE.CMD.STATUS, status, 
-        KEYS.LINE.CMD.CANCEL, cancel
+        KEYS.LINE.CMD.CANCEL, cancel,
+        KEYS.LINE.CMD.PASSED, passed,
+        KEYS.LINE.CMD.HELP, help
     );
     addLog(r.user.nickname, "🔧 更新 LINE 系統指令");
 }));
@@ -500,4 +542,4 @@ io.on("connection", async s => {
     s.emit("updateSoundSetting",snd==="1"); s.emit("updatePublicStatus",pub!=="0"); s.emit("updateSystemMode",m||'ticketing'); s.emit("updateWaitTime",await calcWaitTime());
 });
 
-initDatabase().then(() => { server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v18.8 running on ${PORT}`)); }).catch(err => { console.error("❌ DB Error:", err); process.exit(1); });
+initDatabase().then(() => { server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server v18.9 running on ${PORT}`)); }).catch(err => { console.error("❌ DB Error:", err); process.exit(1); });
