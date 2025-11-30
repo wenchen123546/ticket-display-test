@@ -1,5 +1,5 @@
 /* ==========================================
- * 後台邏輯 (admin.js) - v20.7 Fixes & Permissions
+ * 後台邏輯 (admin.js) - v20.8 Fixes (Permission Safety)
  * ========================================== */
 const $ = i => document.getElementById(i), $$ = s => document.querySelectorAll(s);
 
@@ -563,10 +563,8 @@ async function loadRoles() {
         const tr = mk("tr"); const tdName = mk("td", "td-perm-name", p.t); tr.appendChild(tdName);
         targetRoles.forEach(r => { 
             const tdCheck = mk("td", "td-check"); 
-            // [FIXED] 檢查是否擁有萬用字元 '*'
             const roleCan = cfg[r]?.can || [];
             const isChecked = roleCan.includes('*') || roleCan.includes(p.k);
-            
             const label = mk("label", "custom-check"); 
             const chk = mk("input", "role-chk", null, {type: "checkbox", dataset: { role: r, perm: p.k }, checked: isChecked}); 
             const checkmark = mk("span", "checkmark"); 
@@ -644,11 +642,14 @@ bind("add-featured-btn", async()=>{ const t=$("new-link-text").value, u=$("new-l
 bind("btn-broadcast", async()=>{ const m=$("broadcast-msg").value; if(m && await req("/api/admin/broadcast",{message:m})) { toast(T.msg_sent,"success"); $("broadcast-msg").value=""; }});
 bind("btn-add-appt", async()=>{ const n=$("appt-number").value, t=$("appt-time").value; if(n&&t && await req("/api/appointment/add",{number:parseInt(n), timeStr:t})) { toast(T.saved,"success"); $("appt-number").value=""; $("appt-time")._flatpickr?.clear(); }});
 
-// [Modified] btn-save-roles handler: allow ADMIN editing
+// [Fix: Permission Saving] 強制 Admin 擁有 '*' 權限，防止鎖死
 bind("btn-save-roles", async()=>{ 
-    // Initialized ADMIN with empty array [] to accept checkbox inputs
-    const c={ OPERATOR:{level:1,can:[]}, MANAGER:{level:2,can:[]}, ADMIN:{level:9,can:[]} }; 
-    $$(".role-chk:checked").forEach(k => c[k.dataset.role].can.push(k.dataset.perm)); 
+    const c={ OPERATOR:{level:1,can:[]}, MANAGER:{level:2,can:[]}, ADMIN:{level:9,can:['*']} }; 
+    $$(".role-chk:checked").forEach(k => {
+        if(!c[k.dataset.role].can.includes(k.dataset.perm)) {
+            c[k.dataset.role].can.push(k.dataset.perm);
+        }
+    }); 
     if(await req("/api/admin/roles/update", {rolesConfig:c})) { 
         toast(T.saved,"success"); 
         globalRoleConfig = c; 
@@ -659,7 +660,6 @@ bind("btn-save-roles", async()=>{
 bind("btn-save-unlock-pwd", async()=>{ const p=$("line-unlock-pwd").value; if(await req("/api/admin/line-settings/save-pass", {password:p})) toast(T.saved,"success"); });
 bind("btn-export-csv", async()=>{ const d=await req("/api/admin/export-csv", { date: new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Taipei"}) }); if(d?.csvData) { const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob(["\uFEFF"+d.csvData],{type:'text/csv'})); a.download=d.fileName; a.click(); } });
 
-// [New] Save Line Messages
 bind("btn-save-line-msgs", async () => {
     const data = {
         success: $("msg-success").value,
@@ -673,7 +673,6 @@ bind("btn-save-line-msgs", async () => {
     }
 });
 
-// [New] Bind Auto Reply Buttons
 bind("btn-save-default-reply", async () => {
     const val = $("line-default-msg").value;
     if(await req("/api/admin/line-default-reply/save", { reply: val }, $("btn-save-default-reply"))) {
