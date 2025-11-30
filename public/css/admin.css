@@ -277,3 +277,56 @@ input[type="radio"] { display: none; }
 .btn-circle { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--bg-input); font-size: 1.1rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; color: var(--text-sub); }
 .btn-circle:hover { background: var(--primary); color: white; border-color: var(--primary); transform: scale(1.1); }
 @keyframes modalPop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* 1. 調整標題區域：強制水平排列 */
+#section-stats .dashboard-header {
+    display: flex !important;           /* 覆蓋預設的 grid */
+    flex-direction: row !important;     /* 強制水平方向 */
+    justify-content: space-between;     /* 左右撐開 */
+    align-items: flex-end;              /* 底部對齊 (讓數字底部對齊按鈕) */
+    margin-bottom: 10px !important;     /* 減少與圖表的間距 */
+    padding-bottom: 0 !important;
+    gap: 0 !important;                  /* 移除多餘間距 */
+}
+
+/* 2. 左側數字微調 */
+#section-stats #stats-today-count {
+    line-height: 1;
+    margin-bottom: -2px; /* 微調讓視覺上與按鈕對齊 */
+    display: block;
+}
+
+/* 3. 右側按鈕群組：水平排列 */
+#section-stats .quick-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;            /* 按鈕之間的間距 */
+    margin-bottom: 0;
+}
+
+/* 4. 按鈕樣式優化：改為緊湊型 */
+#section-stats .quick-actions button {
+    width: auto !important;       /* 取消 100% 寬度 */
+    min-width: 60px;
+    height: 32px;                 /* 降低高度 */
+    padding: 0 14px;
+    margin: 0 !important;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+/* 5. 圖表區域：減少上方空白，最大化顯示空間 */
+#hourly-chart.chart-container {
+    margin-top: 0 !important;
+    padding-top: 25px !important; /* 上方保留一點空間給浮動數值 */
+    height: 260px !important;     /* 設定固定高度，避免過長或過短 */
+    align-items: flex-end;        /* 確保長條圖從底部長出 */
+    border-bottom: 1px dashed var(--border-color);
+}
+
+/* 6. 卡片本體間距縮減 */
+#section-stats .admin-card {
+    padding-bottom: 16px;
+    gap: 12px;
+}
