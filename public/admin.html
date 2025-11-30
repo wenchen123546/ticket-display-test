@@ -39,9 +39,6 @@
             <button class="nav-btn active" data-target="section-live" data-perm="call">
                 <span class="nav-icon">🎮</span> <span data-i18n="nav_live">現場控台</span>
             </button>
-            <button class="nav-btn" data-target="section-booking" data-perm="appointment">
-                <span class="nav-icon">📅</span> <span data-i18n="nav_booking">預約管理</span>
-            </button>
             <button class="nav-btn" data-target="section-stats" data-perm="stats">
                 <span class="nav-icon">📈</span> <span data-i18n="nav_stats">數據報表</span>
             </button>
@@ -140,31 +137,6 @@
             </div>
         </div>
 
-        <div id="section-booking" class="section-group">
-            <div class="card-container">
-                <div class="card-wrapper full-width-card" id="card-booking-merged" data-perm="appointment">
-                    <div class="admin-card">
-                        <h3><span class="card-icon">📅</span> <span data-i18n="card_booking">預約管理</span></h3>
-                        <p style="color:var(--text-sub); margin-bottom:10px; font-size:0.85rem;">叫號時自動優先處理到期預約</p>
-                        <div class="list-container">
-                            <ul id="appointment-list-ui" class="scroll-list">
-                                <li style="text-align:center; padding:20px; color:var(--text-sub);">Loading...</li>
-                            </ul>
-                        </div>
-
-                        <div class="control-group compact-group" style="margin-top:auto;">
-                            <label data-i18n="lbl_add_appt">新增預約</label>
-                            <div class="input-group">
-                                <input type="number" id="appt-number" placeholder="號碼" style="flex:0.5;">
-                                <input type="text" id="appt-time" placeholder="時間" style="flex:1; background-color: var(--bg-input);">
-                                <button id="btn-add-appt" class="btn-add">+</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div id="section-stats" class="section-group">
             <div class="card-container">
                 <div class="card-wrapper" data-perm="stats">
@@ -200,6 +172,28 @@
 
         <div id="section-settings" class="section-group">
             <div class="card-container">
+                
+                <div class="card-wrapper full-width-card" id="card-booking-merged" data-perm="appointment">
+                    <div class="admin-card">
+                        <h3><span class="card-icon">📅</span> <span data-i18n="card_booking">預約管理</span></h3>
+                        <p style="color:var(--text-sub); margin-bottom:10px; font-size:0.85rem;">叫號時自動優先處理到期預約</p>
+                        <div class="list-container">
+                            <ul id="appointment-list-ui" class="scroll-list">
+                                <li style="text-align:center; padding:20px; color:var(--text-sub);">Loading...</li>
+                            </ul>
+                        </div>
+
+                        <div class="control-group compact-group" style="margin-top:auto;">
+                            <label data-i18n="lbl_add_appt">新增預約</label>
+                            <div class="input-group">
+                                <input type="number" id="appt-number" placeholder="號碼" style="flex:0.5;">
+                                <input type="text" id="appt-time" placeholder="時間" style="flex:1; background-color: var(--bg-input);">
+                                <button id="btn-add-appt" class="btn-add">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card-wrapper" data-perm="settings">
                     <div class="admin-card" id="card-sys">
                         <h3><span class="card-icon">⚙️</span> <span data-i18n="card_sys">系統</span></h3>
