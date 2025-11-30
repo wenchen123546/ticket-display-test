@@ -104,19 +104,19 @@ body.kiosk-mode .bg-decoration { opacity: 0.8; }
 
 /* ==========================================
  * Mobile Optimization (Compact Mode)
- * Add to the bottom of style.css
+ * Reduced spacing for vertical compactness
  * ========================================== */
 @media (max-width: 768px) {
     /* 1. 減少整體容器邊距與間距 */
     .app-container {
-        gap: 8px; /* 原本 20px */
-        padding: 12px 12px 20px; /* 減少邊框留白 */
+        gap: 6px; /* 縮小 Gap (原20px->8px->6px) */
+        padding: 8px 8px 16px; /* 縮小 Padding (原12px) */
         min-height: 100dvh;
     }
 
     /* 2. Hero 區塊 (顯示號碼處) 緊湊化 */
     .hero-section {
-        padding: 20px 16px; /* 原本 32px */
+        padding: 12px 16px; /* 縮小 Padding (原32px -> 20px -> 12px) */
         border-radius: 20px;
     }
     
@@ -126,13 +126,15 @@ body.kiosk-mode .bg-decoration { opacity: 0.8; }
     }
 
     #number {
-        font-size: 5.5rem; /* 原本 22vw 可能太大，改為固定較小尺寸 */
-        margin: 4px 0 12px;
+        font-size: 5rem; /* 固定字體大小 */
+        margin: 0 0 8px; /* 移除上方Margin，減少下方Margin (原 4px 0 12px) */
+        line-height: 1;
     }
 
     .hero-stats-grid {
-        padding: 10px 12px;
+        padding: 8px 12px; /* 縮小 Padding (原16px -> 10px -> 8px) */
         gap: 12px;
+        margin-top: 0;
     }
 
     .s-value {
@@ -141,20 +143,20 @@ body.kiosk-mode .bg-decoration { opacity: 0.8; }
 
     /* 3. 控制面板與列表緊湊化 */
     .side-panel {
-        gap: 8px;
+        gap: 6px; /* 縮小 Gap (原20px -> 8px -> 6px) */
     }
 
     .control-section, .list-section {
-        padding: 16px; /* 原本 24px */
+        padding: 12px 14px; /* 縮小 Padding (原24px -> 16px -> 12px) */
     }
     
     .action-header h3 {
         font-size: 1.1rem;
-        margin-bottom: 4px;
+        margin-bottom: 2px; /* 縮小 Margin (原6px) */
     }
     
     .func-desc {
-        margin-bottom: 12px;
+        margin-bottom: 8px; /* 縮小 Margin (原20px -> 12px -> 8px) */
         font-size: 0.85rem;
     }
 
@@ -186,15 +188,14 @@ body.kiosk-mode .bg-decoration { opacity: 0.8; }
 
     /* 6. 底部工具列 */
     .footer-tools {
-        margin-top: 16px;
-        padding-top: 16px;
+        margin-top: 12px; /* 縮小 Margin (原20px -> 16px -> 12px) */
+        padding-top: 12px;
     }
     
     .btn-util {
-        height: 40px; /* 原本 44px */
+        height: 40px;
         font-size: 0.85rem;
     }
     
-    /* 7. 隱藏背景光球以提升閱讀清晰度 (選用) */
     .bg-decoration { opacity: 0.3; }
 }
