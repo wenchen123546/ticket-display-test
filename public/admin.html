@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>管理後台</title>
+<script src="/socket.io/socket.io.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/zh-tw.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/admin.css"> 
+</head>
+<body>
+
+<div id="status-bar" data-i18n="status_dis">⚠️ 伺服器連線中斷...</div>
+
+<div id="login-container">
+    <div class="login-header" style="text-align:center; margin-bottom:24px;">
+        <h1 style="color:var(--primary); margin:0 0 8px 0; font-weight:800;">Admin Console</h1>
+        <p style="color:var(--text-sub); margin:0;" data-i18n="login_title">請登入管理系統</p>
+    </div>
+    <form onsubmit="return false;">
+        <div class="control-group"><input type="text" id="username-input" data-i18n-ph="ph_account" placeholder="帳號" autocomplete="username"></div>
+        <div class="control-group"><input type="password" id="password-input" data-i18n-ph="ph_password" placeholder="密碼" autocomplete="current-password"></div>
+        <button id="login-button" type="submit" class="btn-hero" data-i18n="login_btn">登入</button>
+    </form>
+    <p id="login-error" style="color:var(--danger); margin-top:16px; text-align:center; font-weight:600;"></p>
+</div>
+
+<div id="admin-panel" style="display:none;">
+    <aside class="sidebar">
+        <div class="sidebar-header"><div class="logo">⚡ <span data-i18n="admin_panel">管理後台</span></div><div id="sidebar-user-info" style="font-size:0.85rem; color:var(--text-sub);">Admin</div></div>
+        <nav class="sidebar-nav">
+            <button class="nav-btn active" data-target="section-live" data-perm="perm_command,perm_issue,perm_passed_view"><span class="nav-icon">🎮</span> <span data-i18n="nav_live">現場控台</span></button>
+            <button class="nav-btn" data-target="section-stats" data-perm="perm_stats_view,perm_logs_view"><span class="nav-icon">📈</span> <span data-i18n="nav_stats">數據報表</span></button>
+            <button class="nav-btn" data-target="section-settings" data-perm="perm_system_view,perm_links_view,perm_users_view,perm_roles,perm_online_view,perm_line_view,perm_booking_view"><span class="nav-icon">⚙️</span> <span data-i18n="nav_settings">系統設定</span></button>
+        </nav>
+        <div class="sidebar-footer">
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <button id="admin-theme-toggle" class="btn-secondary" style="flex:1;">🌙</button>
+                <select id="admin-lang-selector" class="lang-select" style="flex:2;"><option value="zh-TW">繁體中文</option><option value="en">English</option></select>
+            </div>
+            <button id="btn-logout" class="btn-reset-single" style="border:none; color:var(--danger);" data-i18n="logout">登出</button>
+        </div>
+    </aside>
+
+    <main class="content-area">
+        <div id="section-live" class="section-group active">
+            <div class="dashboard-header">
+                <div class="dashboard-item main-stat"><span class="label" data-i18n="dash_curr">目前叫號</span><span class="value big-number" id="number">0</span></div>
+                <div class="dashboard-item"><span class="label" data-i18n="dash_issued">已發號至</span><span class="value sub-number" id="issued-number">0</span></div>
+                <div class="dashboard-item"><span class="label" data-i18n="dash_wait">等待組數</span><span class="value sub-number" id="waiting-count" style="color:var(--warning);">0</span></div>
+            </div>
+
+            <div class="card-container">
+                <div class="card-wrapper" data-perm="perm_command">
+                    <div class="admin-card control-deck">
+                        <h3><span class="card-icon">📢</span> <span data-i18n="card_call">指揮中心</span></h3>
+                        <div class="hero-control-row"><button id="btn-call-next" class="btn-hero" data-i18n="btn_next">下一號 ▶</button></div>
+                        <div class="secondary-actions-row">
+                            <button id="btn-call-prev" class="btn-secondary" data-i18n="btn_prev">◀ 上一號</button>
+                            <button id="btn-mark-passed" class="btn-warn" data-i18n="btn_pass">過號</button>
+                        </div>
+                        <div class="control-group compact-group" style="margin-top:20px;">
+                            <label data-i18n="lbl_assign">指定 / 插隊</label>
+                            <div class="input-group">
+                                <div class="quick-actions"><button class="btn-secondary" id="btn-call-add-1">+1</button><button class="btn-secondary" id="btn-call-add-5">+5</button></div>
+                                <input type="number" id="manualNumber" placeholder="#" inputmode="numeric" pattern="\d*" min="0" oninput="validity.valid||(value='');">
+                                <button id="setNumber" class="btn-secondary success" data-i18n="btn_exec">GO</button>
+                            </div>
+                        </div>
+                        <button id="resetNumber" class="btn-reset-single" data-i18n="btn_reset_call">↺ 重置叫號</button>
+                    </div>
+                </div>
+
+                <div class="card-wrapper" data-perm="perm_issue">
+                    <div class="admin-card">
+                        <h3><span class="card-icon">🎟️</span> <span data-i18n="card_issue">發號管理</span></h3>
+                        <div class="big-action-row">
+                            <button id="btn-issue-prev" class="btn-secondary btn-big" data-i18n="btn_recall">➖ 收回</button>
+                            <button id="btn-issue-next" class="btn-secondary success btn-big" data-i18n="btn_issue">發號 ➕</button>
+                        </div>
+                        <div class="control-group" style="margin-top:auto;">
+                            <label data-i18n="lbl_fix_issue">修正發號數</label>
+                            <div class="input-group"><input type="number" id="manualIssuedNumber" placeholder="#" inputmode="numeric" min="0" oninput="validity.valid||(value='');"><button id="setIssuedNumber" class="btn-secondary" data-i18n="btn_fix">修正</button></div>
+                        </div>
+                        <button id="resetIssued" class="btn-reset-single" data-i18n="btn_reset_issue">↺ 重置發號</button>
+                    </div>
+                </div>
+
+                <div class="card-wrapper" data-perm="perm_passed_view">
+                    <div class="admin-card">
+                        <h3><span class="card-icon">📝</span> <span data-i18n="card_passed">過號名單</span></h3>
+                        <div class="list-container"><ul id="passed-list-ui" class="scroll-list"></ul></div>
+                        <div class="control-group compact-group">
+                            <label class="add-label">手動加入過號</label>
+                            <div class="input-group"><input type="number" id="new-passed-number" placeholder="號碼 (例如 5)" inputmode="numeric" min="0"><button id="add-passed-btn" class="btn-add">+</button></div>
+                        </div>
+                        <button id="resetPassed" class="btn-reset-single" data-i18n="btn_clear_passed">清空過號</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="section-stats" class="section-group">
+            <div class="card-container">
+                <div class="card-wrapper" data-perm="perm_stats_view">
+                    <div class="admin-card">
+                        <h3><span class="card-icon">📊</span> <span data-i18n="card_stats">流量分析</span></h3>
+                        <div class="dashboard-header" style="margin-bottom:10px; grid-template-columns: 1fr auto;">
+                            <div><p style="margin:0; color:var(--text-sub); font-size:0.8rem;" data-i18n="lbl_today">今日人次</p><span id="stats-today-count" style="font-size:2.5rem; font-weight:800; color:var(--primary);">0</span></div>
+                            <div class="quick-actions">
+                                <button id="btn-refresh-stats" class="btn-secondary" data-i18n="btn_refresh">重整</button>
+                                <button id="btn-calibrate-stats" class="btn-secondary success" data-i18n="btn_calibrate">校正</button>
+                                <button id="btn-export-csv" class="btn-secondary success" style="display:none;">CSV</button>
+                            </div>
+                        </div>
+                        <div id="hourly-chart" class="chart-container"><p style="margin:auto; color:var(--text-sub);">Loading...</p></div>
+                        <button id="btn-clear-stats" class="btn-reset-single" style="margin-top:15px;" data-i18n="btn_clear_stats">🗑️ 清空統計</button>
+                    </div>
+                </div>
+                
+                <div class="card-wrapper" data-perm="perm_logs_view">
+                    <div class="admin-card">
+                        <h3><span class="card-icon">📋</span> <span data-i18n="card_logs">操作日誌</span></h3>
+                        <div class="list-container"><ul id="admin-log-ui" class="scroll-list"><li>Wait...</li></ul></div>
+                        <button id="btn-clear-logs" class="btn-reset-single" data-i18n="btn_clear_logs">清除日誌</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="section-settings" class="section-group">
+            <div class="card-container">
+                <div class="card-wrapper" data-perm="perm_system_view">
+                    <div class="admin-card" id="card-sys">
+                        <h3><span class="card-icon">⚙️</span> <span data-i18n="card_sys">系統</span></h3>
+                        <div class="settings-grid">
+                            <label class="setting-card"><span class="setting-label" data-i18n="lbl_public">開放前台</span><input type="checkbox" id="public-toggle" class="toggle-switch" checked></label>
+                            <label class="setting-card"><span class="setting-label" data-i18n="lbl_sound">提示音效</span><input type="checkbox" id="sound-toggle" class="toggle-switch"></label>
+                        </div>
+                        <div class="control-group">
+                            <label data-i18n="lbl_tts">TTS 語音廣播</label>
+                            <div class="input-group"><input type="text" id="broadcast-msg" placeholder="輸入內容..."><button id="btn-broadcast" class="btn-secondary" data-i18n="btn_play">播放</button></div>
+                        </div>
+                        <div id="mode-switcher-group" class="control-group" style="display:none;">
+                            <label data-i18n="lbl_mode">取號模式</label>
+                            <div style="display:flex; gap:10px;">
+                                <label><input type="radio" name="systemMode" value="ticketing" checked> <span data-i18n="mode_online">線上取號</span></label>
+                                <label><input type="radio" name="systemMode" value="input"> <span data-i18n="mode_manual">手動輸入</span></label>
+                            </div>
+                        </div>
+                        <button id="resetAll" class="btn-reset-single" style="color:var(--danger);" data-i18n="btn_reset_all">💥 全域重置</button>
+                        <div class="mobile-only-settings">
+                            <div class="control-group">
+                                <button id="admin-theme-toggle-mobile" class="btn-secondary">🌙</button>
+                                <select id="admin-lang-selector-mobile" class="lang-select"><option value="zh-TW">繁體中文</option><option value="en">English</option></select>
+                            </div>
+                            <button id="btn-logout-mobile" class="btn-reset-single" data-i18n="logout">登出</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-wrapper" data-perm="perm_links_view">
+                    <div class="admin-card">
+                        <h3><span class="card-icon">🔗</span> <span data-i18n="card_links">連結管理</span></h3>
+                        <div class="list-container"><ul id="featured-list-ui" class="scroll-list"></ul></div>
+                        <div class="control-group compact-group" style="margin-top:auto;">
+                            <label>新增連結</label>
+                            <div class="input-group"><input type="text" id="new-link-text" data-i18n-ph="ph_link_name" placeholder="名稱" style="flex:1;"></div>
+                            <div class="input-group" style="margin-top:4px;"><input type="text" id="new-link-url" placeholder="URL" style="flex:1;"><button id="add-featured-btn" class="btn-add">+</button></div>
+                        </div>
+                        <button id="resetFeaturedContents" class="btn-reset-single" data-i18n="btn_clear_links">清空連結</button>
+                    </div>
+                </div>
+
+                <div class="card-wrapper" data-perm="perm_online_view">
+                    <div class="admin-card">
+                        <h3><span class="card-icon">🟢</span> <span data-i18n="card_online">在線管理</span></h3>
+                        <div class="list-container"><ul id="online-users-list" class="scroll-list"><li>Loading...</li></ul></div>
+                    </div>
+                </div>
+
+                <div class="card-wrapper" id="card-user-management" style="display:none;" data-perm="perm_users_view">
+                    <div class="admin-card">
+                        <h3><span class="card-icon">👥</span> <span data-i18n="card_users">帳號管理</span></h3>
+                        <div class="list-container"><ul id="user-list-ui" class="scroll-list"></ul></div>
+                        <div class="control-group compact-group" style="margin-top:auto;"></div>
+                    </div>
+                </div>
+
+                <div class="card-wrapper" id="card-role-management" style="display:none;" data-perm="perm_roles">
+                    <div class="admin-card">
+                        <h3><span class="card-icon">🛡️</span> <span data-i18n="card_roles">權限設定</span></h3>
+                        <div id="role-editor-content">Loading...</div>
+                        <button id="btn-save-roles" class="btn-secondary success" style="width:100%; margin-top:16px;" data-i18n="btn_save_roles">儲存權限變更</button>
+                    </div>
+                </div>
+                
+                <div class="card-wrapper" id="card-booking-merged" data-perm="perm_booking_view">
+                    <div class="admin-card">
+                        <h3><span class="card-icon">📅</span> <span data-i18n="card_booking">預約管理</span></h3>
+                        <p style="color:var(--text-sub); margin-bottom:10px; font-size:0.85rem;">叫號時自動優先處理到期預約</p>
+                        <div class="list-container"><ul id="appointment-list-ui" class="scroll-list"><li style="text-align:center; padding:20px; color:var(--text-sub);">Loading...</li></ul></div>
+                        <div class="control-group compact-group" style="margin-top:auto;">
+                            <label data-i18n="lbl_add_appt">新增預約</label>
+                            <div class="input-group"><input type="number" id="appt-number" placeholder="號碼" style="flex:0.5;"><input type="text" id="appt-time" placeholder="時間" style="flex:1; background-color: var(--bg-input);"><button id="btn-add-appt" class="btn-add">+</button></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-wrapper full-width-card" data-perm="perm_line_view">
+                    <div class="admin-card">
+                        <h3><span class="card-icon">💬</span> LINE 設定</h3>
+                        <div class="control-group" id="unlock-pwd-group" style="display:none;">
+                            <label>後台安全鎖</label>
+                            <div class="input-group"><input type="text" id="line-unlock-pwd" placeholder="設定 Line 解鎖密碼..."><button id="btn-save-unlock-pwd" class="btn-secondary">儲存</button></div>
+                        </div>
+                        <div style="margin: 20px 0; padding-top: 20px; border-top: 1px dashed var(--border-color);">
+                            <h4 style="margin: 0 0 15px 0; color: var(--text-main);">自定義自動回覆 (支援換行)</h4>
+                            <div class="control-group"><label>設定成功 (變數: {number})</label><textarea id="msg-success" class="multi-line-input" placeholder="設定成功: {number}號"></textarea></div>
+                            <div class="control-group"><label>快到了通知 (變數: {target}, {diff})</label><textarea id="msg-approach" class="multi-line-input" placeholder="🔔 {target}號快到了 (前方剩{diff}組)"></textarea></div>
+                            <div class="control-group"><label>到號通知 (變數: {current})</label><textarea id="msg-arrival" class="multi-line-input" placeholder="🎉 {current}號 到您了！"></textarea></div>
+                            <div class="control-group" style="display:flex; gap:10px;">
+                                <div style="flex:1;"><label>已過號</label><textarea id="msg-passed" class="multi-line-input" placeholder="已過號" style="min-height:60px;"></textarea></div>
+                                <div style="flex:1;"><label>已取消追蹤</label><textarea id="msg-cancel" class="multi-line-input" placeholder="已取消" style="min-height:60px;"></textarea></div>
+                            </div>
+                            <div class="control-group" style="display:flex; gap:10px; margin-top:10px;">
+                                <div style="flex:1;"><label>無追蹤</label><textarea id="msg-no-tracking" class="multi-line-input" placeholder="您目前沒有設定追蹤。" style="min-height:60px;"></textarea></div>
+                                <div style="flex:1;"><label>無過號</label><textarea id="msg-no-passed" class="multi-line-input" placeholder="目前沒有過號名單。" style="min-height:60px;"></textarea></div>
+                            </div>
+                            <div class="control-group" style="margin-top:10px;"><label>過號名單標題前綴</label><input type="text" id="msg-passed-prefix" placeholder="⚠️ 過號名單："></div>
+                            <div class="control-group" style="display:flex; gap:10px; margin-top:10px;">
+                                <div style="flex:1;"><label>登入提示</label><input type="text" id="msg-login-prompt" placeholder="請輸入密碼"></div>
+                                <div style="flex:1;"><label>登入成功</label><input type="text" id="msg-login-success" placeholder="🔓 驗證成功"></div>
+                            </div>
+                            <div class="control-group" style="margin-top: 10px;"><label>「設定提醒」的回覆內容</label><textarea id="msg-help" class="multi-line-input" placeholder="💡 請直接輸入您的「號碼數字」即可設定..."></textarea></div>
+                            <button id="btn-save-line-msgs" class="btn-secondary success" style="width:100%; margin-top:10px;">儲存訊息設定</button>
+                        </div>
+                        <div style="margin: 20px 0; padding-top: 20px; border-top: 1px dashed var(--border-color);">
+                            <h4 style="margin: 0 0 15px 0; color: var(--text-main);">🤖 關鍵字自動回覆</h4>
+                            <div class="control-group"><label>預設回覆 (無指令時)</label><div class="input-group"><textarea id="line-default-msg" class="multi-line-input" placeholder="例如：請輸入號碼進行追蹤..." style="width:100%; border-radius:10px;"></textarea><button id="btn-save-default-reply" class="btn-secondary success" style="height:auto;">儲存</button></div></div>
+                            <div class="control-group" style="margin-top: 15px;">
+                                <label>新增規則</label>
+                                <div class="input-group" style="align-items:flex-start;"><input type="text" id="new-keyword-in" placeholder="關鍵字" style="flex:1;"><textarea id="new-reply-in" class="multi-line-input" placeholder="自動回覆內容" style="flex:2; min-height:46px;"></textarea><button id="btn-add-keyword" class="btn-add" style="height:46px;">+</button></div>
+                            </div>
+                            <div class="list-container" style="min-height:150px; margin-top:10px;"><ul id="line-autoreply-list" class="scroll-list"><li style="padding:12px; text-align:center; color:var(--text-sub);">Loading rules...</li></ul></div>
+                        </div>
+                        <div class="list-container" style="min-height:100px; margin-top:20px;"><label style="padding:10px; font-weight:bold; color:var(--text-sub);">API 設定</label><ul id="line-settings-list-ui" class="scroll-list"><li>Loading settings...</li></ul></div>
+                        <button id="btn-reset-line-msg" class="btn-reset-single" data-i18n="btn_restore">恢復預設值</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div id="edit-stats-overlay" class="modal-overlay">
+    <div class="modal-content">
+        <h3 data-i18n="modal_edit">編輯數據</h3>
+        <div style="display:flex; justify-content:center; align-items:center; gap:20px; margin:20px 0;"><button id="btn-stats-minus" class="btn-circle">-1</button><span id="modal-current-count" style="font-size:2.5rem; font-weight:800;">0</span><button id="btn-stats-plus" class="btn-circle">+1</button></div>
+        <button id="btn-modal-close" class="btn-secondary" style="width:100%;" data-i18n="btn_done">完成</button>
+    </div>
+</div>
+
+<div id="toast-notification"></div>
+<script src="/js/admin.js"></script> 
+</body>
+</html>

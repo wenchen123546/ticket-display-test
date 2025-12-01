@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<title>即時叫號系統</title>
+<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#f1f5f9">
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;900&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+/* 營業時間 Badge 樣式 */
+.business-hours-badge{display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary);padding:6px 16px;border-radius:20px;font-size:0.9rem;font-weight:700;margin-bottom:16px;border:1px solid rgba(79,70,229,0.1);}
+body.dark-mode .business-hours-badge{background:rgba(99,102,241,0.15);border-color:rgba(99,102,241,0.2);}
+body.kiosk-mode .business-hours-badge{font-size:1.5rem;padding:10px 24px;margin-bottom:30px;}
+</style>
+</head>
+<body>
+<div class="bg-decoration"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+<div id="status-bar">連線中斷...</div><div id="toast-container"></div><audio id="notify-sound" src="/ding.mp3" preload="auto"></audio>
+
+<main class="app-container">
+    <header class="app-header">
+        <div class="status-indicator"><span class="dot"></span><span id="last-updated">Conn...</span></div>
+        <div class="header-controls" style="display:flex;gap:8px;">
+            <button id="theme-toggle" class="btn-icon" aria-label="Toggle Theme">🌙</button>
+            <select id="language-selector" class="lang-switch"><option value="zh-TW">繁中</option><option value="en">EN</option></select>
+        </div>
+    </header>
+
+    <section class="hero-section glass">
+        <div id="business-hours-badge" class="business-hours-badge" style="display:none;"></div>
+        
+        <span class="hero-label" data-i18n="current_number">目前叫號</span><div id="number">0</div>
+        <div class="hero-stats-grid">
+            <div class="stat-item"><span class="s-label" data-i18n="issued_number">已發至</span><span class="s-value" id="issued-number-main">0</span></div>
+            <div class="stat-divider"></div>
+            <div class="stat-item"><span class="s-label" data-i18n="wait_count">等待中</span><span class="s-value" id="hero-waiting-count" style="color:var(--primary);">0</span></div>
+        </div>
+    </section>
+
+    <div class="side-panel">
+        <section class="control-section glass" id="ticket-section">
+            <div class="control-body">
+                <div id="ticketing-mode-container" class="mode-container">
+                    <div class="action-header"><h3 data-i18n="online_ticket_title">線上取號</h3><p class="func-desc" data-i18n="help_take_ticket">免排隊，手機領號</p></div>
+                    <button id="btn-take-ticket" class="btn-main full-width"><span data-i18n="take_ticket">立即取號</span> <span class="btn-arrow">➔</span></button>
+                </div>
+                <div id="input-mode-container" class="mode-container" style="display:none;">
+                    <div class="action-header"><h3 data-i18n="manual_input_title">號碼提醒</h3></div>
+                    <div class="input-wrapper"><input type="number" id="manual-ticket-input" class="fancy-input" placeholder="#" inputmode="numeric"><button id="btn-track-ticket" class="btn-track" data-i18n="set_reminder">追蹤</button></div>
+                </div>
+                <div id="my-ticket-view" class="my-ticket-card" style="display:none;">
+                    <div class="ticket-row top"><span class="t-label" data-i18n="my_number">您的號碼</span><button id="btn-cancel-ticket" class="btn-close">✕</button></div>
+                    <div class="ticket-row main"><div class="my-num" id="my-ticket-num">?</div><div class="wait-info"><span class="t-label" data-i18n="wait_count">前方</span><span class="w-val" id="ticket-waiting-count">0</span></div></div>
+                    <div class="ticket-row footer"><span id="ticket-status-text">...</span><span id="ticket-wait-time">...</span></div>
+                </div>
+            </div>
+            <div class="footer-tools">
+                <div class="links-wrapper"><div class="links-label" data-i18n="links_title">精選連結</div><div id="featured-container"></div></div>
+                <div class="util-btns"><button id="copy-link-prompt" class="btn-util"><span>🔗</span> <span data-i18n="copy_link">複製</span></button><button id="sound-prompt" class="btn-util"><span>🔊</span> <span data-i18n="sound_enable">音效</span></button></div>
+            </div>
+        </section>
+
+        <section class="list-section glass" id="passed-container">
+            <div class="list-header"><span class="list-title">⚠️ <span data-i18n="passed_list_title">過號名單</span></span><span class="badge" id="passed-count">0</span></div>
+            <div class="scroll-view"><ul id="passedList" class="tag-list"></ul><div id="passed-empty-msg" class="empty-state"><span data-i18n="passed_empty">目前無過號</span></div></div>
+        </section>
+    </div>
+</main>
+<div id="qr-code-container" style="display:none;"><div id="qr-code-placeholder"></div><p data-i18n="scan_qr">掃描追蹤</p></div>
+<script src="/js/main.js"></script>
+</body>
+</html>
